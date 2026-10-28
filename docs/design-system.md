@@ -301,32 +301,31 @@ Nesting: `inner = outer − padding` when the padding is under 24px (segmented: 
 
 | Role | Family | Why |
 | --- | --- | --- |
-| Display + **all money** | **Bricolage Grotesque Variable** | It has `₦ ₵` glyphs (U+20A6, U+20B5), a `tnum` feature and an `opsz` axis (12–96). The geometric, slightly quirky grotesque matches the "bold geometric sans" glyphs of the reference |
-| UI text | **Figtree Variable** | Warm, open humanist sans for labels and body; has `tnum` |
-| Mono (codes, refs) | Geist Mono | Paystack references only |
+| Everything: UI, headings, **all money** | **Geist** (Vercel, open source, the `geist` package via `next/font`) | One family across the product. Geist has `tnum`, so amounts use `font-variant-numeric: tabular-nums` |
+| ₦ and ₵ only | **Currency Symbols**: a 1.6 KB subset of Inter (SIL OFL), `unicode-range: U+20A6, U+20B5` | **Geist Sans and Geist Mono (1.8.2) have no `₦` or `₵` glyph** (checked with fontTools). Without a fallback the browser picks a system font for the symbol. Inter is the closest match to Geist's geometry |
+| Codes, references | Geist Mono | Paystack references only. Geist Mono has no `tnum`, so it never sets amounts |
 
-**Finding (from the font binaries, checked with fontTools):** **Figtree has no `₦` or `₵` glyph.** Any amount set in Figtree today falls back to a system font for the symbol, which is the mismatched naira in the invoice rows. **Rule: money is always `font-money` (Bricolage).** Both families default to *proportional* digits (Bricolage `0`=670 units, `1`=360), so `tabular-nums` is mandatory on every amount.
+The fallback sits right after Geist in the stack (`--app-font-sans: var(--font-geist-sans), var(--font-currency), …`), so only those two code points come from it. It is loaded with `next/font/local` from `apps/web/src/app/fonts/currency-symbols.woff2` (licence beside it) and tuned to Geist:
 
-Considered and rejected: Inter Tight (has ₦₵ and tnum but is the generic default), JetBrains Mono for amounts (no ₦₵ glyph, and mono reads like "developer"). Once C ships, drop the unused families (`inter-tight`, `jetbrains-mono`, Geist Sans) from `layout.tsx`, since each one is a request.
+- `size-adjust: 97.6%` matches Geist's cap height (710/1000) to Inter's (1490/2048), so `₦` and `N` share a cap line.
+- `ascent-override: 103%`, `descent-override: 30.2%` and `line-gap-override: 0%` give it Geist's line metrics, so a line containing `₦` is not taller than one without.
+- The subset keeps Inter's `wght` axis, so 500 and 600 amounts get a matching stroke.
 
-Load Bricolage's `opsz` axis (`@fontsource-variable/bricolage-grotesque/opsz.css`, check it includes `wght`) and set `font-optical-sizing: auto`. Small table amounts then get the sturdier low-opsz cut and the hero gets the tight display cut, with no manual work.
+Typography specimen (light and dark): `₦30,000 GH₵450 R1,200 KSh 3,000 $25` at 56/600, 32/600, 15/500, 15/600 and 12.5/600, in the PR screenshots.
 
 ### Scale
 
-| Token | Size / line-height | Family, weight | Use |
+| Token | Size / line-height | Weight | Use |
 | --- | --- | --- | --- |
-| `money-xl` | 56/1 (40 mobile) | Bricolage 600, opsz 96, −0.02em | Panel amount |
-| `display` | 40/1.1 (32 mobile) | Bricolage 600, −0.02em | Page title |
-| `money-lg` | 32/1 | Bricolage 600, tabular | Plan price |
-| `title` | 20/1.3 | Bricolage 600 | Section heading |
-| `body` | 15/1.5 | Figtree 400 | Default |
-| `body-strong` | 15/1.5 | Figtree 600 | Row primary text, button labels |
-| `small` | 13/1.45 | Figtree 500 | Meta, dates |
-| `label` | 12.5/1.2 | Figtree 600 | Badges, field labels |
-| `caps` | 12/1.2, +0.06em, uppercase | Figtree 600 | Rare section labels only |
-| `glyph` | clamp(32px, 6vw, 52px) | Bricolage 700, opsz 96 | Currency tiles (KSh at 0.78×) |
-
-Weights loaded: Figtree 400/500/600, Bricolage 500/600/700. Nothing else.
+| `money-xl` | 56/1 (40 mobile) | Geist 600, −0.02em | Panel amount |
+| `display` | 40/1.1 (32 mobile) | Geist 600, −0.02em | Page title |
+| `money-lg` | 32/1 | Geist 600, tabular | Plan price |
+| `title` | 20/1.3 | Geist 600 | Section heading |
+| `body` | 15/1.5 | Geist 400 | Default |
+| `body-strong` | 15/1.5 | Geist 600 | Row primary text, button labels |
+| `small` | 13/1.45 | Geist 500 | Meta, dates |
+| `label` | 12.5/1.2 | Geist 600 | Badges, field labels |
+| `glyph` | clamp(32px, 6vw, 52px) | Geist 700 | Currency tiles (KSh at 0.78×) |
 
 ### Money
 
@@ -347,7 +346,7 @@ Weights loaded: Figtree 400/500/600, Bricolage 500/600/700. Nothing else.
 
 | Context | Symbol | Decimals | Alignment |
 | --- | --- | --- | --- |
-| Display (≥ 32px: panel, plan price) | `0.56em`, weight 500, `text-muted` / `panel-muted` | Hide `.00`. Non-zero decimals at `0.5em`, muted | Symbol **top-aligned to the cap height**: flex `align-items: flex-start` + `margin-top: 0.1em`. The period unit (`/ month`, Figtree 14 muted) sits on the baseline at the end |
+| Display (≥ 32px: panel, plan price) | `0.56em`, weight 500, `text-muted` / `panel-muted` | Hide `.00`. Non-zero decimals at `0.5em`, muted | Symbol **top-aligned to the cap height**: flex `align-items: flex-start` + `margin-top: 0.1em`. The period unit (`/ month`, Geist 14 muted) sits on the baseline at the end |
 | Inline / table (≤ 20px) | Same size, weight and colour as the digits | Always show 2dp | Baseline, no gap, **right-aligned** column, so decimal points line up |
 | Tile glyph | Alone, centred | n/a | Optical centre: KSh at 0.78× size |
 
@@ -405,7 +404,7 @@ The stack is Base UI (`data-starting-style` / `data-ending-style`, `--transform-
 - Animate **only** `transform`/`translate`/`scale`/`opacity`. Colour and background are allowed for 150–200ms state changes. Never `width`/`height`/`top`/`margin` (except the single row-collapse wrapper above).
 - **No bare `transition` / `transition-all`.** The current `sheet.tsx` uses `transition … ease-in-out` (it watches every property and has the wrong easing for an enter). Use `transition-[translate,opacity]`.
 - `will-change: transform` only on the sheet, and only if a first-frame hitch shows up on Safari.
-- Tabular numbers plus reserved width mean no layout shift when prices change. Fonts are preloaded (Bricolage latin + latin-ext `wght`/`opsz` files) so the hero amount doesn't reflow.
+- Tabular numbers plus reserved width mean no layout shift when prices change. Fonts are preloaded (Geist and the currency-symbol subset) so the hero amount doesn't reflow.
 - No `backdrop-filter` anywhere (it is costly and has no purpose on flat surfaces).
 
 ---
@@ -435,7 +434,7 @@ From `…/scratchpad/shots/out/c/*.png`. The live app at `:3200` returned HTTP 5
 
 | # | Now | Fix | Why |
 | --- | --- | --- | --- |
-| 1 | `₦` in invoice amounts renders in a fallback font (Figtree has no ₦/₵) | All money in `font-money` (Bricolage) + `tabular-nums` | Mismatched glyphs are the loudest "unfinished" tell in a money product |
+| 1 | `₦` in invoice amounts renders in a system fallback font (the UI font has no ₦/₵) | All money in Geist + `tabular-nums`, with the Inter subset for ₦/₵ only | Mismatched glyphs are the loudest "unfinished" tell in a money product |
 | 2 | A `$`-in-a-box receipt icon on every invoice row (`billing-desktop-*`) | Delete it. Put a real per-row action (download / retry) at the end of the row | The same icon repeated 5× says nothing, and `$` is wrong for a naira org |
 | 3 | Badges are pills with a dot (`• Paid`, `• Active`): the default shadcn badge | Rounded-square chip (radius 8), Lucide icon + word, status tokens | Dots are colour-only. Pills don't echo the tile motif |
 | 4 | Pills everywhere: nav, buttons, segmented, badges | Radius 12 controls / 8 chips | Rounded squares *are* the reference. Repeat the signature |
@@ -584,9 +583,9 @@ Since `ab4c3ac` the tokens live in **`packages/ui/src/styles/globals.css`** (`th
   --dur-sheet-exit: 220ms;
 
   /* type */
-  --app-font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
-  --app-font-money: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
-  --app-font-sans: "Figtree Variable", ui-sans-serif, system-ui, sans-serif;
+  --app-font-sans: var(--font-geist-sans), var(--font-currency), ui-sans-serif, system-ui, sans-serif;
+  --app-font-display: var(--app-font-sans);
+  --app-font-money: var(--app-font-sans);
   --app-font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 

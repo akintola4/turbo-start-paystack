@@ -9,7 +9,6 @@ import {
   BillingAction,
   type BillingConfirm,
 } from "@/components/billing/billing-action";
-import { NumberSwap } from "@/components/motion";
 import { Money } from "@/components/primitives";
 import { formatDate, intervalLabel } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
@@ -114,6 +113,13 @@ function PlanFooter({
   );
 }
 
+/** Both intervals' labels for a plan, so the price slot never changes width. */
+function reserveFor(data: BillingData, key: string) {
+  return [data.plans.monthly, data.plans.annually]
+    .map((list) => list.find((p) => p.key === key)?.price?.label)
+    .filter((l): l is string => Boolean(l));
+}
+
 function PlanTiles({
   data,
   plans,
@@ -130,7 +136,7 @@ function PlanTiles({
         : null;
   return (
     <ul className="grid grid-cols-[repeat(auto-fit,minmax(196px,1fr))] gap-4">
-      {plans.map((plan, index) => (
+      {plans.map((plan) => (
         <li
           className={cn(
             "flex flex-col gap-5 rounded-tile bg-card p-5 shadow-tile sm:p-6",
@@ -150,15 +156,10 @@ function PlanTiles({
             ) : null}
           </div>
           <div className="grid gap-1.5">
-            <NumberSwap
-              delayMs={index * 30}
-              render={(label) => (
-                <Money
-                  label={label}
-                  per={intervalLabel(plan.price?.interval ?? "monthly", "long")}
-                />
-              )}
-              value={plan.price?.label ?? formatMoney(0, data.currency)}
+            <Money
+              label={plan.price?.label ?? formatMoney(0, data.currency)}
+              per={intervalLabel(plan.price?.interval ?? "monthly", "long")}
+              reserve={reserveFor(data, plan.key)}
             />
             <p className="text-muted-foreground text-sm">{plan.description}</p>
           </div>

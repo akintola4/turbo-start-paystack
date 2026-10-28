@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { AnimatedNumber } from "@/components/animated-number";
 import { Monogram } from "@/components/avatars";
 import { BillingAction } from "@/components/billing/billing-action";
 import { InviteDialog } from "@/components/members/member-actions";
@@ -115,9 +116,10 @@ function SeatsTile({ data }: { data: DashboardData }) {
       </div>
       <div className="grid gap-3">
         <p className="tabular-nums leading-none">
-          <span className="font-semibold text-[40px] tracking-[-0.02em]">
-            {used}
-          </span>
+          <AnimatedNumber
+            className="font-semibold text-[40px] tracking-[-0.02em]"
+            value={used}
+          />
           <span className="text-lg text-muted-foreground">
             {" "}
             of {data.members.limit}
@@ -125,9 +127,14 @@ function SeatsTile({ data }: { data: DashboardData }) {
         </p>
         <Progress aria-label="Seats used" value={pct} />
         <p className="text-muted-foreground text-sm">
-          {data.pendingInvitations
-            ? `${data.pendingInvitations} invitation${data.pendingInvitations === 1 ? "" : "s"} waiting`
-            : "No pending invitations"}
+          {data.pendingInvitations ? (
+            <>
+              <AnimatedNumber value={data.pendingInvitations} /> invitation
+              {data.pendingInvitations === 1 ? "" : "s"} waiting
+            </>
+          ) : (
+            "No pending invitations"
+          )}
         </p>
       </div>
     </Tile>
@@ -145,7 +152,8 @@ function TeamTile({ data }: { data: DashboardData }) {
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Team</h2>
         <span className="text-muted-foreground text-sm tabular-nums">
-          {data.members.total} {data.members.total === 1 ? "person" : "people"}
+          <AnimatedNumber value={data.members.total} />{" "}
+          {data.members.total === 1 ? "person" : "people"}
         </span>
       </div>
       <ul className="grid gap-3">

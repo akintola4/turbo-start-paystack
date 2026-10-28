@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import type { HTMLAttributes, ReactNode } from "react";
 
+import { AnimatedNumber } from "@/components/animated-number";
 import { splitMoney } from "@/lib/format";
 import type { SubscriptionStatus } from "@/lib/view-models";
 
@@ -242,11 +243,14 @@ export function Money({
   className,
   size = "lg",
   per,
+  reserve = [],
 }: {
   label: string;
   className?: string;
   size?: "md" | "lg" | "xl";
   per?: string;
+  /** Other labels this amount can switch to; the widest one holds the width. */
+  reserve?: string[];
 }) {
   const { symbol, whole, decimals } = splitMoney(label);
   const sizes = {
@@ -255,6 +259,16 @@ export function Money({
     xl: "text-[40px] sm:text-[56px]",
   } as const;
   const spoken = `${whole} ${SPOKEN[symbol] ?? symbol.trim()}${per ? ` per ${per}` : ""}`;
+  const showDecimals = Boolean(decimals && decimals !== ".00");
+  const symbolEl = (sym: string) => (
+    <span className="mt-[0.1em] mr-[0.04em] font-medium text-[0.56em] text-muted-foreground">
+      {sym.trim()}
+    </span>
+  );
+  const digits = (text: string) => {
+    const parts = splitMoney(text);
+    return `${parts.whole}${parts.decimals && parts.decimals !== ".00" ? parts.decimals : ""}`;
+  };
   return (
     <data
       className={cn(
@@ -265,19 +279,32 @@ export function Money({
       value={whole.replaceAll(",", "")}
     >
       <span className="sr-only">{spoken}</span>
-      <span aria-hidden className="inline-flex items-start">
-        <span className="mt-[0.1em] mr-[0.04em] font-medium text-[0.56em] text-muted-foreground">
-          {symbol.trim()}
+      {/* The widest candidate (symbol and digits) holds the width, so "/ month" never moves. */}
+      <span aria-hidden className="inline-grid [&>*]:[grid-area:1/1]">
+        {reserve.map((r) => (
+          <span className="invisible inline-flex items-start" key={r}>
+            {symbolEl(splitMoney(r).symbol)}
+            {digits(r)}
+          </span>
+        ))}
+        <span className="inline-flex items-start">
+          {symbolEl(symbol)}
+          <AnimatedNumber
+            format={{
+              minimumFractionDigits: showDecimals ? 2 : 0,
+              maximumFractionDigits: showDecimals ? 2 : 0,
+            }}
+            value={Number(
+              `${whole.replaceAll(",", "")}${showDecimals ? decimals : ""}`
+            )}
+          />
         </span>
-        {whole}
-        {decimals && decimals !== ".00" ? (
-          <span className="text-[0.5em] text-muted-foreground">{decimals}</span>
-        ) : null}
       </span>
       {per ? (
         <span
           aria-hidden
           className="ml-1.5 font-normal font-sans text-muted-foreground text-sm tracking-normal"
+          data-slot="plan-per"
         >
           / {per}
         </span>

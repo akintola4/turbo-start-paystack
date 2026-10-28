@@ -13,6 +13,7 @@ import {
   BillingAction,
   type BillingConfirm,
 } from "@/components/billing/billing-action";
+import { AnimatedNumber } from "@/components/animated-number";
 import { PaymentToast } from "@/components/billing/payment-toast";
 import { PlanPicker } from "@/components/billing/plan-picker";
 import { SwapOnChange } from "@/components/motion";
@@ -146,13 +147,11 @@ function CurrentPlan({ data }: { data: BillingData }) {
                 </SwapOnChange>
               </span>
             </div>
-            <SwapOnChange value={`${sub.priceLabel}/${sub.interval}`}>
-              <Money
-                label={sub.priceLabel}
-                per={intervalLabel(sub.interval, "long")}
-                size="xl"
-              />
-            </SwapOnChange>
+            <Money
+              label={sub.priceLabel}
+              per={intervalLabel(sub.interval, "long")}
+              size="xl"
+            />
           </div>
           {data.canManage ? (
             <div className="flex flex-wrap gap-2">
@@ -189,7 +188,7 @@ function CurrentPlan({ data }: { data: BillingData }) {
             )}
           </Meta>
           <Meta icon={UsersIcon} label="Seats">
-            {data.seats.used} of {data.seats.limit}
+            <AnimatedNumber value={data.seats.used} /> of {data.seats.limit}
           </Meta>
         </dl>
         {sub.scheduled ? (

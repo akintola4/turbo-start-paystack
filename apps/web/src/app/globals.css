@@ -90,22 +90,9 @@
   }
 }
 
-/* Number swap (spec §5): old exits up in 140ms, new enters from below in 240ms. */
-@keyframes number-out {
-  to {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-}
-@keyframes number-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-}
-.animate-number-out {
-  animation: number-out 140ms var(--motion-ease-exit) both;
-}
-.animate-number-in {
-  animation: number-in var(--dur-number) var(--motion-ease-out) both;
+/* NumberFlow: inherit the Geist + currency-symbol stack inside its shadow DOM. */
+number-flow-react::part(digit),
+number-flow-react::part(symbol) {
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
 }

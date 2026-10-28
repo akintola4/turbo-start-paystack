@@ -4,7 +4,6 @@ import { cn } from "@workspace/tailwind-config/utils";
 import { CheckIcon } from "lucide-react";
 import { type KeyboardEvent, useRef, useState } from "react";
 
-import { NumberSwap } from "@/components/motion";
 import { GlyphMosaic, Money, Panel, Tile } from "@/components/primitives";
 
 export type CurrencyPlan = {
@@ -135,7 +134,7 @@ export function CurrencyShowcase({ table }: { table: CurrencyTable }) {
           </p>
         </div>
         <ul className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
-          {current.plans.map((plan, i) => (
+          {current.plans.map((plan) => (
             <li key={plan.key}>
               <Tile as="article" className="grid h-full content-start gap-5">
                 <div className="flex items-center justify-between gap-2">
@@ -147,10 +146,13 @@ export function CurrencyShowcase({ table }: { table: CurrencyTable }) {
                   ) : null}
                 </div>
                 <div className="grid gap-1.5">
-                  <NumberSwap
-                    delayMs={i * 30}
-                    render={(label) => <Money label={label} per="month" />}
-                    value={plan.monthly}
+                  <Money
+                    label={plan.monthly}
+                    per="month"
+                    reserve={table.map(
+                      (t) =>
+                        t.plans.find((p) => p.key === plan.key)?.monthly ?? ""
+                    )}
                   />
                   <p className="text-muted-foreground text-sm">
                     {plan.description}

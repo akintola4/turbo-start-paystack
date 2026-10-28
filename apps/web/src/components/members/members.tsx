@@ -21,6 +21,7 @@ import { MembersTable } from "@/components/members/members-table";
 import type { MembersData } from "@/lib/view-models";
 import { daysUntil, formatDate, roleLabel } from "@/lib/format";
 import { InvitationMenu } from "@/components/members/invitation-menu";
+import { AnimatedNumber } from "@/components/animated-number";
 import { MemberCards } from "@/components/members/member-cards";
 import { PresenceTableRow, RowPresenceProvider } from "@/components/motion";
 import { Chip, PageHeader, Tile } from "@/components/primitives";
@@ -81,7 +82,7 @@ export function Members({ data }: { data: MembersData }) {
           </div>
           <p className="tabular-nums leading-none">
             <span className="font-semibold text-[40px] tracking-[-0.02em]">
-              {data.limit.used}
+              <AnimatedNumber value={data.limit.used} />
             </span>
             <span className="text-muted-foreground text-xl">
               {" "}
@@ -107,14 +108,14 @@ export function Members({ data }: { data: MembersData }) {
             <TabsTrigger className={TAB} value="people">
               People
               <span className="text-muted-foreground tabular-nums">
-                {data.members.length}
+                <AnimatedNumber value={data.members.length} />
               </span>
             </TabsTrigger>
             {data.can.invite ? (
               <TabsTrigger className={TAB} value="invitations">
                 Invitations
                 <span className="text-muted-foreground tabular-nums">
-                  {data.invitations.length}
+                  <AnimatedNumber value={data.invitations.length} />
                 </span>
               </TabsTrigger>
             ) : null}
