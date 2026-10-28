@@ -14,17 +14,17 @@ export function PageLoading() {
         <Skeleton className="h-5 w-96 max-w-full rounded-lg" />
       </div>
       <div className="grid gap-4 md:grid-cols-3">
-        <Skeleton className="h-44 rounded-[20px] md:col-span-2" />
-        <Skeleton className="h-44 rounded-[20px]" />
+        <Skeleton className="h-44 rounded-tile md:col-span-2" />
+        <Skeleton className="h-44 rounded-tile" />
       </div>
-      <Skeleton className="h-72 rounded-[20px]" />
+      <Skeleton className="h-72 rounded-tile" />
     </div>
   );
 }
 
 export function ConfirmingPayment() {
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-canvas px-4">
+    <main className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div
         className="grid max-w-sm animate-content justify-items-center gap-5 text-center [animation-delay:150ms]"
         role="status"
@@ -37,7 +37,7 @@ export function ConfirmingPayment() {
           />
         </span>
         <div className="grid gap-2">
-          <h1 className="font-display font-semibold text-2xl tracking-tight">
+          <h1 className="font-semibold text-2xl tracking-[-0.02em]">
             Confirming your payment
           </h1>
           <p className="text-muted-foreground">
@@ -60,11 +60,11 @@ export function NotFound() {
   return (
     <main className="flex min-h-[70dvh] items-center justify-center px-4 py-16">
       <div className="grid max-w-md justify-items-start gap-6">
-        <span className="font-display font-semibold text-[88px] text-primary leading-none tracking-tighter">
+        <span className="font-semibold text-[88px] text-primary leading-none tracking-[-0.02em]er">
           404
         </span>
         <div className="grid gap-2">
-          <h1 className="font-display font-semibold text-2xl tracking-tight">
+          <h1 className="font-semibold text-2xl tracking-[-0.02em]">
             This page isn't here
           </h1>
           <p className="text-muted-foreground">
@@ -72,10 +72,7 @@ export function NotFound() {
             not part of.
           </p>
         </div>
-        <Link
-          className={buttonVariants({ className: "rounded-full px-5" })}
-          href="/app"
-        >
+        <Link className={buttonVariants()} href="/app">
           Go to your organizations
         </Link>
       </div>

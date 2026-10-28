@@ -1,46 +1,49 @@
+import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/tailwind-config/utils";
-import { CreditCardIcon } from "lucide-react";
+import {
+  CalendarXIcon,
+  CheckIcon,
+  CircleCheckIcon,
+  CircleSlashIcon,
+  CircleXIcon,
+  ClockIcon,
+  CreditCardIcon,
+  HourglassIcon,
+  LoaderIcon,
+  type LucideIcon,
+  TriangleAlertIcon,
+  Undo2Icon,
+  XIcon,
+} from "lucide-react";
 import Link from "next/link";
 import type { HTMLAttributes, ReactNode } from "react";
 
-import { splitMoney, type Tone } from "@/lib/format";
+import { splitMoney } from "@/lib/format";
+import type { SubscriptionStatus } from "@/lib/view-models";
 
-/** Three stacked bars: a ledger, a stack, a "P" without saying it. */
+/**
+ * The product mark: one reference tile (forest, radius 8) with a sunflower
+ * tile tucked into it. Same colours in light and dark.
+ */
 export function Mark({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden
-      className={cn("size-7", className)}
+      className={cn("size-7 shrink-0", className)}
       fill="none"
       viewBox="0 0 28 28"
     >
-      <rect className="fill-primary" height="28" rx="8" width="28" />
+      <rect fill="var(--panel)" height="28" rx="8" width="28" />
+      <rect fill="var(--panel-tile)" height="9" rx="3" width="9" x="15" y="4" />
+      <rect fill="var(--panel-tile)" height="9" rx="3" width="9" x="4" y="15" />
+      <rect fill="var(--highlight)" height="9" rx="3" width="9" x="4" y="4" />
       <rect
-        fill="white"
-        height="3.5"
-        opacity="0.95"
-        rx="1.75"
-        width="14"
-        x="7"
-        y="7.5"
-      />
-      <rect
-        fill="white"
-        height="3.5"
-        opacity="0.8"
-        rx="1.75"
-        width="10"
-        x="7"
-        y="12.25"
-      />
-      <rect
-        fill="white"
-        height="3.5"
-        opacity="0.65"
-        rx="1.75"
-        width="6"
-        x="7"
-        y="17"
+        fill="var(--panel-tile)"
+        height="9"
+        rx="3"
+        width="9"
+        x="15"
+        y="15"
       />
     </svg>
   );
@@ -56,7 +59,7 @@ export function Wordmark({
   return (
     <Link
       className={cn(
-        "inline-flex items-center gap-2.5 rounded-lg font-display font-semibold text-[17px] tracking-tight outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        "inline-flex items-center gap-2.5 rounded-chip font-display font-semibold text-[17px] tracking-tight",
         className
       )}
       href={href}
@@ -67,61 +70,111 @@ export function Wordmark({
   );
 }
 
-const TONE: Record<Tone, string> = {
-  positive: "bg-tone-positive text-tone-positive-foreground",
-  info: "bg-tone-info text-tone-info-foreground",
-  warning: "bg-tone-warning text-tone-warning-foreground",
-  negative: "bg-tone-negative text-tone-negative-foreground",
-  neutral: "bg-muted text-muted-foreground",
+/* ----------------------------------------------------------------- status */
+
+type StatusVariant =
+  | "success"
+  | "warning"
+  | "destructive"
+  | "info"
+  | "quiet"
+  | "highlight";
+
+const SUBSCRIPTION_STATUS: Record<
+  SubscriptionStatus,
+  { label: string; icon: LucideIcon; variant: StatusVariant }
+> = {
+  active: { label: "Active", icon: CircleCheckIcon, variant: "success" },
+  trialing: { label: "Trial", icon: HourglassIcon, variant: "info" },
+  past_due: { label: "Past due", icon: TriangleAlertIcon, variant: "warning" },
+  non_renewing: { label: "Ending", icon: CalendarXIcon, variant: "quiet" },
+  canceled: { label: "Cancelled", icon: CircleSlashIcon, variant: "quiet" },
+  expired: { label: "Expired", icon: CircleXIcon, variant: "destructive" },
+  incomplete: { label: "Incomplete", icon: LoaderIcon, variant: "info" },
 };
 
+const INVOICE_STATUS: Record<
+  string,
+  { label: string; icon: LucideIcon; variant: StatusVariant }
+> = {
+  paid: { label: "Paid", icon: CheckIcon, variant: "success" },
+  failed: { label: "Failed", icon: XIcon, variant: "destructive" },
+  void: { label: "Refunded", icon: Undo2Icon, variant: "quiet" },
+  pending: { label: "Pending", icon: ClockIcon, variant: "info" },
+};
+
+/** Icon + word chip. `label` overrides the word (e.g. "Trial, 9 days left"). */
+export function StatusBadge({
+  status,
+  label,
+  graceEnded = false,
+  className,
+}: {
+  status: SubscriptionStatus | "free";
+  label?: string;
+  /** Past due becomes danger once the grace period has run out. */
+  graceEnded?: boolean;
+  className?: string;
+}) {
+  if (status === "free") {
+    return (
+      <Badge className={className} variant="quiet">
+        Free
+      </Badge>
+    );
+  }
+  const meta = SUBSCRIPTION_STATUS[status];
+  const Icon = meta.icon;
+  const variant =
+    status === "past_due" && graceEnded ? "destructive" : meta.variant;
+  return (
+    <Badge className={className} variant={variant}>
+      <Icon aria-hidden />
+      {label ?? meta.label}
+    </Badge>
+  );
+}
+
+export function InvoiceBadge({
+  status,
+  className,
+}: {
+  status: string;
+  className?: string;
+}) {
+  const meta = INVOICE_STATUS[status] ?? INVOICE_STATUS.pending;
+  if (!meta) {
+    return null;
+  }
+  const Icon = meta.icon;
+  return (
+    <Badge className={className} variant={meta.variant}>
+      <Icon aria-hidden />
+      {meta.label}
+    </Badge>
+  );
+}
+
+/** Neutral or tonal chip without an icon, for roles and counts. */
 export function Chip({
-  tone = "neutral",
   children,
   className,
-  dot = true,
-}: {
-  tone?: Tone;
-  children: ReactNode;
-  className?: string;
-  dot?: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-6 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 font-medium text-xs",
-        TONE[tone],
-        className
-      )}
-    >
-      {dot ? (
-        <span aria-hidden className="size-1.5 rounded-full bg-current" />
-      ) : null}
-      {children}
-    </span>
-  );
-}
-
-export function HighlightChip({
-  children,
-  className,
+  variant = "quiet",
 }: {
   children: ReactNode;
   className?: string;
+  variant?: StatusVariant;
 }) {
   return (
-    <span
-      className={cn(
-        "inline-flex h-6 items-center rounded-full bg-highlight px-2.5 font-semibold text-highlight-foreground text-xs",
-        className
-      )}
-    >
+    <Badge className={className} variant={variant}>
       {children}
-    </span>
+    </Badge>
   );
 }
 
-/** Outer tile. Radius steps down for anything nested inside it. */
+/* --------------------------------------------------------------- surfaces */
+
+/** Card: surface-1 with a 1px ring; radius steps down for anything inside. */
 export function Tile({
   children,
   className,
@@ -135,7 +188,7 @@ export function Tile({
   return (
     <As
       className={cn(
-        "rounded-[20px] border bg-card p-6 text-card-foreground shadow-tile",
+        "rounded-tile bg-card p-5 text-card-foreground shadow-tile sm:p-6",
         className
       )}
       {...props}
@@ -145,7 +198,45 @@ export function Tile({
   );
 }
 
-/** Large money figure: symbol and decimals step down, digits stay tabular. */
+/**
+ * The money panel: a dark forest island in both themes. `class="dark"`
+ * re-scopes every token inside it, so buttons, badges and focus rings adapt.
+ */
+export function Panel({
+  children,
+  className,
+  as: As = "section",
+  ...props
+}: {
+  children: ReactNode;
+  className?: string;
+  as?: "section" | "div" | "aside";
+} & HTMLAttributes<HTMLElement>) {
+  return (
+    <As
+      className={cn("dark rounded-panel p-5 sm:p-7", className)}
+      data-surface="panel"
+      {...props}
+    >
+      {children}
+    </As>
+  );
+}
+
+/* ------------------------------------------------------------------ money */
+
+const SPOKEN: Record<string, string> = {
+  "₦": "naira",
+  "GH₵": "cedis",
+  R: "rand",
+  "KSh ": "shillings",
+  $: "dollars",
+};
+
+/**
+ * Display amount (≥ 32px): symbol at 0.56em, top-aligned to the cap height;
+ * `.00` hidden; the period sits on the baseline. Geist, tabular figures.
+ */
 export function Money({
   label,
   className,
@@ -161,27 +252,54 @@ export function Money({
   const sizes = {
     md: "text-2xl",
     lg: "text-[32px]",
-    xl: "text-[44px] sm:text-5xl",
+    xl: "text-[40px] sm:text-[56px]",
   } as const;
+  const spoken = `${whole} ${SPOKEN[symbol] ?? symbol.trim()}${per ? ` per ${per}` : ""}`;
   return (
-    <span
+    <data
       className={cn(
-        "inline-flex items-baseline font-display tabular-nums leading-none tracking-tight",
+        "inline-flex items-baseline whitespace-nowrap font-money font-semibold tabular-nums leading-none tracking-[-0.02em]",
+        sizes[size],
         className
       )}
+      value={whole.replaceAll(",", "")}
     >
-      <span className={cn("font-semibold", sizes[size])}>
-        <span className="mr-0.5 font-medium opacity-80">{symbol}</span>
+      <span className="sr-only">{spoken}</span>
+      <span aria-hidden className="inline-flex items-start">
+        <span className="mt-[0.1em] mr-[0.04em] font-medium text-[0.56em] text-muted-foreground">
+          {symbol.trim()}
+        </span>
         {whole}
+        {decimals && decimals !== ".00" ? (
+          <span className="text-[0.5em] text-muted-foreground">{decimals}</span>
+        ) : null}
       </span>
-      {decimals && decimals !== ".00" ? (
-        <span className="font-medium text-[0.5em] opacity-70">{decimals}</span>
-      ) : null}
       {per ? (
-        <span className="ml-1.5 font-sans font-normal text-sm opacity-70">
+        <span
+          aria-hidden
+          className="ml-1.5 font-normal font-sans text-muted-foreground text-sm tracking-normal"
+        >
           / {per}
         </span>
       ) : null}
+    </data>
+  );
+}
+
+/** Inline / table amount: same size as the text around it, right-aligned by the caller. */
+export function Amount({
+  label,
+  className,
+}: {
+  label: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn("font-money font-medium tabular-nums", className)}
+      data-money
+    >
+      {label}
     </span>
   );
 }
@@ -197,24 +315,22 @@ export function PageHeader({
 }) {
   return (
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div className="grid gap-1.5">
-        <h1 className="text-balance font-display font-semibold text-[32px] leading-[1.1] tracking-tight sm:text-[40px]">
+      <div className="grid gap-2">
+        <h1 className="font-display font-semibold text-[32px] leading-[1.1] tracking-[-0.02em] sm:text-[40px]">
           {title}
         </h1>
         {description ? (
-          <p className="max-w-[60ch] text-pretty text-muted-foreground">
-            {description}
-          </p>
+          <div className="text-muted-foreground">{description}</div>
         ) : null}
       </div>
       {actions ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {actions}
-        </div>
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
       ) : null}
     </header>
   );
 }
+
+/* -------------------------------------------------------------- currency */
 
 export const GLYPHS = [
   { glyph: "₦", code: "NGN", name: "Naira" },
@@ -224,22 +340,37 @@ export const GLYPHS = [
   { glyph: "$", code: "USD", name: "Dollar" },
 ] as const;
 
-export function GlyphMosaic() {
-  // Fixed layout: 3 x 3 grid, glyphs placed deterministically.
-  const cells = [0, 1, 2, 3, 4, 0, 2, 4, 1];
+/** Reference grid order: each currency appears at least once. */
+const MOSAIC = [0, 1, 2, 3, 4, 0, 2, 1, 4];
+
+/**
+ * The reference grid. The tiles for `active` take sunflower; the rest stay
+ * tile green. Colour-only transition, so nothing moves.
+ */
+export function GlyphMosaic({
+  active = "NGN",
+  className,
+}: {
+  active?: string;
+  className?: string;
+}) {
   return (
-    <div aria-hidden className="grid grid-cols-3 gap-3">
-      {cells.map((g, i) => {
+    <div aria-hidden className={cn("grid grid-cols-3 gap-4", className)}>
+      {MOSAIC.map((g, i) => {
         const item = GLYPHS[g];
-        const strong = i === 0 || i === 4 || i === 8;
+        const on = item?.code === active;
         return (
           <div
-            className={
-              strong
-                ? "flex aspect-square items-center justify-center rounded-[20px] bg-highlight font-display font-semibold text-highlight-foreground text-[clamp(28px,3.4vw,44px)]"
-                : "flex aspect-square items-center justify-center rounded-[20px] bg-hero-tile font-display font-semibold text-[clamp(28px,3.4vw,44px)] text-hero-foreground"
-            }
-            key={`${g}-${i}`}
+            className={cn(
+              "flex aspect-square select-none items-center justify-center rounded-tile font-bold font-money transition-[background-color,color] duration-(--dur-fast) ease-out",
+              on
+                ? "bg-highlight text-highlight-foreground"
+                : "bg-panel-tile text-panel-foreground",
+              item?.glyph === "KSh"
+                ? "text-[clamp(25px,4.7vw,41px)]"
+                : "text-[clamp(32px,6vw,52px)]"
+            )}
+            key={`${item?.code}-${i}`}
           >
             {item?.glyph}
           </div>

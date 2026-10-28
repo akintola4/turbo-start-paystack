@@ -8,6 +8,8 @@ import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
+import { toast } from "sonner";
+
 import { authClient } from "@/lib/auth-client";
 
 export function slugify(value: string) {
@@ -48,9 +50,14 @@ export function CreateOrgForm({
     });
     setPending(false);
     if (result.error) {
-      setError(result.error.message ?? "Could not create the organization");
+      toast.error("Couldn't create the organization", {
+        description: result.error.message ?? "Try a different name.",
+      });
       return;
     }
+    toast.success(`${name.trim()} is ready`, {
+      description: "You're the owner. Invite your team next.",
+    });
     router.push(`/app/${slug}`);
     router.refresh();
   }

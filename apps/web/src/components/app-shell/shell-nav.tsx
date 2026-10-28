@@ -44,7 +44,7 @@ export function ShellNav({
             return (
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
-                  className="h-10 rounded-full px-4 font-medium text-[15px] data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:hover:bg-sidebar-primary data-[active=true]:hover:text-sidebar-primary-foreground [&>svg]:size-[18px]"
+                  className="h-11 rounded-control px-3 font-medium text-[15px] text-muted-foreground transition-colors duration-(--dur-fast) hover:bg-surface-2 hover:text-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-foreground [&>svg]:size-[18px]"
                   isActive={active}
                   render={
                     <Link

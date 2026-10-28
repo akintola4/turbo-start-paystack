@@ -62,7 +62,7 @@ describe("content", () => {
       ["NGN", 3_000_000, "₦30,000.00"],
       ["GHS", 45_000, "GH₵450.00"],
       ["ZAR", 54_000, "R540.00"],
-      ["KES", 390_000, "KSh3,900.00"],
+      ["KES", 390_000, "KSh\u202f3,900.00"],
       ["USD", 3000, "$30.00"],
     ] as const;
     for (const [currency, amountSubunit, shown] of cases) {

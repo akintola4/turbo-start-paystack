@@ -6,6 +6,7 @@ import {
   createContext,
   type ReactNode,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -40,6 +41,61 @@ export function SwapOnChange({
       key={value}
     >
       {children}
+    </span>
+  );
+}
+
+/**
+ * Price and currency changes: the old value leaves upward while the new one
+ * arrives from below, stacked in one grid cell so the wider string holds the
+ * width (no layout shift). First render is static.
+ */
+export function NumberSwap({
+  value,
+  render,
+  delayMs = 0,
+  className,
+}: {
+  value: string;
+  render: (value: string) => ReactNode;
+  delayMs?: number;
+  className?: string;
+}) {
+  const [shown, setShown] = useState(value);
+  const [leaving, setLeaving] = useState<string | null>(null);
+  const changed = useRef(false);
+  if (shown !== value) {
+    changed.current = true;
+    setLeaving(shown);
+    setShown(value);
+  }
+  useEffect(() => {
+    if (leaving === null) {
+      return;
+    }
+    const t = window.setTimeout(() => setLeaving(null), 140 + delayMs);
+    return () => window.clearTimeout(t);
+  }, [leaving, delayMs]);
+  const delay = { animationDelay: `${delayMs}ms` };
+  return (
+    <span className={cn("inline-grid [&>*]:[grid-area:1/1]", className)}>
+      {leaving !== null ? (
+        <span
+          aria-hidden
+          className="animate-number-out"
+          key={`out-${leaving}`}
+          style={delay}
+        >
+          {render(leaving)}
+        </span>
+      ) : null}
+      <span
+        className={changed.current ? "animate-number-in" : undefined}
+        key={`in-${shown}`}
+        style={changed.current ? delay : undefined}
+      >
+        {render(shown)}
+      </span>
     </span>
   );
 }

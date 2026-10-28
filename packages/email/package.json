@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@react-email/render": "catalog:",
+    "@workspace/billing": "workspace:*",
     "@workspace/logger": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",

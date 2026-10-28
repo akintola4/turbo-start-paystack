@@ -142,6 +142,7 @@ export type BillingData = {
   /** Plan options for each interval, so the picker can switch without a request. */
   plans: { monthly: PlanOption[]; annually: PlanOption[] };
   invoices: InvoiceRow[];
+  seats: { used: number; limit: number };
   publicKey?: string;
 };
 

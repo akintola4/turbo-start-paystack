@@ -1,15 +1,14 @@
 import { cn } from "@workspace/tailwind-config/utils";
-import type * as React from "react";
 
-import { hueOf, initials } from "@/lib/format";
+import { initials } from "@/lib/format";
 
 /**
- * Deterministic tinted monogram. `tone` picks how loud the tint is; each
- * caller chooses. Lightness and chroma come from the monogram tokens.
+ * Initials only, from the palette: people sit on surface-3; organizations
+ * are a mini reference tile (panel-tile with off-white initials) in both
+ * themes. `seed` is kept for call sites that pass it but no longer tints.
  */
 export function Monogram({
   name,
-  seed,
   className,
   tone = "soft",
   shape = "rounded",
@@ -20,22 +19,19 @@ export function Monogram({
   tone?: "soft" | "solid" | "mono";
   shape?: "rounded" | "circle" | "square";
 }) {
-  const hue = hueOf(seed ?? name);
-  const style = { "--h": hue } as React.CSSProperties;
   return (
     <span
       aria-hidden
       className={cn(
-        "inline-flex size-8 shrink-0 select-none items-center justify-center font-medium text-xs",
-        tone === "mono" && "bg-muted text-muted-foreground",
-        tone === "soft" && "monogram-soft",
-        tone === "solid" && "monogram-solid",
+        "inline-flex size-8 shrink-0 select-none items-center justify-center font-semibold text-xs",
+        tone === "solid"
+          ? "bg-panel-tile text-panel-foreground"
+          : "bg-surface-3 text-foreground",
         shape === "circle" && "rounded-full",
-        shape === "rounded" && "rounded-md",
+        shape === "rounded" && "rounded-chip",
         shape === "square" && "rounded-none",
         className
       )}
-      style={style}
     >
       {initials(name)}
     </span>

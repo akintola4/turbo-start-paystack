@@ -28,28 +28,27 @@ export function AppShell({
   const status = data.plan.status ? STATUS_META[data.plan.status].label : null;
   return (
     <SidebarProvider
-      className="bg-canvas"
+      className="bg-background"
       style={{ "--sidebar-width": "18rem" } as CSSProperties}
     >
-      <Sidebar className="p-3" collapsible="offcanvas" variant="floating">
-        <SidebarHeader className="p-3">
+      <Sidebar className="border-r-0" collapsible="offcanvas" variant="sidebar">
+        <SidebarHeader className="px-4 pt-6 pb-2">
           <OrgSwitcherMenu
             current={data.org.slug}
             monogramTone="solid"
             orgs={data.orgs}
           >
             <button
-              className="flex w-full items-center gap-3 rounded-[14px] border bg-background p-2.5 text-left shadow-tile outline-none transition-[border-color] hover:border-primary/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[popup-open]:border-primary/40"
+              className="flex min-h-12 w-full items-center gap-3 rounded-control p-2 text-left transition-colors duration-(--dur-fast) hover:bg-surface-2 data-[popup-open]:bg-surface-3"
               type="button"
             >
               <Monogram
-                className="size-10 rounded-[10px] font-display text-sm"
+                className="size-9 text-[13px]"
                 name={data.org.name}
-                seed={data.org.slug}
                 tone="solid"
               />
               <span className="grid min-w-0 flex-1 gap-0.5">
-                <span className="truncate font-display font-semibold text-[15px] leading-tight">
+                <span className="truncate font-semibold text-[15px] leading-tight">
                   {data.org.name}
                 </span>
                 <span className="truncate text-muted-foreground text-xs">
@@ -67,19 +66,18 @@ export function AppShell({
             </button>
           </OrgSwitcherMenu>
         </SidebarHeader>
-        <SidebarContent className="px-1">
+        <SidebarContent className="px-2">
           <ShellNav nav={data.nav} />
         </SidebarContent>
-        <SidebarFooter className="p-3">
+        <SidebarFooter className="px-4 pb-5">
           <UserMenu align="start" side="top" user={data.user}>
             <button
-              className="flex w-full items-center gap-3 rounded-[14px] p-2 text-left outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[popup-open]:bg-sidebar-accent"
+              className="flex min-h-12 w-full items-center gap-3 rounded-control p-2 text-left transition-colors duration-(--dur-fast) hover:bg-surface-2 data-[popup-open]:bg-surface-3"
               type="button"
             >
               <Monogram
                 className="size-9"
                 name={data.user.name}
-                seed={data.user.email}
                 shape="circle"
               />
               <span className="grid min-w-0 flex-1 gap-0.5">
@@ -99,20 +97,21 @@ export function AppShell({
           </UserMenu>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="bg-canvas">
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-canvas/90 px-4 backdrop-blur md:hidden">
+      <SidebarInset className="bg-background">
+        <header className="sticky top-0 z-10 flex min-h-14 items-center gap-3 border-b bg-background px-4 pt-[env(safe-area-inset-top)] md:hidden">
           <SidebarTrigger
             aria-label="Open navigation"
-            className="-ml-1 size-9"
+            className="-ml-2 size-11"
           />
           <Mark className="size-6" />
-          <span className="truncate font-display font-semibold">
-            {data.org.name}
-          </span>
+          <span className="truncate font-semibold">{data.org.name}</span>
         </header>
-        <div className="mx-auto w-full max-w-6xl px-4 pt-8 pb-24 sm:px-6 md:pt-[22px] md:pr-8 md:pl-4">
+        <main
+          className="mx-auto w-full max-w-[1120px] px-4 pt-8 pb-24 sm:px-8 md:pt-10"
+          id="content"
+        >
           {children}
-        </div>
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );

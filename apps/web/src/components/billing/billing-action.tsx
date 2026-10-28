@@ -1,20 +1,12 @@
 "use client";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog";
 import { Button } from "@workspace/ui/components/button";
 import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ComponentProps, type ReactNode, useState } from "react";
 import { toast } from "sonner";
+
+import { Confirm } from "@/components/confirm";
 
 type CheckoutLike = {
   reference: string;
@@ -183,30 +175,16 @@ export function BillingAction({
   return (
     <>
       {button}
-      <AlertDialog onOpenChange={setOpen} open={open}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirm.title}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirm.description}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {confirm.cancelLabel ?? "Keep it"}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant={confirm.destructive ? "destructive" : "default"}
-              onClick={() => {
-                setOpen(false);
-                run();
-              }}
-            >
-              {confirm.confirmLabel}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Confirm
+        cancelLabel={confirm.cancelLabel ?? "Keep it"}
+        confirmLabel={confirm.confirmLabel}
+        description={confirm.description}
+        destructive={confirm.destructive}
+        onConfirm={run}
+        onOpenChange={setOpen}
+        open={open}
+        title={confirm.title}
+      />
     </>
   );
 }

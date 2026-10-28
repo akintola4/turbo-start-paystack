@@ -26,7 +26,7 @@ import { PresenceTableRow, RowPresenceProvider } from "@/components/motion";
 import { Chip, PageHeader, Tile } from "@/components/primitives";
 
 const TAB =
-  "h-8 flex-1 gap-2 rounded-full px-4 font-medium data-[active]:shadow-tile sm:flex-none";
+  "h-9 flex-1 gap-2 rounded-chip px-4 font-semibold data-[active]:bg-surface-1 data-[active]:shadow-tile dark:data-[active]:bg-surface-3 sm:flex-none";
 
 export function Members({ data }: { data: MembersData }) {
   const pct = Math.min(
@@ -48,9 +48,7 @@ export function Members({ data }: { data: MembersData }) {
             id="invite"
           >
             <div className="grid gap-1">
-              <h2 className="font-display font-semibold text-lg">
-                Invite a teammate
-              </h2>
+              <h2 className="font-semibold text-lg">Invite a teammate</h2>
               <p className="text-muted-foreground text-sm">
                 The link works for 7 days and only for the address you enter.
               </p>
@@ -79,10 +77,12 @@ export function Members({ data }: { data: MembersData }) {
             <h2 className="font-medium text-muted-foreground text-sm">
               Seats on {data.limit.planName}
             </h2>
-            {full ? <Chip tone="warning">Full</Chip> : null}
+            {full ? <Chip variant="warning">Full</Chip> : null}
           </div>
-          <p className="font-display tabular-nums leading-none tracking-tight">
-            <span className="font-semibold text-[44px]">{data.limit.used}</span>
+          <p className="tabular-nums leading-none">
+            <span className="font-semibold text-[40px] tracking-[-0.02em]">
+              {data.limit.used}
+            </span>
             <span className="text-muted-foreground text-xl">
               {" "}
               of {data.limit.max}
@@ -103,7 +103,7 @@ export function Members({ data }: { data: MembersData }) {
 
       <Tile className="p-4 sm:p-6">
         <Tabs className="gap-5" defaultValue="people">
-          <TabsList className="h-10 w-full rounded-full bg-muted p-1 sm:w-fit">
+          <TabsList className="h-11 w-full rounded-control bg-surface-3 p-1 dark:bg-surface-1 dark:shadow-tile sm:w-fit">
             <TabsTrigger className={TAB} value="people">
               People
               <span className="text-muted-foreground tabular-nums">
@@ -168,7 +168,7 @@ export function Members({ data }: { data: MembersData }) {
                           <PresenceTableRow id={inv.id} key={inv.id}>
                             <TableCell className="h-14 w-full max-w-0 py-2.5">
                               <div className="flex min-w-0 items-center gap-3">
-                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-chip bg-surface-3 text-muted-foreground">
                                   <MailIcon aria-hidden className="size-4" />
                                 </span>
                                 <span className="truncate font-medium">
@@ -177,9 +177,7 @@ export function Members({ data }: { data: MembersData }) {
                               </div>
                             </TableCell>
                             <TableCell className="h-14 py-2.5">
-                              <Chip dot={false} tone="info">
-                                {roleLabel(inv.role)}
-                              </Chip>
+                              <Chip>{roleLabel(inv.role)}</Chip>
                             </TableCell>
                             <TableCell className="hidden h-14 py-2.5 text-muted-foreground tabular-nums md:table-cell">
                               {formatDate(inv.expiresAt)}
@@ -200,13 +198,13 @@ export function Members({ data }: { data: MembersData }) {
                   </Table>
                 </RowPresenceProvider>
               ) : (
-                <div className="grid justify-items-start gap-3 rounded-[14px] bg-muted/60 p-5">
+                <div className="grid justify-items-start gap-3 rounded-card bg-muted/60 p-5">
                   <p className="text-sm">No one is waiting to join.</p>
                   <a
                     className={buttonVariants({
                       variant: "outline",
                       size: "sm",
-                      className: "rounded-full",
+                      className: "",
                     })}
                     href="#invite"
                   >

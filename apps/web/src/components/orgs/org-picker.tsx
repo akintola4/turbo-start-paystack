@@ -7,18 +7,23 @@ import { CreateOrgForm } from "@/components/orgs/create-org-form";
 import { UserMenu } from "@/components/app-shell/user-menu";
 import type { OrgPickerData } from "@/lib/view-models";
 import { roleLabel, STATUS_META } from "@/lib/format";
-import { Chip, PageHeader, Tile, Wordmark } from "@/components/primitives";
+import {
+  PageHeader,
+  Tile,
+  Wordmark,
+  StatusBadge,
+} from "@/components/primitives";
 
 export function OrgPicker({ data }: { data: OrgPickerData }) {
   const first = data.user.name.split(" ")[0] ?? data.user.name;
   return (
-    <div className="min-h-dvh bg-canvas">
+    <div className="min-h-dvh bg-background">
       <header className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-6">
         <Wordmark href="/app" />
         <UserMenu align="end" contentClassName="w-60" user={data.user}>
           <Button
             aria-label="Account menu"
-            className="-mr-3 h-10 gap-2 rounded-full pr-3 pl-1"
+            className="-mr-2 gap-2 pr-3 pl-1.5"
             variant="ghost"
           >
             <Monogram
@@ -43,26 +48,24 @@ export function OrgPicker({ data }: { data: OrgPickerData }) {
         {data.orgs.length ? (
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {data.orgs.map((org) => {
-              const status = STATUS_META[org.status ?? "free"];
+              const _status = STATUS_META[org.status ?? "free"];
               return (
                 <li key={org.id}>
                   <Link
-                    className="group grid h-full gap-6 rounded-[20px] border bg-card p-6 shadow-tile outline-none transition-[border-color,box-shadow] hover:border-primary/40 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    className="group grid h-full gap-6 rounded-tile bg-card p-6 shadow-tile transition-[background-color,scale] duration-(--dur-fast) ease-out hover:bg-surface-2 active:scale-[0.985]"
                     href={`/app/${org.slug}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <Monogram
-                        className="size-12 rounded-[14px] font-display text-base"
+                        className="size-12 rounded-control text-base"
                         name={org.name}
                         seed={org.slug}
                         tone="solid"
                       />
-                      <Chip tone={status.tone}>
-                        {org.status ? status.label : "Free"}
-                      </Chip>
+                      <StatusBadge status={org.status ?? "free"} />
                     </div>
                     <div className="grid gap-1">
-                      <h2 className="truncate font-display font-semibold text-xl tracking-tight">
+                      <h2 className="truncate font-semibold text-xl tracking-[-0.02em]">
                         {org.name}
                       </h2>
                       <p className="flex items-center gap-3 text-muted-foreground text-sm">
@@ -84,7 +87,7 @@ export function OrgPicker({ data }: { data: OrgPickerData }) {
         ) : null}
         <Tile className="grid scroll-mt-24 gap-6" id="new">
           <div className="grid gap-1">
-            <h2 className="font-display font-semibold text-xl tracking-tight">
+            <h2 className="font-semibold text-xl tracking-[-0.02em]">
               New organization
             </h2>
             <p className="text-muted-foreground text-sm">

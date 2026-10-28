@@ -10,7 +10,7 @@ import { Tile, Wordmark } from "@/components/primitives";
 export function AcceptInvite({ data }: { data: AcceptInviteData }) {
   const { invite } = data;
   return (
-    <div className="flex min-h-dvh flex-col bg-canvas px-4 py-6 sm:px-10 sm:py-8">
+    <div className="flex min-h-dvh flex-col bg-background px-4 py-6 sm:px-10 sm:py-8">
       <Wordmark />
       <main className="flex flex-1 items-center justify-center py-12">
         <Tile className="grid w-full max-w-md gap-8 p-8">
@@ -18,13 +18,13 @@ export function AcceptInvite({ data }: { data: AcceptInviteData }) {
             <>
               <div className="grid justify-items-start gap-5">
                 <Monogram
-                  className="size-16 rounded-[18px] font-display text-xl"
+                  className="size-16 rounded-control text-xl"
                   name={invite.orgName}
                   seed={invite.orgSlug}
                   tone="solid"
                 />
                 <div className="grid gap-2">
-                  <h1 className="text-balance font-display font-semibold text-[28px] leading-tight tracking-tight">
+                  <h1 className="text-balance font-semibold text-[28px] leading-tight tracking-[-0.02em]">
                     Join {invite.orgName}
                   </h1>
                   <p className="text-muted-foreground">
@@ -43,7 +43,8 @@ export function AcceptInvite({ data }: { data: AcceptInviteData }) {
               {data.signedIn ? (
                 <div className="grid gap-3">
                   <AcceptInviteButton
-                    className="h-11 rounded-full text-[15px]"
+                    orgName={invite.orgName}
+                    className="w-full"
                     invitationId={data.invitationId}
                     label={`Join ${invite.orgName}`}
                   />
@@ -55,7 +56,7 @@ export function AcceptInvite({ data }: { data: AcceptInviteData }) {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Link
                     className={buttonVariants({
-                      className: "h-11 rounded-full",
+                      className: "w-full",
                     })}
                     href={data.hrefs.signUp}
                   >
@@ -64,7 +65,7 @@ export function AcceptInvite({ data }: { data: AcceptInviteData }) {
                   <Link
                     className={buttonVariants({
                       variant: "outline",
-                      className: "h-11 rounded-full",
+                      className: "w-full",
                     })}
                     href={data.hrefs.signIn}
                   >
@@ -75,7 +76,7 @@ export function AcceptInvite({ data }: { data: AcceptInviteData }) {
             </>
           ) : (
             <div className="grid gap-4">
-              <h1 className="font-display font-semibold text-[28px] leading-tight tracking-tight">
+              <h1 className="font-semibold text-[28px] leading-tight tracking-[-0.02em]">
                 This invitation can't be used
               </h1>
               <p className="text-muted-foreground">
@@ -85,7 +86,7 @@ export function AcceptInvite({ data }: { data: AcceptInviteData }) {
               <Link
                 className={buttonVariants({
                   variant: "outline",
-                  className: "h-11 w-fit rounded-full px-5",
+                  className: "w-fit",
                 })}
                 href="/app"
               >

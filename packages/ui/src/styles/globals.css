@@ -7,169 +7,268 @@
 /* Dark mode is a class on <html>, set by next-themes (system by default). */
 @custom-variant dark (&:is(.dark *));
 
-/*
- * Every colour, surface, radius and motion value the app uses is a token in
- * this file. Swap the palette here; components only reference the names.
- */
+/* Option C "Market": tokens. Source of truth: docs/design-system.md */
+
 :root {
-  /* Surfaces */
-  --background: oklch(1 0 0);
-  --canvas: oklch(0.975 0.008 165);
-  --foreground: oklch(0.22 0.02 170);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.02 170);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.02 170);
+  /* scales */
+  --forest-50: oklch(0.975 0.014 159);
+  --forest-100: oklch(0.945 0.03 159);
+  --forest-200: oklch(0.89 0.055 159);
+  --forest-300: oklch(0.815 0.085 159);
+  --forest-400: oklch(0.72 0.11 159);
+  --forest-500: oklch(0.625 0.12 159);
+  --forest-600: oklch(0.535 0.11 159);
+  --forest-700: oklch(0.455 0.09 159);
+  --forest-800: oklch(0.389 0.056 161.1); /* #274e3b reference tile */
+  --forest-900: oklch(0.312 0.061 158.4); /* #0f3a25 reference panel */
+  --forest-950: oklch(0.235 0.042 159);
 
-  /* Actions */
-  --primary: oklch(0.5 0.12 162);
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.955 0.014 165);
-  --secondary-foreground: oklch(0.26 0.03 168);
-  --muted: oklch(0.962 0.01 165);
-  --muted-foreground: oklch(0.5 0.02 170);
-  --accent: oklch(0.95 0.02 165);
-  --accent-foreground: oklch(0.26 0.03 168);
-  --destructive: oklch(0.57 0.2 27);
-  --border: oklch(0.915 0.012 165);
-  --input: oklch(0.885 0.014 165);
-  --ring: oklch(0.6 0.12 162);
+  --neutral-0: oklch(0.995 0.003 163);
+  --neutral-50: oklch(0.975 0.006 163);
+  --neutral-100: oklch(0.946 0.009 161.3); /* #e8efeb reference glyph */
+  --neutral-200: oklch(0.91 0.011 163);
+  --neutral-300: oklch(0.85 0.012 163);
+  --neutral-400: oklch(0.72 0.013 163);
+  --neutral-500: oklch(0.6 0.014 163);
+  --neutral-600: oklch(0.5 0.014 163);
+  --neutral-700: oklch(0.4 0.013 163);
+  --neutral-800: oklch(0.29 0.012 163);
+  --neutral-900: oklch(0.22 0.011 163);
+  --neutral-950: oklch(0.181 0.009 169.2); /* #0e1311 reference page */
 
-  /* Brand panel (plan card, landing mosaic) */
-  --hero: oklch(0.42 0.1 163);
-  --hero-foreground: oklch(0.99 0.01 165);
-  --hero-muted: oklch(0.86 0.05 163);
-  --hero-tile: oklch(1 0 0 / 10%);
-  --hero-action: oklch(1 0 0);
-  --hero-action-foreground: oklch(0.3 0.08 163);
+  --sunflower-50: oklch(0.982 0.024 92);
+  --sunflower-100: oklch(0.96 0.054 92);
+  --sunflower-200: oklch(0.925 0.1 92);
+  --sunflower-300: oklch(0.88 0.14 92);
+  --sunflower-400: oklch(0.832 0.158 93.8); /* #eac532 reference accent */
+  --sunflower-500: oklch(0.765 0.152 92);
+  --sunflower-600: oklch(0.665 0.135 92);
+  --sunflower-700: oklch(0.555 0.112 92);
+  --sunflower-800: oklch(0.445 0.088 92);
+  --sunflower-900: oklch(0.33 0.064 92);
+  --sunflower-950: oklch(0.22 0.043 87.5); /* #231901 reference accent glyph */
 
-  /* Sunflower: current plan, savings, trial. Use sparingly. */
-  --highlight: oklch(0.88 0.15 95);
-  --highlight-foreground: oklch(0.3 0.06 85);
+  /* semantic: light */
+  --background: var(--neutral-50);
+  --foreground: oklch(0.22 0.018 159);
+  --surface-1: var(--neutral-0);
+  --surface-2: oklch(0.958 0.008 163);
+  --surface-3: oklch(0.93 0.011 163);
+  --card: var(--surface-1);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-1);
+  --popover-foreground: var(--foreground);
+  --primary: var(--forest-900);
+  --primary-hover: var(--forest-800);
+  --primary-foreground: var(--neutral-100);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-2);
+  --muted-foreground: oklch(0.47 0.016 163);
+  --subtle-foreground: oklch(0.56 0.014 163);
+  --accent: var(--surface-2); /* shadcn hover surface, NOT sunflower */
+  --accent-foreground: var(--foreground);
+  --highlight: var(--sunflower-400); /* the spec's "accent" */
+  --highlight-hover: var(--sunflower-300);
+  --highlight-foreground: var(--sunflower-950);
+  --link: var(--forest-700);
+  --border: oklch(0.9 0.012 163);
+  --input: oklch(0.62 0.014 163); /* border-strong: 3.57:1 */
+  --ring: var(--forest-600);
 
-  /* Status tones (chip and banner surfaces + their text) */
-  --success: oklch(0.5 0.12 162);
-  --warning: oklch(0.74 0.15 70);
-  --tone-positive: oklch(0.94 0.05 162);
-  --tone-positive-foreground: oklch(0.38 0.1 162);
-  --tone-info: oklch(0.94 0.04 235);
-  --tone-info-foreground: oklch(0.42 0.11 240);
-  --tone-warning: oklch(0.97 0.04 85);
-  --tone-warning-foreground: oklch(0.42 0.1 65);
-  --tone-warning-border: oklch(0.86 0.1 80);
-  --tone-negative: oklch(0.95 0.03 25);
-  --tone-negative-foreground: oklch(0.48 0.17 27);
+  --panel: var(--forest-900);
+  --panel-tile: var(--forest-800);
+  --panel-line: oklch(0.43 0.05 159);
+  --panel-foreground: var(--neutral-100);
+  --panel-muted: oklch(0.82 0.04 159);
 
-  /* Monograms: lightness/chroma here, hue per org or person */
-  --monogram-soft-bg: 0.93 0.045;
-  --monogram-soft-fg: 0.42 0.1;
-  --monogram-solid-bg: 0.6 0.13;
-  --monogram-solid-fg: oklch(1 0 0);
+  --success: oklch(0.47 0.11 142);
+  --success-bg: oklch(0.955 0.04 142);
+  --warning: oklch(0.5 0.114 62);
+  --warning-bg: oklch(0.96 0.025 62);
+  --destructive: oklch(0.52 0.17 27);
+  --destructive-bg: oklch(0.958 0.02 25);
+  --info: oklch(0.49 0.1 245);
+  --info-bg: oklch(0.958 0.02 245);
+  --quiet: var(--muted-foreground);
+  --quiet-bg: var(--surface-3);
 
-  /* Sidebar */
-  --sidebar: oklch(0.99 0.004 165);
-  --sidebar-foreground: oklch(0.3 0.02 170);
-  --sidebar-primary: oklch(0.5 0.12 162);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.95 0.02 165);
-  --sidebar-accent-foreground: oklch(0.22 0.02 170);
-  --sidebar-border: oklch(0.915 0.012 165);
-  --sidebar-ring: oklch(0.6 0.12 162);
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--surface-3); /* selected nav item */
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 
-  /* Shape and depth */
-  --radius: 0.875rem;
-  --tile-shadow:
-    0 1px 2px oklch(0.3 0.04 165 / 0.06),
-    0 4px 16px -6px oklch(0.3 0.04 165 / 0.12);
+  --scrim: oklch(0.12 0.02 160 / 0.55);
+  --elevation-float:
+    0 0 0 1px var(--border), 0 8px 24px -8px oklch(0.2 0.03 160 / 0.18);
+  --hairline: 1px;
 
-  /* Type */
-  --app-font-display:
-    "Bricolage Grotesque Variable", "Figtree Variable", ui-sans-serif,
-    system-ui, sans-serif;
-  --app-font-sans: "Figtree Variable", ui-sans-serif, system-ui, sans-serif;
-  --app-font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* shape */
+  --radius: 12px; /* control; shadcn derives sm/md/lg/xl from this */
 
-  /* Motion */
+  /* motion (the --motion-ease-* names are already used by .animate-rise and others) */
   --motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --motion-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-  --duration-press: 150ms;
-  --duration-hover: 150ms;
-  --duration-popover: 180ms;
-  --duration-popover-exit: 130ms;
-  --duration-dialog: 220ms;
-  --duration-dialog-exit: 160ms;
-  --duration-drawer: 280ms;
-  --duration-drawer-exit: 200ms;
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --dur-press: 120ms;
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --dur-number: 240ms;
+  --dur-modal: 240ms;
+  --dur-modal-exit: 170ms;
+  --dur-sheet: 320ms;
+  --dur-sheet-exit: 220ms;
+
+  /* type */
+  --app-font-sans:
+    var(--font-geist-sans), var(--font-currency), ui-sans-serif, system-ui,
+    sans-serif;
+  --app-font-display: var(--app-font-sans);
+  --app-font-money: var(--app-font-sans);
+  --app-font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
+@media only screen and (min-resolution: 192dpi) {
+  :root {
+    --hairline: 0.5px;
+  }
+}
+
+/* semantic: dark (hero). Also applied to the money panel via class="dark". */
 .dark {
-  --background: oklch(0.2 0.014 170);
-  --canvas: oklch(0.18 0.015 170);
-  --foreground: oklch(0.96 0.008 165);
-  --card: oklch(0.225 0.016 170);
-  --card-foreground: oklch(0.96 0.008 165);
-  --popover: oklch(0.24 0.016 170);
-  --popover-foreground: oklch(0.96 0.008 165);
+  --background: var(--neutral-950);
+  --foreground: var(--neutral-100);
+  --surface-1: oklch(0.21 0.013 163);
+  --surface-2: oklch(0.245 0.015 163);
+  --surface-3: oklch(0.28 0.017 163);
+  --card: var(--surface-1);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-2);
+  --popover-foreground: var(--foreground);
+  --primary: var(--neutral-100);
+  --primary-hover: oklch(0.985 0.004 163);
+  --primary-foreground: var(--forest-900);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-2);
+  --muted-foreground: oklch(0.74 0.016 163);
+  --subtle-foreground: oklch(0.64 0.015 163);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--foreground);
+  --link: var(--forest-300);
+  --border: oklch(0.29 0.015 163);
+  --input: oklch(0.52 0.016 163); /* 3.24:1 */
+  --ring: var(--sunflower-400);
 
-  --primary: oklch(0.74 0.14 162);
-  --primary-foreground: oklch(0.18 0.03 168);
-  --secondary: oklch(0.28 0.02 170);
-  --secondary-foreground: oklch(0.95 0.01 165);
-  --muted: oklch(0.27 0.016 170);
-  --muted-foreground: oklch(0.72 0.02 168);
-  --accent: oklch(0.29 0.025 168);
-  --accent-foreground: oklch(0.96 0.008 165);
-  --destructive: oklch(0.68 0.18 25);
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.74 0.14 162);
+  --success: oklch(0.8 0.13 142);
+  --success-bg: oklch(0.27 0.05 142);
+  --warning: oklch(0.82 0.12 62);
+  --warning-bg: oklch(0.28 0.05 62);
+  --destructive: oklch(0.79 0.12 25);
+  --destructive-bg: oklch(0.28 0.06 25);
+  --info: oklch(0.8 0.08 245);
+  --info-bg: oklch(0.28 0.04 245);
+  --quiet: var(--muted-foreground);
+  --quiet-bg: var(--surface-3);
 
-  --hero: oklch(0.36 0.075 163);
-  --hero-foreground: oklch(0.98 0.01 165);
-  --hero-muted: oklch(0.82 0.05 163);
-  --hero-tile: oklch(1 0 0 / 10%);
-  --hero-action: oklch(0.98 0.01 165);
-  --hero-action-foreground: oklch(0.3 0.08 163);
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--surface-3);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 
-  --highlight: oklch(0.86 0.15 95);
-  --highlight-foreground: oklch(0.26 0.05 85);
-
-  --success: oklch(0.74 0.14 162);
-  --warning: oklch(0.8 0.14 80);
-  --tone-positive: oklch(0.32 0.06 162);
-  --tone-positive-foreground: oklch(0.9 0.08 162);
-  --tone-info: oklch(0.32 0.06 240);
-  --tone-info-foreground: oklch(0.88 0.07 235);
-  --tone-warning: oklch(0.27 0.04 75);
-  --tone-warning-foreground: oklch(0.88 0.1 85);
-  --tone-warning-border: oklch(0.5 0.09 75);
-  --tone-negative: oklch(0.33 0.07 25);
-  --tone-negative-foreground: oklch(0.88 0.07 25);
-
-  --monogram-soft-bg: 0.34 0.06;
-  --monogram-soft-fg: 0.9 0.05;
-  --monogram-solid-bg: 0.55 0.12;
-
-  --sidebar: oklch(0.225 0.016 170);
-  --sidebar-foreground: oklch(0.88 0.012 165);
-  --sidebar-primary: oklch(0.74 0.14 162);
-  --sidebar-primary-foreground: oklch(0.18 0.03 168);
-  --sidebar-accent: oklch(0.29 0.025 168);
-  --sidebar-accent-foreground: oklch(0.97 0.008 165);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.74 0.14 162);
-
-  --tile-shadow:
-    0 1px 2px oklch(0 0 0 / 0.3), 0 6px 20px -8px oklch(0 0 0 / 0.5);
+  --elevation-float: 0 0 0 1px var(--border);
 }
 
+/* The money panel: <section class="dark" data-surface="panel">.
+   Inherits dark tokens, then swaps surfaces for its own greens. Same in both modes. */
+[data-surface="panel"] {
+  --card: var(--panel-tile);
+  --surface-1: var(--panel-tile);
+  --surface-2: var(--panel-line);
+  --surface-3: var(--panel-line);
+  --secondary: var(--panel-tile);
+  --muted: var(--panel-tile);
+  --accent: var(--panel-line);
+  --muted-foreground: var(--panel-muted);
+  --border: var(--panel-line);
+  --success-bg: var(--panel-tile);
+  --warning-bg: var(--panel-tile);
+  --destructive-bg: var(--panel-tile);
+  --info-bg: var(--panel-tile);
+  --quiet-bg: var(--panel-tile);
+  background-color: var(--panel);
+  color: var(--panel-foreground);
+}
+
+@theme inline {
+  --font-money: var(--app-font-money);
+
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-primary-hover: var(--primary-hover);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-highlight: var(--highlight);
+  --color-highlight-hover: var(--highlight-hover);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-link: var(--link);
+  --color-panel: var(--panel);
+  --color-panel-tile: var(--panel-tile);
+  --color-panel-line: var(--panel-line);
+  --color-panel-foreground: var(--panel-foreground);
+  --color-panel-muted: var(--panel-muted);
+  --color-success-bg: var(--success-bg);
+  --color-warning-bg: var(--warning-bg);
+  --color-destructive-bg: var(--destructive-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --color-quiet: var(--quiet);
+  --color-quiet-bg: var(--quiet-bg);
+
+  --color-forest-50: var(--forest-50);
+  --color-forest-100: var(--forest-100);
+  --color-forest-200: var(--forest-200);
+  --color-forest-300: var(--forest-300);
+  --color-forest-400: var(--forest-400);
+  --color-forest-500: var(--forest-500);
+  --color-forest-600: var(--forest-600);
+  --color-forest-700: var(--forest-700);
+  --color-forest-800: var(--forest-800);
+  --color-forest-900: var(--forest-900);
+  --color-forest-950: var(--forest-950);
+  --color-sunflower-300: var(--sunflower-300);
+  --color-sunflower-400: var(--sunflower-400);
+  --color-sunflower-950: var(--sunflower-950);
+
+  --radius-chip: 8px;
+  --radius-control: 12px;
+  --radius-card: 16px;
+  --radius-tile: 24px;
+  --radius-panel: 32px;
+
+  --shadow-float: var(--elevation-float);
+
+  --ease-out: var(--motion-ease-out);
+  --ease-in-out: var(--motion-ease-in-out);
+  --ease-drawer: var(--motion-ease-drawer);
+  --ease-exit: var(--motion-ease-exit);
+}
+
+/* shadcn token names, mapped onto the tokens above. */
 @theme inline {
   --font-sans: var(--app-font-sans);
   --font-mono: var(--app-font-mono);
   --font-display: var(--app-font-display);
   --color-background: var(--background);
-  --color-canvas: var(--canvas);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -189,23 +288,6 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-hero: var(--hero);
-  --color-hero-foreground: var(--hero-foreground);
-  --color-hero-muted: var(--hero-muted);
-  --color-hero-tile: var(--hero-tile);
-  --color-hero-action: var(--hero-action);
-  --color-hero-action-foreground: var(--hero-action-foreground);
-  --color-highlight: var(--highlight);
-  --color-highlight-foreground: var(--highlight-foreground);
-  --color-tone-positive: var(--tone-positive);
-  --color-tone-positive-foreground: var(--tone-positive-foreground);
-  --color-tone-info: var(--tone-info);
-  --color-tone-info-foreground: var(--tone-info-foreground);
-  --color-tone-warning: var(--tone-warning);
-  --color-tone-warning-foreground: var(--tone-warning-foreground);
-  --color-tone-warning-border: var(--tone-warning-border);
-  --color-tone-negative: var(--tone-negative);
-  --color-tone-negative-foreground: var(--tone-negative-foreground);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -214,25 +296,27 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: 8px;
+  --radius-md: 10px;
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --shadow-tile: var(--tile-shadow);
-  --ease-out: var(--motion-ease-out);
-  --ease-in-out: var(--motion-ease-in-out);
-  --ease-drawer: var(--motion-ease-drawer);
+  --radius-xl: 16px;
+  /* One depth cue per surface: cards get a 1px ring, floating layers a shadow. */
+  --shadow-tile: 0 0 0 1px var(--border);
+  --animate-skeleton: skeleton-pulse 1.4s ease-in-out infinite;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   html {
     -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-canvas font-sans text-foreground antialiased;
+    @apply bg-background font-sans text-foreground antialiased;
+    font-size: 15px;
+    line-height: 1.5;
     font-synthesis-weight: none;
     text-rendering: optimizeLegibility;
   }
@@ -241,15 +325,38 @@
   h3 {
     text-wrap: balance;
   }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+  [data-money] {
+    font-family: var(--font-money);
+    font-variant-numeric: tabular-nums;
+    font-optical-sizing: auto;
+    white-space: nowrap;
+  }
 }
 
-@layer components {
-  .monogram-soft {
-    background-color: oklch(var(--monogram-soft-bg) var(--h));
-    color: oklch(var(--monogram-soft-fg) var(--h));
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.6;
   }
-  .monogram-solid {
-    background-color: oklch(var(--monogram-solid-bg) var(--h));
-    color: var(--monogram-solid-fg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
   }
 }

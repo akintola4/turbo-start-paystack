@@ -9,6 +9,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, type ReactNode, useState } from "react";
 
+import { toast } from "sonner";
+
 import { authClient } from "@/lib/auth-client";
 
 /** Only same-origin relative paths are allowed as post-auth redirects. */
@@ -49,13 +51,25 @@ export function AuthForm({
 }) {
   const router = useRouter();
   const { callbackURL } = useAuthLinks(mode);
-  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
+  async function resend(email: string) {
+    const result = await authClient.sendVerificationEmail({
+      email,
+      callbackURL,
+    });
+    if (result.error) {
+      toast.error("Couldn't resend the email", {
+        description: result.error.message,
+      });
+      return;
+    }
+    toast.success("Verification email sent again", { description: email });
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
     setPending(true);
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email"));
@@ -71,11 +85,30 @@ export function AuthForm({
         : await authClient.signIn.email({ email, password, callbackURL });
     setPending(false);
     if (result.error) {
-      setError(result.error.message ?? "Something went wrong");
+      const message =
+        result.error.message ??
+        (mode === "sign-in"
+          ? "Those details didn't match an account"
+          : "Couldn't create the account");
+      toast.error(
+        mode === "sign-in" ? "Couldn't sign in" : "Couldn't create the account",
+        {
+          description: message,
+        }
+      );
       return;
     }
     if (mode === "sign-up") {
       setSentTo(email);
+      toast.success("Check your email to verify", {
+        description: `We sent a link to ${email}.`,
+        action: {
+          label: "Resend",
+          onClick: () => resend(email),
+        },
+      });
+    } else {
+      toast.success("Signed in");
     }
     router.push(callbackURL);
     router.refresh();
@@ -125,11 +158,6 @@ export function AuthForm({
           </p>
         ) : null}
       </div>
-      {error ? (
-        <p className="text-destructive text-sm" role="alert">
-          {error}
-        </p>
-      ) : null}
       {sentTo ? (
         <p
           className="flex items-center gap-2 text-muted-foreground text-sm"

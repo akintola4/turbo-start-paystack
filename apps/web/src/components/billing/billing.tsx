@@ -1,285 +1,349 @@
-import { buttonVariants } from "@workspace/ui/components/button";
 import { cn } from "@workspace/tailwind-config/utils";
 import {
-  AlertTriangleIcon,
-  CheckCircle2Icon,
-  ClockIcon,
+  CalendarIcon,
   CreditCardIcon,
-  ReceiptIcon,
+  type LucideIcon,
+  RotateCwIcon,
+  TriangleAlertIcon,
+  UsersIcon,
 } from "lucide-react";
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import {
   BillingAction,
   type BillingConfirm,
 } from "@/components/billing/billing-action";
+import { PaymentToast } from "@/components/billing/payment-toast";
 import { PlanPicker } from "@/components/billing/plan-picker";
 import { SwapOnChange } from "@/components/motion";
-import type { BillingData } from "@/lib/view-models";
 import {
-  daysUntil,
-  formatDate,
-  INVOICE_META,
-  intervalLabel,
-  STATUS_META,
-} from "@/lib/format";
-import {
+  Amount,
   CardNumber,
-  Chip,
+  InvoiceBadge,
   Money,
   PageHeader,
+  Panel,
+  StatusBadge,
   Tile,
 } from "@/components/primitives";
+import { daysUntil, formatDate, intervalLabel } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
+import type { BillingData, SubscriptionSummary } from "@/lib/view-models";
 
-function Notice({
-  tone,
+/** One meta well on the money panel: icon, label, value. */
+function Meta({
   icon: Icon,
-  title,
+  label,
   children,
-  action,
 }: {
-  tone: "warning" | "positive" | "info";
-  icon: typeof AlertTriangleIcon;
-  title: string;
-  children?: ReactNode;
-  action?: ReactNode;
+  icon: LucideIcon;
+  label: string;
+  children: ReactNode;
 }) {
-  const styles = {
-    warning: "border-tone-warning-border bg-tone-warning",
-    positive: "border-primary/30 bg-tone-positive",
-    info: "border-border bg-card",
-  } as const;
-  const ink = {
-    warning: "text-tone-warning-foreground",
-    positive: "text-tone-positive-foreground",
-    info: "text-muted-foreground",
-  } as const;
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-4 rounded-[20px] border p-5 sm:flex-row sm:items-center sm:justify-between",
-        styles[tone]
-      )}
-      role={tone === "warning" ? "alert" : "status"}
-    >
-      <div className="flex gap-3">
-        <Icon aria-hidden className={cn("mt-0.5 size-5 shrink-0", ink[tone])} />
-        <div className="grid gap-1">
-          <p className="font-display font-semibold">{title}</p>
-          {children ? (
-            <div className="text-muted-foreground text-sm">{children}</div>
-          ) : null}
-        </div>
-      </div>
-      {action}
+    <div className="grid gap-1.5 rounded-card bg-panel-tile px-4 py-3.5 max-sm:rounded-none max-sm:bg-transparent max-sm:px-0 max-sm:py-3">
+      <dt className="flex items-center gap-1.5 font-medium text-[13px] text-panel-muted">
+        <Icon aria-hidden className="size-3.5" />
+        {label}
+      </dt>
+      <dd className="font-semibold text-[15px] tabular-nums">{children}</dd>
     </div>
   );
 }
 
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="grid gap-1">
-      <dt className="text-hero-muted text-sm">{label}</dt>
-      <dd className="font-medium tabular-nums">{children}</dd>
-    </div>
-  );
+function daysPhrase(days: number | null) {
+  if (days === null || days < 0) {
+    return "";
+  }
+  if (days === 0) {
+    return " (today)";
+  }
+  return ` (in ${days} ${days === 1 ? "day" : "days"})`;
+}
+
+/** The single most important line: what is charged next, when. */
+function nextCharge(sub: SubscriptionSummary) {
+  if (sub.cancelAtPeriodEnd || sub.status === "non_renewing") {
+    return {
+      label: "Access ends",
+      value: formatDate(sub.currentPeriodEnd),
+    };
+  }
+  if (sub.status === "past_due") {
+    return {
+      label: "Payment failed",
+      value: `Update card before ${formatDate(sub.graceUntil)}`,
+    };
+  }
+  const when =
+    sub.status === "trialing" ? sub.trialEndsAt : sub.currentPeriodEnd;
+  return {
+    label: sub.status === "trialing" ? "First charge" : "Next charge",
+    value: (
+      <>
+        <Amount label={sub.priceLabel} /> on {formatDate(when, "short")}
+        <span className="font-normal text-panel-muted">
+          {daysPhrase(daysUntil(when))}
+        </span>
+      </>
+    ),
+  };
 }
 
 function CurrentPlan({ data }: { data: BillingData }) {
   const sub = data.subscription;
-  const heroButton =
-    "h-10 rounded-full bg-hero-action px-5 text-hero-action-foreground hover:bg-hero-action/90";
-  const ghostButton =
-    "h-10 rounded-full border-hero-foreground/30 bg-transparent px-5 text-hero-foreground hover:bg-hero-tile hover:text-hero-foreground dark:border-hero-foreground/30 dark:bg-transparent dark:hover:bg-hero-tile";
 
   if (!sub) {
     return (
-      <Tile className="grid gap-6 border-0 bg-hero text-hero-foreground sm:p-8">
-        <div className="grid gap-2">
-          <p className="text-hero-muted text-sm">Current plan</p>
-          <p className="font-display font-semibold text-[44px] leading-none tracking-tight">
-            Free
-          </p>
-          <p className="max-w-[48ch] text-hero-muted">
-            Up to 3 members. Pick a paid plan below; it starts with a 14-day
-            trial and a small refundable card check.
-          </p>
+      <Panel className="grid gap-6">
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold text-xl">Free plan</h2>
+          <StatusBadge status="free" />
         </div>
-      </Tile>
+        <Money label={formatMoney(0, data.currency)} per="month" size="xl" />
+        <p className="max-w-[52ch] text-panel-muted">
+          Up to {data.seats.limit} members. Paid plans start with a 14-day
+          trial; we check the card with a small charge that is refunded straight
+          away.
+        </p>
+      </Panel>
     );
   }
 
-  const status = STATUS_META[sub.status];
-  const isTrial = sub.status === "trialing";
-  const nextDate = isTrial ? sub.trialEndsAt : sub.currentPeriodEnd;
-  const days = daysUntil(nextDate);
+  const grace = daysUntil(sub.graceUntil);
+  const trialDays = daysUntil(sub.trialEndsAt);
+  const charge = nextCharge(sub);
   const cancelConfirm: BillingConfirm = {
     title: "Cancel at the end of this period?",
-    description: `${data.org.name} keeps ${sub.planName} until ${formatDate(sub.currentPeriodEnd)}. After that it moves to the Free plan. You can resume any time before then.`,
-    confirmLabel: "Cancel subscription",
-    cancelLabel: "Keep subscription",
+    description: `${data.org.name} keeps ${sub.planName} until ${formatDate(sub.currentPeriodEnd)}, then moves to the Free plan (up to 3 members). You can resume any time before then.`,
+    confirmLabel: "Cancel plan",
+    cancelLabel: `Keep ${sub.planName}`,
     destructive: true,
   };
 
   return (
-    <Tile className="grid gap-8 border-0 bg-hero text-hero-foreground sm:p-8">
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-        <div className="grid gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <SwapOnChange value={sub.planName}>
-              <h2 className="font-display font-semibold text-2xl tracking-tight">
-                {sub.planName}
-              </h2>
-            </SwapOnChange>
-            <SwapOnChange value={sub.status}>
-              <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-hero-tile px-2.5 font-medium text-xs">
-                <span
-                  aria-hidden
-                  className="size-1.5 rounded-full bg-current"
-                />
-                {status.label}
+    <div className="grid gap-3">
+      <Panel aria-labelledby="current-plan" className="grid gap-6 sm:gap-8">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="grid gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <SwapOnChange value={sub.planName}>
+                <h2 className="font-semibold text-xl" id="current-plan">
+                  {sub.planName} plan
+                </h2>
+              </SwapOnChange>
+              <span aria-live="polite">
+                <SwapOnChange value={sub.status}>
+                  <StatusBadge
+                    graceEnded={grace !== null && grace < 0}
+                    label={
+                      sub.status === "trialing" && trialDays !== null
+                        ? `Trial, ${Math.max(trialDays, 0)} days left`
+                        : undefined
+                    }
+                    status={sub.status}
+                  />
+                </SwapOnChange>
               </span>
+            </div>
+            <SwapOnChange value={`${sub.priceLabel}/${sub.interval}`}>
+              <Money
+                label={sub.priceLabel}
+                per={intervalLabel(sub.interval, "long")}
+                size="xl"
+              />
             </SwapOnChange>
           </div>
-          <SwapOnChange value={`${sub.priceLabel}/${sub.interval}`}>
-            <Money
-              label={sub.priceLabel}
-              per={intervalLabel(sub.interval, "long")}
-              size="xl"
-            />
-          </SwapOnChange>
+          {data.canManage ? (
+            <div className="flex flex-wrap gap-2">
+              {sub.status === "non_renewing" || sub.cancelAtPeriodEnd ? (
+                <BillingAction
+                  action="resume"
+                  orgId={data.org.id}
+                  successMessage={`${sub.planName} resumed`}
+                >
+                  Resume {sub.planName}
+                </BillingAction>
+              ) : (
+                <BillingAction
+                  action="manage-card"
+                  orgId={data.org.id}
+                  variant={sub.status === "past_due" ? "default" : "outline"}
+                >
+                  <CreditCardIcon aria-hidden />
+                  Update card
+                </BillingAction>
+              )}
+            </div>
+          ) : null}
         </div>
-        {data.canManage ? (
-          <div className="flex flex-wrap gap-2">
-            <BillingAction
-              action="manage-card"
-              className={heroButton}
-              orgId={data.org.id}
-            >
-              <CreditCardIcon aria-hidden />
-              Update card
-            </BillingAction>
-            {sub.status === "non_renewing" || sub.cancelAtPeriodEnd ? (
-              <BillingAction
-                action="resume"
-                className={ghostButton}
-                orgId={data.org.id}
-                variant="outline"
-              >
-                Resume
-              </BillingAction>
-            ) : sub.status !== "past_due" ? (
-              <BillingAction
-                action="cancel"
-                className={ghostButton}
-                confirm={cancelConfirm}
-                orgId={data.org.id}
-                variant="outline"
-              >
-                Cancel plan
-              </BillingAction>
-            ) : null}
-          </div>
+        <dl className="grid gap-3 max-sm:gap-0 max-sm:divide-y max-sm:divide-panel-line max-sm:rounded-card max-sm:bg-panel-tile max-sm:px-4 sm:grid-cols-3">
+          <Meta icon={CalendarIcon} label={charge.label}>
+            {charge.value}
+          </Meta>
+          <Meta icon={CreditCardIcon} label="Card">
+            {sub.card ? (
+              <CardNumber brand={sub.card.brand} last4={sub.card.last4} />
+            ) : (
+              "None on file"
+            )}
+          </Meta>
+          <Meta icon={UsersIcon} label="Seats">
+            {data.seats.used} of {data.seats.limit}
+          </Meta>
+        </dl>
+        {sub.scheduled ? (
+          <p className="text-panel-muted text-sm">
+            Moves to {sub.scheduled.planName} (
+            {intervalLabel(sub.scheduled.interval, "long")}ly) on{" "}
+            {formatDate(sub.currentPeriodEnd)}.
+          </p>
         ) : null}
-      </div>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-white/15 border-t pt-6 sm:grid-cols-4">
-        <Fact
-          label={
-            sub.cancelAtPeriodEnd
-              ? "Access ends"
-              : isTrial
-                ? "Trial ends"
-                : sub.status === "past_due"
-                  ? "Was due"
-                  : "Renews"
-          }
-        >
-          {formatDate(nextDate)}
-        </Fact>
-        <Fact label={isTrial ? "First charge" : "Next charge"}>
-          {sub.cancelAtPeriodEnd
-            ? "None"
-            : days !== null && days >= 0
-              ? `In ${days} days`
-              : "Due now"}
-        </Fact>
-        <Fact label="Card">
-          {sub.card ? (
-            <CardNumber brand={sub.card.brand} last4={sub.card.last4} />
-          ) : (
-            "None on file"
-          )}
-        </Fact>
-        <Fact label="Currency">{sub.currency}</Fact>
-      </dl>
-      {sub.scheduled ? (
-        <p className="rounded-[14px] bg-hero-tile px-4 py-3 text-sm">
-          Switches to {sub.scheduled.planName} ({sub.scheduled.interval}) on{" "}
-          {formatDate(sub.currentPeriodEnd)}.
-        </p>
+      </Panel>
+      {data.canManage &&
+      sub.status !== "non_renewing" &&
+      !sub.cancelAtPeriodEnd &&
+      sub.status !== "past_due" ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+          <p className="text-muted-foreground text-sm">
+            Cancelling keeps {sub.planName} until{" "}
+            {formatDate(sub.currentPeriodEnd)}.
+          </p>
+          <BillingAction
+            action="cancel"
+            confirm={cancelConfirm}
+            orgId={data.org.id}
+            size="sm"
+            successMessage={`${sub.planName} ends on ${formatDate(sub.currentPeriodEnd)}`}
+            variant="ghost"
+          >
+            Cancel plan
+          </BillingAction>
+        </div>
       ) : null}
-    </Tile>
+    </div>
+  );
+}
+
+function PastDueBanner({ data }: { data: BillingData }) {
+  const sub = data.subscription;
+  if (sub?.status !== "past_due") {
+    return null;
+  }
+  const deadline = formatDate(sub.graceUntil);
+  return (
+    <>
+      <div
+        className="flex items-start gap-3 rounded-tile bg-warning-bg p-4 text-warning sm:p-5"
+        role="alert"
+      >
+        <TriangleAlertIcon aria-hidden className="mt-0.5 size-5 shrink-0" />
+        <div className="grid gap-1 text-foreground">
+          <p className="font-semibold">Payment failed</p>
+          <p className="text-muted-foreground">
+            Update the card before {deadline} to keep {sub.planName}. Plan
+            changes are paused until the payment goes through.
+          </p>
+        </div>
+      </div>
+      {data.canManage ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 bg-background px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom,0px))] shadow-tile sm:hidden">
+          <p className="min-w-0 flex-1 text-sm">
+            <span className="font-semibold">Payment failed.</span>{" "}
+            <span className="text-muted-foreground">Fix by {deadline}</span>
+          </p>
+          <BillingAction action="manage-card" orgId={data.org.id}>
+            Update card
+          </BillingAction>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function Invoices({ data }: { data: BillingData }) {
+  return (
+    <section
+      aria-labelledby="invoices-title"
+      className="grid gap-4"
+      id="invoices"
+    >
+      <h2 className="font-semibold text-xl" id="invoices-title">
+        Invoices
+      </h2>
+      {data.invoices.length === 0 ? (
+        <Tile className="grid gap-1">
+          <p className="font-semibold">No invoices yet</p>
+          <p className="text-muted-foreground">
+            Paystack emails a receipt for every charge; each one shows up here
+            too.
+          </p>
+        </Tile>
+      ) : (
+        <Tile className="p-0 sm:p-0">
+          <ul>
+            {data.invoices.map((inv) => (
+              <li
+                className="grid min-h-14 grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 border-border border-t px-5 py-3 first:border-t-0 sm:grid-cols-[7.5rem_1fr_8rem_6.5rem_2.75rem] sm:px-6"
+                key={inv.id}
+              >
+                <span className="text-muted-foreground text-sm tabular-nums max-sm:order-3">
+                  {formatDate(inv.date)}
+                </span>
+                <span className="truncate font-medium max-sm:order-1">
+                  {inv.description}
+                </span>
+                <span
+                  className={cn(
+                    "text-right max-sm:order-2",
+                    inv.status === "void" &&
+                      "text-muted-foreground line-through"
+                  )}
+                >
+                  <Amount label={inv.amountLabel} />
+                </span>
+                <span className="flex sm:justify-start max-sm:order-4 max-sm:justify-end">
+                  <InvoiceBadge status={inv.status} />
+                </span>
+                <span className="hidden justify-end sm:flex">
+                  {inv.status === "failed" && data.canManage ? (
+                    <BillingAction
+                      action="manage-card"
+                      aria-label="Retry with another card"
+                      orgId={data.org.id}
+                      size="icon-sm"
+                      variant="ghost"
+                    >
+                      <RotateCwIcon aria-hidden />
+                    </BillingAction>
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Tile>
+      )}
+    </section>
   );
 }
 
 export function Billing({ data }: { data: BillingData }) {
   const sub = data.subscription;
+  const description = sub
+    ? `${sub.planName}, ${intervalLabel(sub.interval, "long")}ly billing in ${data.currency}`
+    : `Free plan, prices in ${data.currency}`;
   return (
-    <div className="grid animate-content gap-8">
-      <PageHeader
-        description={`Plan, card and invoices for ${data.org.name}. Prices are in ${data.currency}.`}
-        title="Billing"
-      />
-
-      {data.payment === "succeeded" ? (
-        <Notice
-          icon={CheckCircle2Icon}
-          title="Payment confirmed"
-          tone="positive"
-        >
-          Paystack confirmed the payment and your plan is updated.
-        </Notice>
-      ) : data.payment === "created" ? (
-        <Notice icon={ClockIcon} title="Waiting for Paystack" tone="info">
-          We haven't received confirmation yet. Refresh in a moment.
-        </Notice>
-      ) : null}
-
-      {sub?.status === "past_due" ? (
-        <Notice
-          action={
-            data.canManage ? (
-              <BillingAction
-                action="manage-card"
-                className="h-10 shrink-0 rounded-full px-5"
-                orgId={data.org.id}
-              >
-                <CreditCardIcon aria-hidden />
-                Update card
-              </BillingAction>
-            ) : null
-          }
-          icon={AlertTriangleIcon}
-          title="Your last payment failed"
-          tone="warning"
-        >
-          Update your card before {formatDate(sub.graceUntil)} to keep access.
-          Plan changes are paused until then.
-        </Notice>
-      ) : null}
-
+    <div className="grid animate-content gap-10 pb-24 sm:gap-12 sm:pb-0">
+      <PaymentToast payment={data.payment} status={sub?.status ?? null} />
+      <PageHeader description={description} title="Billing" />
+      <PastDueBanner data={data} />
       <CurrentPlan data={data} />
-
       <section aria-labelledby="plans-title" className="grid gap-5">
         <PlanPicker
           data={data}
           heading={
             <div className="grid gap-1">
-              <h2
-                className="font-display font-semibold text-2xl tracking-tight"
-                id="plans-title"
-              >
+              <h2 className="font-semibold text-xl" id="plans-title">
                 Plans
               </h2>
               <p className="text-muted-foreground text-sm">
@@ -295,71 +359,7 @@ export function Billing({ data }: { data: BillingData }) {
           </p>
         )}
       </section>
-
-      <section
-        aria-labelledby="invoices-title"
-        className="grid scroll-mt-8 gap-5"
-        id="invoices"
-      >
-        <h2
-          className="font-display font-semibold text-2xl tracking-tight"
-          id="invoices-title"
-        >
-          Invoices
-        </h2>
-        <Tile className="p-2 sm:p-3">
-          {data.invoices.length ? (
-            <ul className="grid divide-y">
-              {data.invoices.map((inv) => {
-                const meta = INVOICE_META[inv.status] ?? {
-                  label: inv.status,
-                  tone: "neutral" as const,
-                };
-                return (
-                  <li
-                    className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 px-3 py-3.5 sm:grid-cols-[auto_8rem_1fr_auto_6.5rem]"
-                    key={inv.id}
-                  >
-                    <span className="row-span-2 flex size-10 items-center justify-center rounded-[12px] bg-muted text-muted-foreground sm:row-span-1">
-                      <ReceiptIcon aria-hidden className="size-[18px]" />
-                    </span>
-                    <span className="order-2 col-start-2 text-muted-foreground text-sm tabular-nums sm:order-none sm:col-start-auto">
-                      {formatDate(inv.date)}
-                    </span>
-                    <span className="min-w-0 truncate font-medium text-sm">
-                      {inv.description}
-                    </span>
-                    <span className="text-right font-display font-semibold tabular-nums">
-                      {inv.amountLabel}
-                    </span>
-                    <span className="order-3 justify-self-end sm:order-none">
-                      <Chip tone={meta.tone}>{meta.label}</Chip>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <div className="grid justify-items-start gap-2 p-5">
-              <p className="font-medium">No invoices yet</p>
-              <p className="text-muted-foreground text-sm">
-                Receipts show up here after the first charge.
-              </p>
-            </div>
-          )}
-        </Tile>
-        {sub ? null : (
-          <Link
-            className={buttonVariants({
-              variant: "outline",
-              className: "w-fit rounded-full",
-            })}
-            href="#plans-title"
-          >
-            Compare plans
-          </Link>
-        )}
-      </section>
+      <Invoices data={data} />
     </div>
   );
 }

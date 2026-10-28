@@ -1,15 +1,5 @@
 "use client";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog";
 import { Button } from "@workspace/ui/components/button";
 import {
   Dialog,
@@ -33,6 +23,14 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 import { Input } from "@workspace/ui/components/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@workspace/ui/components/sheet";
 import { Label } from "@workspace/ui/components/label";
 import {
   Select,
@@ -59,8 +57,10 @@ import {
 import { toast } from "sonner";
 
 import type { MemberRow, Role } from "@/lib/view-models";
+import { Confirm } from "@/components/confirm";
 import { useRowPresenceActions } from "@/components/motion";
 import { authClient } from "@/lib/auth-client";
+import { useNarrow } from "@/lib/use-narrow";
 import { ROLE_META, roleLabel } from "@/lib/format";
 
 /* ------------------------------------------------------------------ invite */
@@ -193,23 +193,63 @@ export function InviteDialog({
   seatsNote?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const narrow = useNarrow();
   const { onSubmit, pending } = useInvite(organizationId, () => setOpen(false));
+  const body = (
+    <>
+      <InviteFields idPrefix="dialog-invite" roles={roles} />
+      {seatsNote ? (
+        <div className="text-muted-foreground text-sm">{seatsNote}</div>
+      ) : null}
+    </>
+  );
+  const submit = (
+    <Button disabled={pending} type="submit">
+      {pending ? <Loader2Icon aria-hidden className="animate-spin" /> : null}
+      Send invite
+    </Button>
+  );
+  const title = "Invite a teammate";
+  const description =
+    "They get an email with a link that works for 7 days, only for this address.";
+  if (narrow) {
+    return (
+      <Sheet onOpenChange={setOpen} open={open}>
+        <SheetTrigger render={trigger} />
+        <SheetContent showCloseButton={false} side="bottom">
+          <form className="grid gap-5 px-5 pt-6" onSubmit={onSubmit}>
+            <SheetHeader className="gap-2 p-0">
+              <SheetTitle className="font-semibold text-xl">{title}</SheetTitle>
+              <SheetDescription className="text-[15px]">
+                {description}
+              </SheetDescription>
+            </SheetHeader>
+            {body}
+            <div className="grid gap-2">
+              {submit}
+              <Button
+                onClick={() => setOpen(false)}
+                type="button"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
+    );
+  }
   return (
     <Dialog onOpenChange={setOpen} open={open}>
       <DialogTrigger render={trigger} />
       <DialogContent className="sm:max-w-md">
         <form className="grid gap-6" onSubmit={onSubmit}>
           <DialogHeader>
-            <DialogTitle>Invite a teammate</DialogTitle>
-            <DialogDescription>
-              They get an email with a link that works for 7 days, only for this
-              address.
-            </DialogDescription>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
-          <InviteFields idPrefix="dialog-invite" roles={roles} />
-          {seatsNote ? (
-            <div className="text-muted-foreground text-sm">{seatsNote}</div>
-          ) : null}
+          {body}
           <DialogFooter>
             <Button
               onClick={() => setOpen(false)}
@@ -218,12 +258,7 @@ export function InviteDialog({
             >
               Cancel
             </Button>
-            <Button disabled={pending} type="submit">
-              {pending ? (
-                <Loader2Icon aria-hidden className="animate-spin" />
-              ) : null}
-              Send invite
-            </Button>
+            {submit}
           </DialogFooter>
         </form>
       </DialogContent>
@@ -339,29 +374,15 @@ function RemoveDialog({
   onConfirm: () => void;
 }) {
   return (
-    <AlertDialog onOpenChange={onOpenChange} open={open}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Remove {member.name}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {member.email} loses access to {orgName} straight away. You can
-            invite them again later.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => {
-              onOpenChange(false);
-              onConfirm();
-            }}
-            variant="destructive"
-          >
-            Remove member
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <Confirm
+      confirmLabel="Remove member"
+      description={`${member.email} loses access to ${orgName} straight away. You can invite them again later.`}
+      destructive
+      onConfirm={onConfirm}
+      onOpenChange={onOpenChange}
+      open={open}
+      title={`Remove ${member.name}?`}
+    />
   );
 }
 
