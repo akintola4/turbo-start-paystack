@@ -9,6 +9,7 @@ import { createFakePaystack } from "@workspace/billing/fake";
 import { chargeSuccess, subscriptionCreate } from "@workspace/billing/fixtures";
 import { schema } from "@workspace/db";
 import { createTestDb } from "@workspace/db/testing";
+import { createMailer } from "@workspace/email";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -40,7 +41,10 @@ async function setup() {
     db,
     secret: "routes-test-secret-routes-test-secret",
     baseURL: "http://localhost:3000",
-    sendEmail: async () => undefined,
+    mailer: createMailer({
+      appUrl: "http://localhost:3000",
+      send: async () => undefined,
+    }),
   });
   for (const price of listPlanPrices()) {
     await db.insert(schema.planPrice).values({

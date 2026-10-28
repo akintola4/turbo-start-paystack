@@ -224,6 +224,17 @@ describe("invitations (PLAN §2.3 #3, #4, #5)", () => {
 
   it("emails the invite link without logging anything else", () => {
     const mail = ctx.outbox.find((m) => m.to === "bound@acme.test");
-    expect(mail?.text).toContain("/accept-invite/");
+    expect(mail?.text).toContain("http://localhost:3000/accept-invite/");
+    expect(mail?.html).toContain("http://localhost:3000/accept-invite/");
+    expect(mail?.text).toContain("Expires: In 7 days");
+    expect(mail?.subject).toMatch(/invited you to /);
+  });
+
+  it("sends the verification email as html and text", () => {
+    const mail = ctx.outbox.find(
+      (m) => m.to === "bound@acme.test" && m.subject.startsWith("Verify")
+    );
+    expect(mail?.text).toContain("http://localhost:3000/api/auth/verify-email");
+    expect(mail?.html).toContain("Verify email address");
   });
 });

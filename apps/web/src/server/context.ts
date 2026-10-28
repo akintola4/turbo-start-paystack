@@ -12,7 +12,11 @@ import {
   createPaystackClient,
 } from "@workspace/billing";
 import { createDb, type Database, schema } from "@workspace/db";
-import { createEmailSender, type EmailSender } from "@workspace/email";
+import {
+  createEmailSender,
+  createMailer,
+  type EmailSender,
+} from "@workspace/email";
 import { env } from "@workspace/env/server";
 import { Logger } from "@workspace/logger";
 import { eq } from "drizzle-orm";
@@ -33,6 +37,20 @@ function createServerContext(): ServerContext {
     resendApiKey: env.RESEND_API_KEY,
     allowLogInProduction: env.EMAIL_TRANSPORT === "log",
   });
+  const mailer = createMailer({
+    send: sendEmail,
+    appUrl: env.BETTER_AUTH_URL,
+    theme: {
+      productName: env.EMAIL_BRAND_NAME,
+      logoUrl: env.EMAIL_LOGO_URL,
+      supportUrl: env.EMAIL_SUPPORT_URL,
+    },
+    // The local Paystack mock serves its manage-card page from its own origin.
+    paystackOrigins:
+      env.PAYSTACK_API_URL === "https://api.paystack.co"
+        ? []
+        : [new URL(env.PAYSTACK_API_URL).origin],
+  });
   const billing = createBillingService({
     db,
     paystack: createPaystackClient({
@@ -49,7 +67,7 @@ function createServerContext(): ServerContext {
     db,
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
-    sendEmail,
+    mailer,
     // Plan limits are enforced on the server when inviting (PLAN §2.3 #16).
     memberLimit: async (organizationId) =>
       (await billing.getEntitlement(organizationId)).plan.limits.members,

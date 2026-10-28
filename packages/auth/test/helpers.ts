@@ -1,8 +1,9 @@
 import { type Database, schema } from "@workspace/db";
 import { createTestDb } from "@workspace/db/testing";
+import { createMailer, type EmailMessage } from "@workspace/email";
 import { eq } from "drizzle-orm";
 
-import { createAuth, type EmailMessage } from "../src/server";
+import { createAuth } from "../src/server";
 
 export async function setupAuth() {
   const limits = { members: 100 };
@@ -12,9 +13,12 @@ export async function setupAuth() {
     db,
     secret: "test-secret-test-secret-test-secret-123",
     baseURL: "http://localhost:3000",
-    sendEmail: async (m) => {
-      outbox.push(m);
-    },
+    mailer: createMailer({
+      appUrl: "http://localhost:3000",
+      send: async (m) => {
+        outbox.push(m);
+      },
+    }),
     memberLimit: async () => limits.members,
   });
   return { db, close, outbox, limits, ...service };

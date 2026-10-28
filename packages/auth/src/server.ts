@@ -1,4 +1,5 @@
 import { type Database, schema } from "@workspace/db";
+import type { AuthMailer } from "@workspace/email";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import {
@@ -19,18 +20,13 @@ import {
   roles,
 } from "./roles";
 
-export type EmailMessage = {
-  to: string;
-  subject: string;
-  text: string;
-  html?: string;
-};
-
 export type CreateAuthOptions = {
   db: Database;
   secret: string;
   baseURL: string;
-  sendEmail: (message: EmailMessage) => Promise<void>;
+  /** Renders and sends the verification, reset and invitation emails
+   *  (`createMailer` from @workspace/email). */
+  mailer: AuthMailer;
   /** Max members (including pending invitations) for an organization. Wire it
    *  to the org's plan limits. Defaults to 100. */
   memberLimit?: (organizationId: string) => Promise<number>;
@@ -39,7 +35,8 @@ export type CreateAuthOptions = {
   trustedOrigins?: string[];
 };
 
-const SEVEN_DAYS_SECONDS = 60 * 60 * 24 * 7;
+const SEVEN_DAYS = 7;
+const SEVEN_DAYS_SECONDS = 60 * 60 * 24 * SEVEN_DAYS;
 
 export const INVITATION_EXPIRES_IN_SECONDS = SEVEN_DAYS_SECONDS;
 
@@ -48,7 +45,7 @@ function newId() {
 }
 
 export function createAuth(options: CreateAuthOptions) {
-  const { db, sendEmail } = options;
+  const { db, mailer } = options;
   const memberLimit = options.memberLimit ?? (async () => 100);
 
   async function findMember(organizationId: string, userId: string) {
@@ -149,22 +146,14 @@ export function createAuth(options: CreateAuthOptions) {
       enabled: true,
       minPasswordLength: 10,
       sendResetPassword: async ({ user, url }) => {
-        await sendEmail({
-          to: user.email,
-          subject: "Reset your password",
-          text: `Reset your password: ${url}`,
-        });
+        await mailer.resetPassword({ to: user.email, name: user.name, url });
       },
     },
     emailVerification: {
       sendOnSignUp: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
-        await sendEmail({
-          to: user.email,
-          subject: "Verify your email",
-          text: `Verify your email address: ${url}`,
-        });
+        await mailer.verifyEmail({ to: user.email, name: user.name, url });
       },
     },
     rateLimit: { enabled: true, window: 60, max: 100 },
@@ -203,12 +192,23 @@ export function createAuth(options: CreateAuthOptions) {
         cancelPendingInvitationsOnReInvite: true,
         requireEmailVerificationOnInvitation: true,
         membershipLimit: async (_user, org) => memberLimit(org.id),
-        sendInvitationEmail: async ({ email, id, organization: org }) => {
-          const url = `${options.baseURL}/accept-invite/${id}`;
-          await sendEmail({
+        sendInvitationEmail: async ({
+          email,
+          id,
+          role,
+          organization: org,
+          inviter,
+        }) => {
+          // The link is built by the mailer from the app URL and the id;
+          // names are rendered as escaped text.
+          await mailer.organizationInvitation({
             to: email,
-            subject: `You're invited to ${org.name}`,
-            text: `You've been invited to join ${org.name}. Accept: ${url}\nThis link expires in 7 days and only works for ${email}.`,
+            invitationId: id,
+            inviterName: inviter.user.name || inviter.user.email,
+            inviterEmail: inviter.user.email,
+            organizationName: org.name,
+            role,
+            expiresInDays: SEVEN_DAYS,
           });
         },
         organizationHooks: {

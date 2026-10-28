@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@workspace/db": "workspace:*",
+    "@workspace/email": "workspace:*",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "zod": "catalog:"

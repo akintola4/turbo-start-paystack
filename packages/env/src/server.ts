@@ -43,6 +43,12 @@ export const env = createEnv({
     // "log" lets a local production build (next start) log emails instead of
     // sending them. Never set it on a real deployment.
     EMAIL_TRANSPORT: z.enum(["resend", "log"]).optional(),
+    // Branding for the email templates (packages/email/src/theme.ts).
+    EMAIL_BRAND_NAME: z.string().min(1).default("Turbo Start"),
+    // Absolute https URL of a logo (~56px tall). Without it, a wordmark.
+    EMAIL_LOGO_URL: z.url({ protocol: /^https$/ }).optional(),
+    // "Contact support" link in the footer (https: or mailto:).
+    EMAIL_SUPPORT_URL: z.url({ protocol: /^(https|mailto)$/ }).optional(),
   },
 
   experimental__runtimeEnv: {
