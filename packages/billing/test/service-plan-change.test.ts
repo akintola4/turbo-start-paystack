@@ -1,0 +1,425 @@
+import { schema } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+
+import { chargeSuccess, subscriptionStatusEvent } from "../src/fixtures";
+import { computeProration } from "../src/proration";
+import { type BillingHarness, planCode, setupBilling } from "./support";
+
+let h: BillingHarness;
+const START = new Date("2026-03-01T10:00:00Z");
+beforeAll(async () => {
+  h = await setupBilling();
+});
+afterAll(async () => h.close());
+afterEach(() => {
+  h.clock.now = START;
+  h.fake.setChargeOutcome("success");
+});
+
+/** Index of the first call to METHOD PATH after `from`. */
+function callIndex(method: string, path: string | RegExp, from = 0) {
+  return h.fake.calls.findIndex(
+    (c, i) =>
+      i >= from &&
+      c.method === method &&
+      (typeof path === "string" ? c.path === path : path.test(c.path))
+  );
+}
+
+const midPeriod = (sub: {
+  currentPeriodStart: Date | null;
+  currentPeriodEnd: Date | null;
+}) =>
+  new Date(
+    ((sub.currentPeriodStart?.getTime() ?? 0) +
+      (sub.currentPeriodEnd?.getTime() ?? 0)) /
+      2
+  );
+
+describe("upgrade (prorated, PLAN §2.3 #10)", () => {
+  it("charges the difference, creates the new subscription, then disables the old", async () => {
+    const { organizationId, actor, sub } = await h.subscribe(
+      "starter-monthly-ngn"
+    );
+    h.clock.now = midPeriod(sub);
+    const before = h.fake.calls.length;
+
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 2,
+    });
+
+    const expected = computeProration({
+      oldAmount: 1_000_000,
+      oldInterval: "monthly",
+      newAmount: 3_000_000,
+      newInterval: "monthly",
+      periodStart: sub.currentPeriodStart ?? START,
+      periodEnd: sub.currentPeriodEnd ?? START,
+      now: h.clock.now,
+    }).charge;
+    expect(result).toEqual({ kind: "upgraded", charged: expected });
+    expect(expected).toBe(1_000_000);
+
+    const charge = callIndex(
+      "POST",
+      "/transaction/charge_authorization",
+      before
+    );
+    const create = callIndex("POST", "/subscription", before);
+    const disable = callIndex("POST", "/subscription/disable", before);
+    expect(charge).toBeGreaterThanOrEqual(0);
+    expect(create).toBeGreaterThan(charge);
+    expect(disable).toBeGreaterThan(create);
+    expect(h.fake.calls[charge]?.body).toMatchObject({
+      amount: expected,
+      currency: "NGN",
+    });
+    expect(h.fake.calls[create]?.body).toMatchObject({
+      plan: planCode("pro-monthly-ngn"),
+      start_date: sub.currentPeriodEnd?.toISOString(),
+    });
+    expect(h.fake.calls[disable]?.body).toMatchObject({
+      code: sub.paystackSubscriptionCode,
+    });
+
+    const after = await h.billing.getSubscription(organizationId);
+    expect(after?.planPriceId).toBe("pro-monthly-ngn");
+    expect(after?.paystackSubscriptionCode).not.toBe(
+      sub.paystackSubscriptionCode
+    );
+    expect(after?.currentPeriodEnd).toEqual(sub.currentPeriodEnd);
+    expect((await h.billing.getEntitlement(organizationId)).plan.key).toBe(
+      "pro"
+    );
+    // Our own disable call succeeded (not left for reconcile).
+    const [replaced] = await h.db
+      .select()
+      .from(schema.replacedSubscription)
+      .where(
+        eq(
+          schema.replacedSubscription.paystackSubscriptionCode,
+          sub.paystackSubscriptionCode ?? ""
+        )
+      );
+    expect(replaced?.disabledAt).not.toBeNull();
+    expect(
+      h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "")?.status
+    ).toBe("non-renewing");
+  });
+
+  it("ignores later not_renew/disable webhooks for the replaced subscription", async () => {
+    const { organizationId, actor, sub, paid } = await h.subscribe(
+      "starter-monthly-ngn"
+    );
+    await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 1,
+    });
+    for (const event of [
+      "subscription.not_renew",
+      "subscription.disable",
+    ] as const) {
+      await h.deliver(
+        subscriptionStatusEvent({
+          event,
+          subscriptionCode: sub.paystackSubscriptionCode ?? "",
+          status:
+            event === "subscription.disable" ? "complete" : "non-renewing",
+          planCode: planCode("starter-monthly-ngn"),
+          customer: paid.customer,
+        })
+      );
+    }
+    const after = await h.billing.getSubscription(organizationId);
+    expect(after).toMatchObject({
+      status: "active",
+      planPriceId: "pro-monthly-ngn",
+    });
+    const [replaced] = await h.db
+      .select()
+      .from(schema.replacedSubscription)
+      .where(
+        eq(
+          schema.replacedSubscription.paystackSubscriptionCode,
+          sub.paystackSubscriptionCode ?? ""
+        )
+      );
+    expect(replaced?.disabledAt).not.toBeNull();
+  });
+
+  it("refunds and keeps the old plan if the new subscription can't be created", async () => {
+    const { organizationId, actor, sub } = await h.subscribe(
+      "starter-monthly-ngn"
+    );
+    h.clock.now = midPeriod(sub);
+    h.fake.failNext("POST", /^\/subscription$/, 400, "Plan not found");
+    const refundsBefore = h.fake.refunds.length;
+    await expect(
+      h.billing.changePlan({
+        organizationId,
+        actor,
+        planPriceId: "pro-monthly-ngn",
+        memberCount: 1,
+      })
+    ).rejects.toMatchObject({ code: "upgrade_failed" });
+
+    expect(h.fake.refunds.length).toBe(refundsBefore + 1);
+    const after = await h.billing.getSubscription(organizationId);
+    expect(after).toMatchObject({
+      planPriceId: "starter-monthly-ngn",
+      paystackSubscriptionCode: sub.paystackSubscriptionCode,
+      status: "active",
+    });
+    // The old subscription was never disabled.
+    expect(
+      h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "")?.status
+    ).toBe("active");
+    // The failure is on record even though the call threw.
+    const audits = await h.db
+      .select()
+      .from(schema.auditLog)
+      .where(
+        and(
+          eq(schema.auditLog.organizationId, organizationId),
+          eq(schema.auditLog.action, "billing.plan_change_failed")
+        )
+      );
+    expect(audits).toHaveLength(1);
+    const intents = await h.db
+      .select()
+      .from(schema.paymentIntent)
+      .where(
+        and(
+          eq(schema.paymentIntent.organizationId, organizationId),
+          eq(schema.paymentIntent.kind, "proration")
+        )
+      );
+    expect(intents[0]?.status).toBe("failed");
+  });
+
+  it("falls back to checkout when the saved card is declined, and completes from the webhook", async () => {
+    const { organizationId, actor, sub } = await h.subscribe(
+      "starter-monthly-ngn"
+    );
+    h.clock.now = midPeriod(sub);
+    h.fake.setChargeOutcome("failed");
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 1,
+    });
+    expect(result.kind).toBe("checkout_required");
+    if (result.kind !== "checkout_required") {
+      return;
+    }
+    expect(result.amountSubunit).toBe(1_000_000);
+    expect((await h.billing.getSubscription(organizationId))?.planPriceId).toBe(
+      "starter-monthly-ngn"
+    );
+
+    const paid = h.pay(result.reference);
+    await h.deliver(paid.charge);
+    const after = await h.billing.getSubscription(organizationId);
+    expect(after?.planPriceId).toBe("pro-monthly-ngn");
+    expect(after?.paystackSubscriptionCode).not.toBe(
+      sub.paystackSubscriptionCode
+    );
+  });
+
+  it("sends the customer to authorize when the bank pauses the charge (2FA)", async () => {
+    const { organizationId, actor, sub, paid } = await h.subscribe(
+      "starter-monthly-ngn"
+    );
+    h.clock.now = midPeriod(sub);
+    h.fake.setChargeOutcome("paused");
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 1,
+    });
+    expect(result.kind).toBe("checkout_required");
+    if (result.kind !== "checkout_required") {
+      return;
+    }
+    expect(result.authorizationUrl).toContain("checkout.paystack.test");
+    await h.deliver(
+      chargeSuccess({
+        reference: result.reference,
+        amount: result.amountSubunit,
+        currency: "NGN",
+        customer: paid.customer,
+        metadata: { organization_id: organizationId },
+      })
+    );
+    expect((await h.billing.getSubscription(organizationId))?.planPriceId).toBe(
+      "pro-monthly-ngn"
+    );
+  });
+
+  it("refuses currency changes and same-plan changes", async () => {
+    const { organizationId, actor } = await h.subscribe("starter-monthly-ngn");
+    await expect(
+      h.billing.changePlan({
+        organizationId,
+        actor,
+        planPriceId: "pro-monthly-usd",
+        memberCount: 1,
+      })
+    ).rejects.toMatchObject({ code: "currency_locked" });
+    await expect(
+      h.billing.changePlan({
+        organizationId,
+        actor,
+        planPriceId: "starter-monthly-ngn",
+        memberCount: 1,
+      })
+    ).rejects.toMatchObject({ code: "same_plan" });
+  });
+});
+
+describe("downgrade (end of period)", () => {
+  it("refuses when the org has more members than the smaller plan allows", async () => {
+    const { organizationId, actor } = await h.subscribe("pro-monthly-ngn");
+    await expect(
+      h.billing.changePlan({
+        organizationId,
+        actor,
+        planPriceId: "starter-monthly-ngn",
+        memberCount: 11,
+      })
+    ).rejects.toMatchObject({ code: "over_member_limit" });
+  });
+
+  it("creates the replacement first, keeps the current plan until period end, then swaps", async () => {
+    const { organizationId, actor, sub, paid } =
+      await h.subscribe("pro-monthly-ngn");
+    const before = h.fake.calls.length;
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "starter-monthly-ngn",
+      memberCount: 3,
+    });
+    expect(result).toEqual({
+      kind: "downgrade_scheduled",
+      effectiveAt: sub.currentPeriodEnd,
+    });
+    const create = callIndex("POST", "/subscription", before);
+    const disable = callIndex("POST", "/subscription/disable", before);
+    expect(create).toBeGreaterThanOrEqual(0);
+    expect(disable).toBeGreaterThan(create);
+    expect(h.fake.calls[create]?.body).toMatchObject({
+      plan: planCode("starter-monthly-ngn"),
+      start_date: sub.currentPeriodEnd?.toISOString(),
+    });
+
+    // Paystack sends not_renew for the old one immediately: not a cancellation.
+    await h.deliver(
+      subscriptionStatusEvent({
+        event: "subscription.not_renew",
+        subscriptionCode: sub.paystackSubscriptionCode ?? "",
+        status: "non-renewing",
+        planCode: planCode("pro-monthly-ngn"),
+        customer: paid.customer,
+      })
+    );
+    let current = await h.billing.getSubscription(organizationId);
+    expect(current).toMatchObject({
+      status: "active",
+      planPriceId: "pro-monthly-ngn",
+      scheduledPlanPriceId: "starter-monthly-ngn",
+    });
+    expect((await h.billing.getEntitlement(organizationId)).plan.key).toBe(
+      "pro"
+    );
+
+    // Period ends; the new subscription's first charge arrives.
+    h.clock.now = new Date((sub.currentPeriodEnd?.getTime() ?? 0) + 60_000);
+    const replacement = h.fake.subscriptions.get(
+      current?.scheduledSubscriptionCode ?? ""
+    );
+    if (replacement) {
+      replacement.next_payment_date = "2026-05-01T10:00:00.000Z";
+    }
+    await h.deliver(
+      chargeSuccess({
+        reference: `renew_${organizationId}`,
+        amount: 1_000_000,
+        currency: "NGN",
+        customer: paid.customer,
+        planCode: planCode("starter-monthly-ngn"),
+      })
+    );
+    current = await h.billing.getSubscription(organizationId);
+    expect(current).toMatchObject({
+      status: "active",
+      planPriceId: "starter-monthly-ngn",
+      paystackSubscriptionCode: replacement?.subscription_code,
+      scheduledPlanPriceId: null,
+    });
+    expect(current?.currentPeriodEnd?.toISOString()).toBe(
+      "2026-05-01T10:00:00.000Z"
+    );
+  });
+});
+
+describe("cancel and resume (PLAN §2.3 #11)", () => {
+  it("disables with the code and token from the database and keeps access", async () => {
+    const { organizationId, actor, sub } = await h.subscribe("pro-monthly-ngn");
+    const remote = h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "");
+    const before = h.fake.calls.length;
+    await h.billing.cancel({ organizationId, actor });
+    const disable =
+      h.fake.calls[callIndex("POST", "/subscription/disable", before)];
+    expect(disable?.body).toEqual({
+      code: remote?.subscription_code,
+      token: remote?.email_token,
+    });
+
+    const after = await h.billing.getSubscription(organizationId);
+    expect(after).toMatchObject({
+      status: "non_renewing",
+      cancelAtPeriodEnd: true,
+    });
+    expect((await h.billing.getEntitlement(organizationId)).active).toBe(true);
+
+    await expect(
+      h.billing.cancel({ organizationId, actor })
+    ).rejects.toMatchObject({
+      code: "invalid_state",
+    });
+
+    await h.billing.resume({ organizationId, actor });
+    expect(await h.billing.getSubscription(organizationId)).toMatchObject({
+      status: "active",
+      cancelAtPeriodEnd: false,
+    });
+    expect(remote?.status).toBe("active");
+  });
+
+  it("cannot resume after the period has ended", async () => {
+    const { organizationId, actor, sub } = await h.subscribe("pro-monthly-ngn");
+    await h.billing.cancel({ organizationId, actor });
+    h.clock.now = new Date((sub.currentPeriodEnd?.getTime() ?? 0) + 1000);
+    await expect(
+      h.billing.resume({ organizationId, actor })
+    ).rejects.toMatchObject({
+      code: "invalid_state",
+    });
+  });
+
+  it("returns Paystack's manage link for card updates", async () => {
+    const { organizationId } = await h.subscribe("pro-monthly-ngn");
+    expect(await h.billing.getManageCardLink(organizationId)).toContain(
+      "/manage/"
+    );
+  });
+});

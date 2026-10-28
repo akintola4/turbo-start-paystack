@@ -59,235 +59,263 @@ export async function changePlan(
   if (!(target && targetPlan)) {
     throw new BillingError("plan_not_found", "Unknown plan");
   }
-  return db.transaction(async (tx) => {
-    const sub = await liveSubscription(tx, input.organizationId, {
-      lock: true,
-    });
-    if (!sub) {
-      throw new BillingError("no_subscription", "Subscribe first.");
-    }
-    if (!["active", "trialing"].includes(sub.status)) {
-      throw new BillingError(
-        "invalid_state",
-        sub.status === "past_due"
-          ? "Update your card before changing plan."
-          : "Resume the subscription before changing plan."
-      );
-    }
-    if (sub.planPriceId === target.id) {
-      throw new BillingError("same_plan", "Already on this plan.");
-    }
-    const current = getPlanPrice(sub.planPriceId);
-    const currentPlan = current && getPlan(current.planKey);
-    if (!(current && currentPlan)) {
-      throw new BillingError("plan_not_found", "Current plan is unknown");
-    }
-    if (target.currency !== sub.currency) {
-      throw new BillingError(
-        "currency_locked",
-        `This organization is billed in ${sub.currency}.`
-      );
-    }
-    const row = await planPriceRow(tx, target.id);
-    if (!row?.paystackPlanCode) {
-      throw new BillingError("plan_not_synced", "Target plan is not synced");
-    }
-    const authorizationCode = unseal(deps, sub.authorizationCode);
-    if (!authorizationCode) {
-      throw new BillingError("no_card", "No reusable card on file.");
-    }
-
-    const isUpgrade =
-      targetPlan.rank > currentPlan.rank ||
-      (targetPlan.rank === currentPlan.rank &&
-        target.interval === "annually" &&
-        current.interval === "monthly");
-
-    if (!isUpgrade) {
-      if (input.memberCount > targetPlan.limits.members) {
+  // A failure after money moved (charge, then refund) is committed before it
+  // is surfaced, so the audit trail and intent status survive.
+  const outcome = await db.transaction(
+    async (tx): Promise<ChangePlanResult | { failed: BillingError }> => {
+      const sub = await liveSubscription(tx, input.organizationId, {
+        lock: true,
+      });
+      if (!sub) {
+        throw new BillingError("no_subscription", "Subscribe first.");
+      }
+      if (!["active", "trialing"].includes(sub.status)) {
         throw new BillingError(
-          "over_member_limit",
-          `${targetPlan.name} allows ${targetPlan.limits.members} members; remove ${input.memberCount - targetPlan.limits.members} first.`
+          "invalid_state",
+          sub.status === "past_due"
+            ? "Update your card before changing plan."
+            : "Resume the subscription before changing plan."
         );
       }
-      const customer = await billingCustomer(tx, input.organizationId);
-      if (!customer) {
-        throw new BillingError("no_subscription", "No billing customer");
+      if (sub.planPriceId === target.id) {
+        throw new BillingError("same_plan", "Already on this plan.");
       }
-      const effectiveAt = sub.currentPeriodEnd ?? deps.now();
-      const created = await deps.paystack
-        .createSubscription({
-          customer: customer.paystackCustomerCode,
-          plan: row.paystackPlanCode,
-          authorization: authorizationCode,
-          start_date: effectiveAt.toISOString(),
-        })
-        .catch(() => {
+      const current = getPlanPrice(sub.planPriceId);
+      const currentPlan = current && getPlan(current.planKey);
+      if (!(current && currentPlan)) {
+        throw new BillingError("plan_not_found", "Current plan is unknown");
+      }
+      if (target.currency !== sub.currency) {
+        throw new BillingError(
+          "currency_locked",
+          `This organization is billed in ${sub.currency}.`
+        );
+      }
+      const row = await planPriceRow(tx, target.id);
+      if (!row?.paystackPlanCode) {
+        throw new BillingError("plan_not_synced", "Target plan is not synced");
+      }
+      const authorizationCode = unseal(deps, sub.authorizationCode);
+      if (!authorizationCode) {
+        throw new BillingError("no_card", "No reusable card on file.");
+      }
+
+      const isUpgrade =
+        targetPlan.rank > currentPlan.rank ||
+        (targetPlan.rank === currentPlan.rank &&
+          target.interval === "annually" &&
+          current.interval === "monthly");
+
+      if (!isUpgrade) {
+        if (input.memberCount > targetPlan.limits.members) {
           throw new BillingError(
-            "downgrade_failed",
-            "Could not schedule the downgrade. Nothing was changed."
+            "over_member_limit",
+            `${targetPlan.name} allows ${targetPlan.limits.members} members; remove ${input.memberCount - targetPlan.limits.members} first.`
           );
-        });
-      if (sub.paystackSubscriptionCode) {
-        await retireSubscription(
-          deps,
-          tx,
-          sub.organizationId,
-          sub.paystackSubscriptionCode,
-          sub.paystackEmailToken
-        );
-      }
-      await tx
-        .update(schema.subscription)
-        .set({
-          scheduledPlanPriceId: target.id,
-          scheduledSubscriptionCode: created.subscription_code,
-          scheduledEmailToken: created.email_token
-            ? seal(deps, created.email_token)
-            : null,
-        })
-        .where(eq(schema.subscription.id, sub.id));
-      await audit(tx, {
-        organizationId: sub.organizationId,
-        actorUserId: input.actor.userId,
-        action: "billing.downgrade_scheduled",
-        data: { from: sub.planPriceId, to: target.id, effectiveAt },
-      });
-      return { kind: "downgrade_scheduled", effectiveAt };
-    }
-
-    // Upgrade. Nothing is owed for unpaid trial time.
-    const now = deps.now();
-    const proration =
-      sub.status === "trialing" ||
-      !(sub.currentPeriodStart && sub.currentPeriodEnd)
-        ? { charge: 0 }
-        : computeProration({
-            oldAmount: current.amountSubunit,
-            oldInterval: current.interval,
-            newAmount: target.amountSubunit,
-            newInterval: target.interval,
-            periodStart: sub.currentPeriodStart,
-            periodEnd: sub.currentPeriodEnd,
-            now,
+        }
+        const customer = await billingCustomer(tx, input.organizationId);
+        if (!customer) {
+          throw new BillingError("no_subscription", "No billing customer");
+        }
+        const effectiveAt = sub.currentPeriodEnd ?? deps.now();
+        const created = await deps.paystack
+          .createSubscription({
+            customer: customer.paystackCustomerCode,
+            plan: row.paystackPlanCode,
+            authorization: authorizationCode,
+            start_date: effectiveAt.toISOString(),
+          })
+          .catch(() => {
+            throw new BillingError(
+              "downgrade_failed",
+              "Could not schedule the downgrade. Nothing was changed."
+            );
           });
-    // Below Paystack's minimum card charge the difference is waived.
-    const charge =
-      proration.charge >= TOKENIZATION_AMOUNT[sub.currency as Currency]
-        ? proration.charge
-        : 0;
+        if (sub.paystackSubscriptionCode) {
+          await retireSubscription(
+            deps,
+            tx,
+            sub.organizationId,
+            sub.paystackSubscriptionCode,
+            sub.paystackEmailToken
+          );
+        }
+        await tx
+          .update(schema.subscription)
+          .set({
+            scheduledPlanPriceId: target.id,
+            scheduledSubscriptionCode: created.subscription_code,
+            scheduledEmailToken: created.email_token
+              ? seal(deps, created.email_token)
+              : null,
+          })
+          .where(eq(schema.subscription.id, sub.id));
+        await audit(tx, {
+          organizationId: sub.organizationId,
+          actorUserId: input.actor.userId,
+          action: "billing.downgrade_scheduled",
+          data: { from: sub.planPriceId, to: target.id, effectiveAt },
+        });
+        return { kind: "downgrade_scheduled", effectiveAt };
+      }
 
-    if (charge === 0) {
-      await switchPlanNow(deps, tx, sub, {
-        targetPlanPriceId: target.id,
-        authorizationCode,
-        actorUserId: input.actor.userId,
+      // Upgrade. Nothing is owed for unpaid trial time.
+      const now = deps.now();
+      const proration =
+        sub.status === "trialing" ||
+        !(sub.currentPeriodStart && sub.currentPeriodEnd)
+          ? { charge: 0 }
+          : computeProration({
+              oldAmount: current.amountSubunit,
+              oldInterval: current.interval,
+              newAmount: target.amountSubunit,
+              newInterval: target.interval,
+              periodStart: sub.currentPeriodStart,
+              periodEnd: sub.currentPeriodEnd,
+              now,
+            });
+      // Below Paystack's minimum card charge the difference is waived.
+      const charge =
+        proration.charge >= TOKENIZATION_AMOUNT[sub.currency as Currency]
+          ? proration.charge
+          : 0;
+
+      if (charge === 0) {
+        await switchPlanNow(deps, tx, sub, {
+          targetPlanPriceId: target.id,
+          authorizationCode,
+          actorUserId: input.actor.userId,
+        });
+        return { kind: "upgraded", charged: 0 };
+      }
+
+      const reference = newReference();
+      await tx.insert(schema.paymentIntent).values({
+        id: reference,
+        organizationId: sub.organizationId,
+        kind: "proration",
+        planPriceId: target.id,
+        amountSubunit: charge,
+        currency: sub.currency,
+        createdByUserId: input.actor.userId,
       });
-      return { kind: "upgraded", charged: 0 };
-    }
+      const customer = await billingCustomer(tx, sub.organizationId);
+      const email =
+        sub.authorizationEmail ?? customer?.email ?? input.actor.email;
+      const metadata = {
+        organization_id: sub.organizationId,
+        payment_intent_id: reference,
+        plan_price_id: target.id,
+        kind: "proration",
+      };
+      const result = await deps.paystack
+        .chargeAuthorization({
+          email,
+          amount: charge,
+          currency: sub.currency,
+          authorization_code: authorizationCode,
+          reference,
+          metadata,
+        })
+        .catch(() => null);
 
-    const reference = newReference();
-    await tx.insert(schema.paymentIntent).values({
-      id: reference,
-      organizationId: sub.organizationId,
-      kind: "proration",
-      planPriceId: target.id,
-      amountSubunit: charge,
-      currency: sub.currency,
-      createdByUserId: input.actor.userId,
-    });
-    const customer = await billingCustomer(tx, sub.organizationId);
-    const email =
-      sub.authorizationEmail ?? customer?.email ?? input.actor.email;
-    const metadata = {
-      organization_id: sub.organizationId,
-      payment_intent_id: reference,
-      plan_price_id: target.id,
-      kind: "proration",
-    };
-    const result = await deps.paystack
-      .chargeAuthorization({
+      if (result?.status === "success" && !result.paused) {
+        await tx
+          .update(schema.paymentIntent)
+          .set({ status: "succeeded" })
+          .where(eq(schema.paymentIntent.id, reference));
+        try {
+          await switchPlanNow(deps, tx, sub, {
+            targetPlanPriceId: target.id,
+            authorizationCode,
+            actorUserId: input.actor.userId,
+            refundReference: reference,
+          });
+        } catch (error) {
+          if (!(error instanceof BillingError)) {
+            throw error;
+          }
+          await tx
+            .update(schema.paymentIntent)
+            .set({ status: "failed" })
+            .where(eq(schema.paymentIntent.id, reference));
+          await upsertInvoice(tx, {
+            organizationId: sub.organizationId,
+            subscriptionId: sub.id,
+            reference,
+            amountSubunit: charge,
+            currency: sub.currency,
+            status: "void",
+            description: "Plan upgrade (refunded)",
+          });
+          return { failed: error };
+        }
+        await upsertInvoice(tx, {
+          organizationId: sub.organizationId,
+          subscriptionId: sub.id,
+          reference,
+          amountSubunit: charge,
+          currency: sub.currency,
+          status: "paid",
+          paidAt: now,
+          description: "Plan upgrade (prorated)",
+        });
+        return { kind: "upgraded", charged: charge };
+      }
+
+      if (result?.paused && result.authorization_url) {
+        // The bank wants the customer present (2FA). The webhook for this
+        // reference completes the upgrade.
+        return {
+          kind: "checkout_required",
+          reference,
+          accessCode: "",
+          authorizationUrl: result.authorization_url,
+          amountSubunit: charge,
+        };
+      }
+
+      // Card declined: fall back to a checkout for the same amount.
+      await tx
+        .update(schema.paymentIntent)
+        .set({ status: "failed" })
+        .where(eq(schema.paymentIntent.id, reference));
+      const fallback = newReference();
+      await tx.insert(schema.paymentIntent).values({
+        id: fallback,
+        organizationId: sub.organizationId,
+        kind: "upgrade",
+        planPriceId: target.id,
+        amountSubunit: charge,
+        currency: sub.currency,
+        createdByUserId: input.actor.userId,
+      });
+      const init = await deps.paystack.initializeTransaction({
         email,
         amount: charge,
         currency: sub.currency,
-        authorization_code: authorizationCode,
-        reference,
-        metadata,
-      })
-      .catch(() => null);
-
-    if (result?.status === "success" && !result.paused) {
+        reference: fallback,
+        callback_url: deps.callbackUrl,
+        channels: ["card"],
+        metadata: { ...metadata, payment_intent_id: fallback, kind: "upgrade" },
+      });
       await tx
         .update(schema.paymentIntent)
-        .set({ status: "succeeded" })
-        .where(eq(schema.paymentIntent.id, reference));
-      await upsertInvoice(tx, {
-        organizationId: sub.organizationId,
-        subscriptionId: sub.id,
-        reference,
-        amountSubunit: charge,
-        currency: sub.currency,
-        status: "paid",
-        paidAt: now,
-        description: "Plan upgrade (prorated)",
-      });
-      await switchPlanNow(deps, tx, sub, {
-        targetPlanPriceId: target.id,
-        authorizationCode,
-        actorUserId: input.actor.userId,
-        refundReference: reference,
-      });
-      return { kind: "upgraded", charged: charge };
-    }
-
-    if (result?.paused && result.authorization_url) {
-      // The bank wants the customer present (2FA). The webhook for this
-      // reference completes the upgrade.
+        .set({ accessCode: init.access_code })
+        .where(eq(schema.paymentIntent.id, fallback));
       return {
         kind: "checkout_required",
-        reference,
-        accessCode: "",
-        authorizationUrl: result.authorization_url,
+        reference: fallback,
+        accessCode: init.access_code,
+        authorizationUrl: init.authorization_url,
         amountSubunit: charge,
       };
     }
-
-    // Card declined: fall back to a checkout for the same amount.
-    await tx
-      .update(schema.paymentIntent)
-      .set({ status: "failed" })
-      .where(eq(schema.paymentIntent.id, reference));
-    const fallback = newReference();
-    await tx.insert(schema.paymentIntent).values({
-      id: fallback,
-      organizationId: sub.organizationId,
-      kind: "upgrade",
-      planPriceId: target.id,
-      amountSubunit: charge,
-      currency: sub.currency,
-      createdByUserId: input.actor.userId,
-    });
-    const init = await deps.paystack.initializeTransaction({
-      email,
-      amount: charge,
-      currency: sub.currency,
-      reference: fallback,
-      callback_url: deps.callbackUrl,
-      channels: ["card"],
-      metadata: { ...metadata, payment_intent_id: fallback, kind: "upgrade" },
-    });
-    await tx
-      .update(schema.paymentIntent)
-      .set({ accessCode: init.access_code })
-      .where(eq(schema.paymentIntent.id, fallback));
-    return {
-      kind: "checkout_required",
-      reference: fallback,
-      accessCode: init.access_code,
-      authorizationUrl: init.authorization_url,
-      amountSubunit: charge,
-    };
-  });
+  );
+  if ("failed" in outcome) {
+    throw outcome.failed;
+  }
+  return outcome;
 }
 
 /** Cancel at period end. Codes and tokens come from our DB, never the

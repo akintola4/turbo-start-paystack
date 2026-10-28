@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import { z } from "zod";
 
 import { PaystackError } from "../errors";
 import {
@@ -21,6 +21,9 @@ export type PaystackClientOptions = {
 };
 
 type Method = "GET" | "POST" | "PUT";
+
+/** Endpoints that answer `{ status, message }` with no `data`. */
+const noData = z.unknown();
 
 const defaultSleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -147,10 +150,10 @@ export function createPaystackClient(options: PaystackClientOptions) {
       ),
 
     disableSubscription: (input: { code: string; token: string }) =>
-      request("POST", "/subscription/disable", refundSchema, input),
+      request("POST", "/subscription/disable", noData, input),
 
     enableSubscription: (input: { code: string; token: string }) =>
-      request("POST", "/subscription/enable", refundSchema, input),
+      request("POST", "/subscription/enable", noData, input),
 
     getManageLink: (code: string) =>
       request(

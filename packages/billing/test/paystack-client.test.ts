@@ -98,3 +98,19 @@ describe("paystack client", () => {
     expect(n).toBe(1);
   });
 });
+
+describe("endpoints without data", () => {
+  it("accepts disable/enable responses that carry only a message", async () => {
+    server.use(
+      http.post(`${BASE}/subscription/disable`, () =>
+        HttpResponse.json({
+          status: true,
+          message: "Subscription disabled successfully",
+        })
+      )
+    );
+    await expect(
+      client.disableSubscription({ code: "SUB_1", token: "t" })
+    ).resolves.toBeUndefined();
+  });
+});
