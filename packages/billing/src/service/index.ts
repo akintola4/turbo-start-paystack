@@ -8,7 +8,11 @@ import { reconcile } from "../reconcile";
 import { processEvent, processPending } from "../webhook/process";
 import { applyChargeSuccess } from "./charge";
 import { type Actor, startCheckout } from "./checkout";
-import { type BillingDeps, liveSubscription } from "./context";
+import {
+  type BillingDeps,
+  liveSubscription,
+  transactionWithNotifications,
+} from "./context";
 import {
   cancelSubscription,
   changePlan,
@@ -50,7 +54,9 @@ export function createBillingService(options: CreateBillingServiceOptions) {
       if (intent.status === "created") {
         const tx = await deps.paystack.verifyTransaction(reference);
         if (tx.status === "success") {
-          await deps.db.transaction((t) => applyChargeSuccess(deps, t, tx));
+          await transactionWithNotifications(deps, (t, scoped) =>
+            applyChargeSuccess(scoped, t, tx)
+          );
         }
       }
       const [after] = await deps.db

@@ -1,7 +1,11 @@
 import { schema } from "@workspace/db";
 import { and, asc, eq, isNull, lt, sql } from "drizzle-orm";
 
-import type { BillingDeps, Outcome } from "../service/context";
+import {
+  type BillingDeps,
+  type Outcome,
+  transactionWithNotifications,
+} from "../service/context";
 import { dispatchEvent } from "./handlers";
 
 export const MAX_EVENT_ATTEMPTS = 10;
@@ -16,7 +20,7 @@ export async function processEvent(
   eventId: string
 ): Promise<Outcome & { skipped?: boolean }> {
   try {
-    return await deps.db.transaction(async (tx) => {
+    return await transactionWithNotifications(deps, async (tx, scoped) => {
       const [event] = await tx
         .select()
         .from(schema.webhookEvent)
@@ -27,7 +31,7 @@ export async function processEvent(
       }
       const payload = event.payload as { event: string; data: unknown };
       const outcome = await dispatchEvent(
-        deps,
+        scoped,
         tx,
         payload.event,
         payload.data

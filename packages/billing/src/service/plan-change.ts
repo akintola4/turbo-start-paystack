@@ -14,6 +14,7 @@ import {
   newReference,
   planPriceRow,
   seal,
+  transactionWithNotifications,
   unseal,
 } from "./context";
 import { upsertInvoice } from "./invoices";
@@ -53,7 +54,6 @@ export async function changePlan(
     memberCount: number;
   }
 ): Promise<ChangePlanResult> {
-  const { db } = deps;
   const target = getPlanPrice(input.planPriceId);
   const targetPlan = target && getPlan(target.planKey);
   if (!(target && targetPlan)) {
@@ -61,8 +61,12 @@ export async function changePlan(
   }
   // A failure after money moved (charge, then refund) is committed before it
   // is surfaced, so the audit trail and intent status survive.
-  const outcome = await db.transaction(
-    async (tx): Promise<ChangePlanResult | { failed: BillingError }> => {
+  const outcome = await transactionWithNotifications(
+    deps,
+    async (
+      tx,
+      scoped
+    ): Promise<ChangePlanResult | { failed: BillingError }> => {
       const sub = await liveSubscription(tx, input.organizationId, {
         lock: true,
       });
@@ -99,6 +103,21 @@ export async function changePlan(
       if (!authorizationCode) {
         throw new BillingError("no_card", "No reusable card on file.");
       }
+
+      const notifyChange = (input: {
+        key: string;
+        change: "upgrade" | "downgrade";
+        chargedSubunit: number;
+        effectiveAt: Date;
+      }) =>
+        scoped.notify?.({
+          type: "plan_changed",
+          organizationId: sub.organizationId,
+          fromPlanPriceId: sub.planPriceId,
+          toPlanPriceId: target.id,
+          currency: sub.currency,
+          ...input,
+        });
 
       const isUpgrade =
         targetPlan.rank > currentPlan.rank ||
@@ -156,6 +175,12 @@ export async function changePlan(
           action: "billing.downgrade_scheduled",
           data: { from: sub.planPriceId, to: target.id, effectiveAt },
         });
+        await notifyChange({
+          key: `plan_changed:${sub.id}:${created.subscription_code}`,
+          change: "downgrade",
+          chargedSubunit: 0,
+          effectiveAt,
+        });
         return { kind: "downgrade_scheduled", effectiveAt };
       }
 
@@ -185,6 +210,12 @@ export async function changePlan(
           targetPlanPriceId: target.id,
           authorizationCode,
           actorUserId: input.actor.userId,
+        });
+        await notifyChange({
+          key: `plan_changed:${sub.id}:${target.id}:${now.toISOString()}`,
+          change: "upgrade",
+          chargedSubunit: 0,
+          effectiveAt: now,
         });
         return { kind: "upgraded", charged: 0 };
       }
@@ -261,6 +292,12 @@ export async function changePlan(
           paidAt: now,
           description: "Plan upgrade (prorated)",
         });
+        await notifyChange({
+          key: `plan_changed:${reference}`,
+          change: "upgrade",
+          chargedSubunit: charge,
+          effectiveAt: now,
+        });
         return { kind: "upgraded", charged: charge };
       }
 
@@ -326,7 +363,7 @@ export async function cancelSubscription(
   deps: BillingDeps,
   input: { organizationId: string; actor: Actor }
 ) {
-  return deps.db.transaction(async (tx) => {
+  return transactionWithNotifications(deps, async (tx, scoped) => {
     const sub = await liveSubscription(tx, input.organizationId, {
       lock: true,
     });
@@ -376,7 +413,15 @@ export async function cancelSubscription(
       action: "billing.canceled",
       data: { effectiveAt: sub.currentPeriodEnd },
     });
-    return { endsAt: sub.trialEndsAt ?? sub.currentPeriodEnd };
+    const endsAt = sub.trialEndsAt ?? sub.currentPeriodEnd;
+    await scoped.notify?.({
+      type: "subscription_canceled",
+      organizationId: sub.organizationId,
+      key: `canceled:${sub.id}:${now.toISOString()}`,
+      planPriceId: sub.planPriceId,
+      accessUntil: endsAt,
+    });
+    return { endsAt };
   });
 }
 

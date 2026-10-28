@@ -1,12 +1,15 @@
 import { schema } from "@workspace/db";
-import { and, eq, isNull, lt, notInArray } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, lte, notInArray } from "drizzle-orm";
 
+import { getPlanPrice } from "./catalog";
 import { PaystackError } from "./errors";
 import { applyChargeSuccess } from "./service/charge";
 import {
+  addDays,
   audit,
   type BillingDeps,
   TERMINAL_STATUSES,
+  transactionWithNotifications,
   unseal,
 } from "./service/context";
 import { emailTokenFor } from "./service/switch-plan";
@@ -14,6 +17,8 @@ import { resyncSubscription } from "./service/sync-remote";
 import { processPending } from "./webhook/process";
 
 export const ABANDON_AFTER_MS = 60 * 60 * 1000;
+/** Trial-ending reminders go out this many days before `trial_ends_at`. */
+export const TRIAL_REMINDER_DAYS = 3;
 
 export type ReconcileReport = {
   eventsRetried: number;
@@ -22,6 +27,7 @@ export type ReconcileReport = {
   subscriptionsResynced: number;
   subscriptionsExpired: number;
   replacedDisabled: number;
+  trialRemindersSent: number;
   errors: string[];
 };
 
@@ -34,7 +40,8 @@ export type ReconcileReport = {
  * 3. resync subscriptions whose period ended without a renewal event,
  *    applying scheduled downgrades and ending non-renewing ones;
  * 4. end past_due subscriptions whose grace period ran out;
- * 5. retry disabling subscriptions we replaced during plan changes.
+ * 5. retry disabling subscriptions we replaced during plan changes;
+ * 6. remind billing managers TRIAL_REMINDER_DAYS before a trial ends.
  */
 export async function reconcile(deps: BillingDeps): Promise<ReconcileReport> {
   const report: ReconcileReport = {
@@ -44,6 +51,7 @@ export async function reconcile(deps: BillingDeps): Promise<ReconcileReport> {
     subscriptionsResynced: 0,
     subscriptionsExpired: 0,
     replacedDisabled: 0,
+    trialRemindersSent: 0,
     errors: [],
   };
   const now = deps.now();
@@ -78,7 +86,9 @@ export async function reconcile(deps: BillingDeps): Promise<ReconcileReport> {
         const tx = await deps.paystack.verifyTransaction(intent.id);
         status = tx.status;
         if (tx.status === "success") {
-          await deps.db.transaction((t) => applyChargeSuccess(deps, t, tx));
+          await transactionWithNotifications(deps, (t, scoped) =>
+            applyChargeSuccess(scoped, t, tx)
+          );
           report.intentsConfirmed += 1;
           return;
         }
@@ -210,5 +220,69 @@ export async function reconcile(deps: BillingDeps): Promise<ReconcileReport> {
     });
   }
 
+  report.trialRemindersSent = await sendTrialReminders(deps, now, step);
+
   return report;
+}
+
+/**
+ * Claims each reminder with a conditional update (`trial_reminder_sent_at`
+ * is null) and emails after the commit, so overlapping cron runs can't both
+ * send it. At most once: if the email fails after the claim it is not
+ * retried, which is the better failure for a reminder.
+ */
+async function sendTrialReminders(
+  deps: BillingDeps,
+  now: Date,
+  step: (label: string, run: () => Promise<void>) => Promise<void>
+): Promise<number> {
+  const s = schema.subscription;
+  const due = await deps.db
+    .select({ id: s.id })
+    .from(s)
+    .where(
+      and(
+        eq(s.status, "trialing"),
+        isNull(s.trialReminderSentAt),
+        gt(s.trialEndsAt, now),
+        lte(s.trialEndsAt, addDays(now, TRIAL_REMINDER_DAYS))
+      )
+    )
+    .limit(200);
+  let sent = 0;
+  for (const { id } of due) {
+    await step(`trial reminder ${id}`, async () => {
+      await transactionWithNotifications(deps, async (tx, scoped) => {
+        const [claimed] = await tx
+          .update(s)
+          .set({ trialReminderSentAt: now })
+          .where(
+            and(
+              eq(s.id, id),
+              eq(s.status, "trialing"),
+              isNull(s.trialReminderSentAt)
+            )
+          )
+          .returning();
+        // A downgrade scheduled during the trial is what gets charged.
+        const planPriceId =
+          claimed?.scheduledPlanPriceId ?? claimed?.planPriceId;
+        const price = planPriceId ? getPlanPrice(planPriceId) : undefined;
+        if (!(claimed?.trialEndsAt && price && planPriceId)) {
+          return;
+        }
+        await scoped.notify?.({
+          type: "trial_ending",
+          organizationId: claimed.organizationId,
+          key: `trial_ending:${claimed.id}`,
+          planPriceId,
+          trialEndsAt: claimed.trialEndsAt,
+          amountSubunit: price.amountSubunit,
+          currency: price.currency,
+        });
+        sent += 1;
+      });
+    });
+  }
+  return sent;
 }

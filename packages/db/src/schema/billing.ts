@@ -114,6 +114,8 @@ export const subscription = pgTable(
     currentPeriodStart: timestamp("current_period_start", tz),
     currentPeriodEnd: timestamp("current_period_end", tz),
     trialEndsAt: timestamp("trial_ends_at", tz),
+    // Set when reconcile claims the trial-ending reminder, so it is sent once.
+    trialReminderSentAt: timestamp("trial_reminder_sent_at", tz),
     graceUntil: timestamp("grace_until", tz),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
     canceledAt: timestamp("canceled_at", tz),

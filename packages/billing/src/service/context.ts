@@ -6,11 +6,54 @@ import { and, eq, notInArray, sql } from "drizzle-orm";
 import { decryptSecret, encryptSecret } from "../crypto";
 import type { PaystackClient } from "../paystack/client";
 
-export type BillingNotification =
-  | { type: "past_due"; organizationId: string; manageLink?: string }
-  | { type: "expiring_card"; organizationId: string; manageLink?: string }
-  | { type: "trial_started"; organizationId: string; trialEndsAt: Date }
-  | { type: "dispute"; organizationId: string; reference: string };
+/**
+ * Something billing managers should hear about. `key` identifies the event
+ * (a payment reference, a subscription plus a date) so the sender can make
+ * the email idempotent; it is never shown to anyone.
+ */
+export type BillingNotification = { organizationId: string; key: string } & (
+  | {
+      type: "past_due";
+      planPriceId: string;
+      graceUntil: Date;
+      manageLink?: string;
+    }
+  | { type: "expiring_card"; manageLink?: string }
+  | { type: "trial_started"; planPriceId: string; trialEndsAt: Date }
+  | {
+      type: "trial_ending";
+      planPriceId: string;
+      trialEndsAt: Date;
+      amountSubunit: number;
+      currency: string;
+    }
+  | {
+      type: "payment_succeeded";
+      planPriceId: string;
+      amountSubunit: number;
+      currency: string;
+      reference: string;
+      paidAt: Date;
+      periodStart: Date | null;
+      periodEnd: Date | null;
+    }
+  | {
+      type: "subscription_canceled";
+      planPriceId: string;
+      accessUntil: Date | null;
+    }
+  | {
+      type: "plan_changed";
+      change: "upgrade" | "downgrade";
+      fromPlanPriceId: string;
+      toPlanPriceId: string;
+      /** Prorated amount charged now; 0 for downgrades and free upgrades. */
+      chargedSubunit: number;
+      currency: string;
+      effectiveAt: Date;
+    }
+  | { type: "dispute"; reference: string }
+);
 
 export type BillingDeps = {
   db: Database;
@@ -28,6 +71,38 @@ export type BillingDeps = {
   logger: Pick<Logger, "info" | "warn" | "error">;
   notify?: (notification: BillingNotification) => Promise<void>;
 };
+
+/**
+ * Runs `run` in a transaction with a `deps` whose `notify` only queues.
+ * The queue is delivered after the commit, so a rolled-back webhook or plan
+ * change never emails, and a slow email never holds row locks. Delivery
+ * failures are logged, not thrown: the billing state is already committed.
+ */
+export async function transactionWithNotifications<T>(
+  deps: BillingDeps,
+  run: (tx: DbOrTx, scoped: BillingDeps) => Promise<T>
+): Promise<T> {
+  const queued: BillingNotification[] = [];
+  const scoped: BillingDeps = {
+    ...deps,
+    notify: async (notification) => {
+      queued.push(notification);
+    },
+  };
+  const result = await deps.db.transaction((tx) => run(tx, scoped));
+  for (const notification of queued) {
+    try {
+      await deps.notify?.(notification);
+    } catch (error) {
+      deps.logger.error("billing notification failed", {
+        type: notification.type,
+        organizationId: notification.organizationId,
+        error: String(error),
+      });
+    }
+  }
+  return result;
+}
 
 export type SubscriptionRow = typeof schema.subscription.$inferSelect;
 export type PaymentIntentRow = typeof schema.paymentIntent.$inferSelect;

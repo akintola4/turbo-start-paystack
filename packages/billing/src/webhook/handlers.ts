@@ -289,12 +289,10 @@ async function markPastDue(
   sub: SubscriptionRow
 ) {
   const now = deps.now();
+  const graceUntil = sub.graceUntil ?? addDays(now, deps.graceDays);
   await tx
     .update(schema.subscription)
-    .set({
-      status: "past_due",
-      graceUntil: sub.graceUntil ?? addDays(now, deps.graceDays),
-    })
+    .set({ status: "past_due", graceUntil })
     .where(eq(schema.subscription.id, sub.id));
   await audit(tx, {
     organizationId: sub.organizationId,
@@ -314,6 +312,9 @@ async function markPastDue(
   await deps.notify?.({
     type: "past_due",
     organizationId: sub.organizationId,
+    key: `past_due:${sub.id}:${graceUntil.toISOString()}`,
+    planPriceId: sub.planPriceId,
+    graceUntil,
     manageLink,
   });
 }
@@ -368,15 +369,35 @@ async function onSubscriptionStatus(
   }
 
   // Cancelled but paid up: keep access until the period end.
+  const canceledAt = sub.canceledAt ?? now;
   await tx
     .update(schema.subscription)
-    .set({
-      status: "non_renewing",
-      cancelAtPeriodEnd: true,
-      canceledAt: sub.canceledAt ?? now,
-    })
+    .set({ status: "non_renewing", cancelAtPeriodEnd: true, canceledAt })
     .where(eq(schema.subscription.id, sub.id));
+  // Cancelled outside the app (Paystack dashboard, the customer's manage
+  // link). Our own cancel already set non_renewing and sent the email.
+  if (sub.status !== "non_renewing") {
+    await notifyCanceled(deps, sub, canceledAt);
+  }
   return {};
+}
+
+function notifyCanceled(
+  deps: BillingDeps,
+  sub: SubscriptionRow,
+  canceledAt: Date
+) {
+  const accessUntil =
+    sub.status === "trialing"
+      ? (sub.trialEndsAt ?? sub.currentPeriodEnd)
+      : sub.currentPeriodEnd;
+  return deps.notify?.({
+    type: "subscription_canceled",
+    organizationId: sub.organizationId,
+    key: `canceled:${sub.id}:${canceledAt.toISOString()}`,
+    planPriceId: sub.planPriceId,
+    accessUntil,
+  });
 }
 
 async function onExpiringCards(
@@ -408,6 +429,7 @@ async function onExpiringCards(
     await deps.notify?.({
       type: "expiring_card",
       organizationId: sub.organizationId,
+      key: `expiring_card:${sub.id}:${sub.cardExp ?? ""}`,
     });
   }
   return {};
@@ -450,7 +472,12 @@ async function onAuditOnly(
     target: reference,
   });
   if (event === "charge.dispute.create" && organizationId && reference) {
-    await deps.notify?.({ type: "dispute", organizationId, reference });
+    await deps.notify?.({
+      type: "dispute",
+      organizationId,
+      key: `dispute:${reference}`,
+      reference,
+    });
   }
   return {};
 }

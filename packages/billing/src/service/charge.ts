@@ -164,6 +164,18 @@ async function activateFromCheckout(
     action: "billing.subscribed",
     data: { planPriceId: intent.planPriceId, reference: data.reference },
   });
+  await deps.notify?.({
+    type: "payment_succeeded",
+    organizationId: intent.organizationId,
+    key: `receipt:${data.reference}`,
+    planPriceId: intent.planPriceId,
+    amountSubunit: data.amount,
+    currency: data.currency,
+    reference: data.reference,
+    paidAt,
+    periodStart: paidAt,
+    periodEnd: addInterval(paidAt, price.interval),
+  });
   return {};
 }
 
@@ -262,6 +274,8 @@ async function startTrialFromCharge(
   await deps.notify?.({
     type: "trial_started",
     organizationId: intent.organizationId,
+    key: `trial_started:${subscriptionId}`,
+    planPriceId: intent.planPriceId,
     trialEndsAt,
   });
   return {};
@@ -312,6 +326,17 @@ async function finalizeUpgradeFromCharge(
     }
     throw error;
   }
+  await deps.notify?.({
+    type: "plan_changed",
+    organizationId: intent.organizationId,
+    key: `plan_changed:${data.reference}`,
+    change: "upgrade",
+    fromPlanPriceId: sub.planPriceId,
+    toPlanPriceId: intent.planPriceId,
+    chargedSubunit: data.amount,
+    currency: data.currency,
+    effectiveAt: paidAt,
+  });
   return {};
 }
 
@@ -396,6 +421,23 @@ async function applyRenewalCharge(
       status: "paid",
       paidAt,
       description: "Renewal",
+    });
+    // Resync may have moved the period or swapped in a scheduled plan.
+    const [renewed] = await tx
+      .select()
+      .from(schema.subscription)
+      .where(eq(schema.subscription.id, only.id));
+    await deps.notify?.({
+      type: "payment_succeeded",
+      organizationId: only.organizationId,
+      key: `receipt:${data.reference}`,
+      planPriceId: renewed?.planPriceId ?? only.planPriceId,
+      amountSubunit: data.amount,
+      currency: data.currency,
+      reference: data.reference,
+      paidAt,
+      periodStart: renewed?.currentPeriodStart ?? null,
+      periodEnd: renewed?.currentPeriodEnd ?? null,
     });
   }
   return {};
