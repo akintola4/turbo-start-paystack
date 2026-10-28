@@ -172,7 +172,9 @@ export function DetailTable({
               lineHeight: "20px",
               padding: "11px 16px",
               verticalAlign: "top",
-              width: "40%",
+              // Labels are short; let them size to content so values get the
+              // room (references, date ranges).
+              whiteSpace: "nowrap",
             }}
           >
             {row.label}
@@ -190,6 +192,7 @@ export function DetailTable({
               padding: "11px 16px",
               textAlign: "right",
               verticalAlign: "top",
+              width: "100%",
               wordBreak: "break-word",
             }}
           >

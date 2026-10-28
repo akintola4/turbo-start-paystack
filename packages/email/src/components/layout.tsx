@@ -43,7 +43,7 @@ function headCss(theme: EmailTheme): string {
     ":root{color-scheme:light dark;supported-color-schemes:light dark}",
     `@media (prefers-color-scheme:dark){${rules("")}}`,
     rules("[data-ogsc] "),
-    "@media only screen and (max-width:600px){",
+    "@media only screen and (max-width:480px){",
     ".em-pad{padding:28px 22px!important}",
     ".em-outer{padding:24px 12px!important}",
     ".em-cell{padding:10px 14px!important}",
