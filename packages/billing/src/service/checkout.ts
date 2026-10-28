@@ -110,6 +110,7 @@ export async function startCheckout(
     amountSubunit: amount,
     currency: price.currency,
     createdByUserId: input.actor.userId,
+    createdAt: deps.now(),
   });
 
   const init = await deps.paystack.initializeTransaction({

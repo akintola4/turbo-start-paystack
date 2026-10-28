@@ -1,0 +1,48 @@
+{
+  "event": "subscription.create",
+  "data": {
+    "domain": "test",
+    "status": "active",
+    "subscription_code": "SUB_replace_me",
+    "amount": 3000000,
+    "cron_expression": "0 0 28 * *",
+    "next_payment_date": "2026-02-01T10:00:00.000Z",
+    "open_invoice": null,
+    "createdAt": "2026-10-28T21:01:57.817Z",
+    "plan": {
+      "name": "plan",
+      "plan_code": "PLN_replace_me",
+      "description": null,
+      "amount": 3000000,
+      "interval": "monthly",
+      "send_invoices": true,
+      "send_sms": true,
+      "currency": "NGN"
+    },
+    "authorization": {
+      "authorization_code": "AUTH_test0001",
+      "bin": "408408",
+      "last4": "4081",
+      "exp_month": "12",
+      "exp_year": "2030",
+      "channel": "card",
+      "card_type": "visa ",
+      "bank": "TEST BANK",
+      "country_code": "NG",
+      "brand": "visa",
+      "reusable": true,
+      "signature": "SIG_test0001",
+      "account_name": null
+    },
+    "customer": {
+      "first_name": null,
+      "last_name": null,
+      "email": "billing@example.com",
+      "customer_code": "CUS_replace_me",
+      "phone": "",
+      "metadata": {},
+      "risk_action": "default"
+    },
+    "email_token": "token_replace_me"
+  }
+}

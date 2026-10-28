@@ -1,0 +1,49 @@
+{
+  "event": "invoice.payment_failed",
+  "data": {
+    "domain": "test",
+    "invoice_code": "INV_replace_me",
+    "amount": 3000000,
+    "period_start": "2026-02-01T10:00:00.000Z",
+    "period_end": "2026-03-01T10:00:00.000Z",
+    "status": "failed",
+    "paid": false,
+    "paid_at": null,
+    "description": null,
+    "authorization": {
+      "authorization_code": "AUTH_test0001",
+      "bin": "408408",
+      "last4": "4081",
+      "exp_month": "12",
+      "exp_year": "2030",
+      "channel": "card",
+      "card_type": "visa ",
+      "bank": "TEST BANK",
+      "country_code": "NG",
+      "brand": "visa",
+      "reusable": true,
+      "signature": "SIG_test0001",
+      "account_name": null
+    },
+    "subscription": {
+      "status": "active",
+      "subscription_code": "SUB_replace_me",
+      "email_token": "redacted-in-invoice-events",
+      "amount": 0,
+      "cron_expression": "0 0 28 * *",
+      "next_payment_date": null,
+      "open_invoice": null
+    },
+    "customer": {
+      "first_name": null,
+      "last_name": null,
+      "email": "billing@example.com",
+      "customer_code": "CUS_replace_me",
+      "phone": null,
+      "metadata": {},
+      "risk_action": "default"
+    },
+    "transaction": {},
+    "created_at": "2026-10-28T21:01:57.817Z"
+  }
+}

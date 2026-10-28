@@ -102,22 +102,20 @@ export async function resyncSubscription(
   const periodEnded = !sub.currentPeriodEnd || now >= sub.currentPeriodEnd;
   const patch: Partial<SubscriptionRow> = {};
 
+  // Paystack moved the billing date forward: a renewal charge happened.
+  const renewed =
+    next !== null && (!sub.currentPeriodEnd || next > sub.currentPeriodEnd);
+
   if (mapped === "active") {
-    const stillInTrial =
-      sub.status === "trialing" &&
-      !hint?.paidAt &&
-      sub.trialEndsAt !== null &&
-      now < sub.trialEndsAt;
-    if (!stillInTrial) {
+    // A trial only becomes active once its first charge is seen.
+    const converted =
+      sub.status !== "trialing" || Boolean(hint?.paidAt) || renewed;
+    if (converted) {
       patch.status = "active" satisfies LocalStatus;
       patch.graceUntil = null;
       patch.cancelAtPeriodEnd = false;
     }
-    if (
-      next &&
-      (!sub.currentPeriodEnd || next > sub.currentPeriodEnd) &&
-      !stillInTrial
-    ) {
+    if (renewed && converted) {
       patch.currentPeriodStart = hint?.paidAt ?? sub.currentPeriodEnd ?? now;
       patch.currentPeriodEnd = next;
     }

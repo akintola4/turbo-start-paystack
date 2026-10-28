@@ -198,6 +198,7 @@ export async function changePlan(
         amountSubunit: charge,
         currency: sub.currency,
         createdByUserId: input.actor.userId,
+        createdAt: deps.now(),
       });
       const customer = await billingCustomer(tx, sub.organizationId);
       const email =
@@ -289,6 +290,7 @@ export async function changePlan(
         amountSubunit: charge,
         currency: sub.currency,
         createdByUserId: input.actor.userId,
+        createdAt: deps.now(),
       });
       const init = await deps.paystack.initializeTransaction({
         email,

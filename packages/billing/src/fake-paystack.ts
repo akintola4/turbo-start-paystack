@@ -320,9 +320,29 @@ export function createFakePaystack(options?: {
     return fail(404, `fake paystack: no route for ${method} ${path}`);
   }
 
+  /** Plain-JSON copy of the state, so the dev mock survives restarts. */
+  function snapshot() {
+    return {
+      customers: [...customers.values()],
+      transactions: [...transactions.values()],
+      subscriptions: [...subscriptions.values()],
+      plans: [...plans.values()],
+    };
+  }
+
+  function restore(state: ReturnType<typeof snapshot>) {
+    for (const c of state.customers) customers.set(c.email, c);
+    for (const t of state.transactions) transactions.set(t.reference, t);
+    for (const s of state.subscriptions)
+      subscriptions.set(s.subscription_code, s);
+    for (const p of state.plans) plans.set(p.plan_code, p);
+  }
+
   return {
     handle,
     pay,
+    snapshot,
+    restore,
     calls,
     refunds,
     customers,

@@ -4,6 +4,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { getEntitlement } from "../entitlements";
 import { BillingError } from "../errors";
+import { reconcile } from "../reconcile";
 import { processEvent, processPending } from "../webhook/process";
 import { applyChargeSuccess } from "./charge";
 import { type Actor, startCheckout } from "./checkout";
@@ -98,6 +99,8 @@ export function createBillingService(options: CreateBillingServiceOptions) {
 
     getManageCardLink: (organizationId: string) =>
       getManageCardLink(deps, organizationId),
+
+    reconcile: () => reconcile(deps),
   };
 }
 

@@ -39,3 +39,5 @@ npm-debug.log*
 
 # Claude
 .claude/settings.local.json
+.paystack-mock.json
+scripts/.paystack-mock.json

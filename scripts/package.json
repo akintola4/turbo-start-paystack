@@ -1,0 +1,25 @@
+{
+  "name": "@workspace/scripts",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "check-types": "tsc --noEmit",
+    "billing:sync": "tsx --env-file-if-exists=../apps/web/.env billing-sync.ts",
+    "paystack:mock": "tsx --env-file-if-exists=../apps/web/.env paystack-mock.ts",
+    "webhook:replay": "tsx --env-file-if-exists=../apps/web/.env webhook-replay.ts"
+  },
+  "dependencies": {
+    "@workspace/billing": "workspace:*",
+    "@workspace/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@workspace/typescript-config": "workspace:*",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

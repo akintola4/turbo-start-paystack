@@ -1,0 +1,38 @@
+{
+  "event": "subscription.disable",
+  "data": {
+    "domain": "test",
+    "status": "complete",
+    "subscription_code": "SUB_replace_me",
+    "email_token": "redacted-in-status-events",
+    "amount": 0,
+    "cron_expression": "0 0 28 * *",
+    "next_payment_date": null,
+    "open_invoice": null,
+    "plan": {
+      "plan_code": "PLN_replace_me",
+      "name": "plan",
+      "interval": "monthly"
+    },
+    "authorization": {
+      "authorization_code": "AUTH_test0001",
+      "bin": "408408",
+      "last4": "4081",
+      "exp_month": "12",
+      "exp_year": "2030",
+      "channel": "card",
+      "card_type": "visa ",
+      "bank": "TEST BANK",
+      "country_code": "NG",
+      "brand": "visa",
+      "reusable": true,
+      "signature": "SIG_test0001",
+      "account_name": null
+    },
+    "customer": {
+      "email": "billing@example.com",
+      "customer_code": "CUS_replace_me"
+    },
+    "created_at": "2026-10-28T21:01:57.817Z"
+  }
+}
