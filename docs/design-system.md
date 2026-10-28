@@ -453,7 +453,8 @@ From `…/scratchpad/shots/out/c/*.png`. The live app at `:3200` returned HTTP 5
 | 16 | `sheet.tsx` uses `transition` (all) + `ease-in-out`; `dialog.tsx` uses keyframe `animate-in` at 100ms | §5 specs: transitions on `data-starting-style`, named properties, `--ease-drawer` | Interruptible, correct easing, no accidental tweens |
 | 17 | "Card verification (refunded)" + a "Refunded" badge | Description "Card verification", badge "Refunded" | Duplicate |
 | 18 | Landing currency grid repeats ₦ R $ ₵ with fixed sunflower positions, unconnected to the picker below | Link the grid to the picker: the selected currency's tiles go sunflower (§5) | Turns decoration into a signature interaction |
-| 19 | `c-rise` 420ms entrance on page content | Remove page-load entrances | Resting content shouldn't animate in, and 420ms is over budget |
+| 19 | `c-rise` 420ms entrance on page content (now `.animate-rise`, landing hero only) | Keep it on the landing hero only, and cut it to 300ms | Resting app content shouldn't animate in, and 420ms is over budget |
+| 20 | `lib/money.ts` prints `KSh ` with a plain space; the email formatter prints `KSh` with none | One rule for both (§4): U+202F after KSh, or no space everywhere | The same receipt shouldn't format differently in the app and the email |
 
 **The one choice a competitor couldn't copy-paste:** the forest money panel with its sunflower marker, identical in light and dark, plus tiles that light up for your currency.
 
@@ -461,7 +462,7 @@ From `…/scratchpad/shots/out/c/*.png`. The live app at `:3200` returned HTTP 5
 
 ## 8. Ready-to-paste Tailwind v4 CSS
 
-Replaces `apps/web/src/app/theme.css`. It keeps the shadcn token names that `packages/ui` already consumes, so existing components keep working. If the `html[data-direction="c"]` scope still exists, prefix `:root`/`.dark` accordingly.
+Since `ab4c3ac` the tokens live in **`packages/ui/src/styles/globals.css`** (`theme.css` is gone). Replace that file's `:root` and `.dark` blocks with the ones below and merge the `@theme inline` additions into its existing `@theme inline`. Token names match what is already there: shadcn names, `--highlight`, and `--motion-ease-*` (kept as aliases below), so existing components keep working.
 
 > **Naming trap:** in shadcn, `--accent` is the *hover surface* used by menu items and ghost buttons. If it were set to sunflower, every menu hover would turn yellow. So the spec's **accent (sunflower) is `--highlight`** in code, and shadcn's `--accent` is `surface-2`.
 
@@ -568,7 +569,11 @@ Replaces `apps/web/src/app/theme.css`. It keeps the shadcn token names that `pac
   /* shape */
   --radius: 12px; /* control; shadcn derives sm/md/lg/xl from this */
 
-  /* motion */
+  /* motion (the --motion-ease-* names are already used by .animate-rise and others) */
+  --motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --motion-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --dur-press: 120ms;
   --dur-fast: 150ms;
   --dur-base: 200ms;
@@ -707,10 +712,10 @@ Replaces `apps/web/src/app/theme.css`. It keeps the shadcn token names that `pac
 
   --shadow-float: var(--elevation-float);
 
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: var(--motion-ease-out);
+  --ease-in-out: var(--motion-ease-in-out);
+  --ease-drawer: var(--motion-ease-drawer);
+  --ease-exit: var(--motion-ease-exit);
 }
 
 @layer base {
