@@ -28,12 +28,12 @@ import {
   STATUS_META,
 } from "@/lib/format";
 import {
+  CardNumber,
   Chip,
   HighlightChip,
   Money,
   PageHeader,
   Tile,
-  glyphMoney,
 } from "@/components/primitives";
 
 function Notice({
@@ -50,10 +50,14 @@ function Notice({
   action?: ReactNode;
 }) {
   const styles = {
-    warning:
-      "border-[var(--c-warn-border)] bg-[var(--c-warn-surface)] [--ink:var(--c-warn-ink)]",
-    positive: "border-primary/30 bg-primary/[0.06] [--ink:var(--primary)]",
-    info: "border-border bg-card [--ink:var(--muted-foreground)]",
+    warning: "border-tone-warning-border bg-tone-warning",
+    positive: "border-primary/30 bg-tone-positive",
+    info: "border-border bg-card",
+  } as const;
+  const ink = {
+    warning: "text-tone-warning-foreground",
+    positive: "text-tone-positive-foreground",
+    info: "text-muted-foreground",
   } as const;
   return (
     <div
@@ -64,10 +68,7 @@ function Notice({
       role={tone === "warning" ? "alert" : "status"}
     >
       <div className="flex gap-3">
-        <Icon
-          aria-hidden
-          className="mt-0.5 size-5 shrink-0 text-[var(--ink)]"
-        />
+        <Icon aria-hidden className={cn("mt-0.5 size-5 shrink-0", ink[tone])} />
         <div className="grid gap-1">
           <p className="font-display font-semibold">{title}</p>
           {children ? (
@@ -83,7 +84,7 @@ function Notice({
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="grid gap-1">
-      <dt className="text-[var(--c-hero-muted)] text-sm">{label}</dt>
+      <dt className="text-hero-muted text-sm">{label}</dt>
       <dd className="font-medium tabular-nums">{children}</dd>
     </div>
   );
@@ -92,19 +93,19 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 function CurrentPlan({ data }: { data: BillingData }) {
   const sub = data.subscription;
   const heroButton =
-    "h-10 rounded-full bg-white px-5 text-[oklch(0.3_0.08_163)] hover:bg-white/90 dark:bg-white dark:text-[oklch(0.3_0.08_163)]";
+    "h-10 rounded-full bg-hero-action px-5 text-hero-action-foreground hover:bg-hero-action/90";
   const ghostButton =
-    "h-10 rounded-full border-white/30 bg-transparent px-5 text-[var(--c-hero-foreground)] hover:bg-white/10 hover:text-[var(--c-hero-foreground)] dark:border-white/30 dark:bg-transparent dark:hover:bg-white/10";
+    "h-10 rounded-full border-hero-foreground/30 bg-transparent px-5 text-hero-foreground hover:bg-hero-tile hover:text-hero-foreground dark:border-hero-foreground/30 dark:bg-transparent dark:hover:bg-hero-tile";
 
   if (!sub) {
     return (
-      <Tile className="grid gap-6 border-0 bg-[var(--c-hero)] text-[var(--c-hero-foreground)] sm:p-8">
+      <Tile className="grid gap-6 border-0 bg-hero text-hero-foreground sm:p-8">
         <div className="grid gap-2">
-          <p className="text-[var(--c-hero-muted)] text-sm">Current plan</p>
+          <p className="text-hero-muted text-sm">Current plan</p>
           <p className="font-display font-semibold text-[44px] leading-none tracking-tight">
             Free
           </p>
-          <p className="max-w-[48ch] text-[var(--c-hero-muted)]">
+          <p className="max-w-[48ch] text-hero-muted">
             Up to 3 members. Pick a paid plan below; it starts with a 14-day
             trial and a small refundable card check.
           </p>
@@ -126,14 +127,14 @@ function CurrentPlan({ data }: { data: BillingData }) {
   };
 
   return (
-    <Tile className="grid gap-8 border-0 bg-[var(--c-hero)] text-[var(--c-hero-foreground)] sm:p-8">
+    <Tile className="grid gap-8 border-0 bg-hero text-hero-foreground sm:p-8">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="grid gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="font-display font-semibold text-2xl tracking-tight">
               {sub.planName}
             </h2>
-            <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-white/15 px-2.5 font-medium text-xs">
+            <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-hero-tile px-2.5 font-medium text-xs">
               <span aria-hidden className="size-1.5 rounded-full bg-current" />
               {status.label}
             </span>
@@ -200,9 +201,7 @@ function CurrentPlan({ data }: { data: BillingData }) {
         </Fact>
         <Fact label="Card">
           {sub.card ? (
-            <span className="capitalize">
-              {sub.card.brand ?? "Card"} •••• {sub.card.last4}
-            </span>
+            <CardNumber brand={sub.card.brand} last4={sub.card.last4} />
           ) : (
             "None on file"
           )}
@@ -210,7 +209,7 @@ function CurrentPlan({ data }: { data: BillingData }) {
         <Fact label="Currency">{sub.currency}</Fact>
       </dl>
       {sub.scheduled ? (
-        <p className="rounded-[14px] bg-white/10 px-4 py-3 text-sm">
+        <p className="rounded-[14px] bg-hero-tile px-4 py-3 text-sm">
           Switches to {sub.scheduled.planName} ({sub.scheduled.interval}) on{" "}
           {formatDate(sub.currentPeriodEnd)}.
         </p>
@@ -233,14 +232,14 @@ function planConfirm(
       description:
         sub.status === "trialing"
           ? `${orgName} moves to ${plan.name} straight away. You're still in your trial, so nothing is charged today.`
-          : `${orgName} moves to ${plan.name} straight away. We charge the difference for the rest of this period to the card on file, then ${glyphMoney(plan.price.label)} per ${intervalLabel(plan.price.interval, "long")}.`,
+          : `${orgName} moves to ${plan.name} straight away. We charge the difference for the rest of this period to the card on file, then ${plan.price.label} per ${intervalLabel(plan.price.interval, "long")}.`,
       confirmLabel: `Upgrade to ${plan.name}`,
       cancelLabel: "Not now",
     };
   }
   return {
     title: `Switch to ${plan.name}?`,
-    description: `${orgName} keeps ${sub.planName} until ${formatDate(sub.currentPeriodEnd)}, then moves to ${plan.name} at ${glyphMoney(plan.price.label)} per ${intervalLabel(plan.price.interval, "long")}. Nothing is charged today.`,
+    description: `${orgName} keeps ${sub.planName} until ${formatDate(sub.currentPeriodEnd)}, then moves to ${plan.name} at ${plan.price.label} per ${intervalLabel(plan.price.interval, "long")}. Nothing is charged today.`,
     confirmLabel: `Switch to ${plan.name}`,
     cancelLabel: "Not now",
   };
@@ -267,9 +266,8 @@ function PlanTiles({ data }: { data: BillingData }) {
         return (
           <li
             className={cn(
-              "relative flex flex-col gap-5 rounded-[20px] border bg-card p-6 shadow-[var(--c-shadow)]",
-              plan.isCurrent &&
-                "border-[var(--c-highlight)] ring-2 ring-[var(--c-highlight)]"
+              "relative flex flex-col gap-5 rounded-[20px] border bg-card p-6 shadow-tile",
+              plan.isCurrent && "border-highlight ring-2 ring-highlight"
             )}
             key={plan.key}
           >
@@ -362,7 +360,7 @@ function IntervalSwitch({ data }: { data: BillingData }) {
         className={cn(
           "flex h-9 items-center gap-2 rounded-full px-4 font-medium text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50",
           active
-            ? "bg-background text-foreground shadow-[var(--c-shadow)]"
+            ? "bg-background text-foreground shadow-tile"
             : "text-muted-foreground hover:text-foreground"
         )}
         href={data.hrefs[key]}
@@ -498,7 +496,7 @@ export function Billing({ data }: { data: BillingData }) {
                       {inv.description}
                     </span>
                     <span className="text-right font-display font-semibold tabular-nums">
-                      {glyphMoney(inv.amountLabel)}
+                      {inv.amountLabel}
                     </span>
                     <span className="order-3 justify-self-end sm:order-none">
                       <Chip tone={meta.tone}>{meta.label}</Chip>

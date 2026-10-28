@@ -1,1 +1,17 @@
 @import "@workspace/ui/globals.css";
+
+/* One-shot entrance for the landing hero; nothing else animates on load. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.animate-rise {
+  animation: rise 420ms var(--motion-ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise {
+    animation: none;
+  }
+}

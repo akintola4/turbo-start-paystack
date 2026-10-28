@@ -7,19 +7,10 @@ import type { AcceptInviteData } from "@/lib/view-models";
 import { roleLabel } from "@/lib/format";
 import { Tile, Wordmark } from "@/components/primitives";
 
-/** Same seed as the org's slug, so the monogram color matches the rest of the app. */
-const orgSeed = (name: string) =>
-  name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-
 export function AcceptInvite({ data }: { data: AcceptInviteData }) {
   const { invite } = data;
   return (
-    <div className="flex min-h-dvh flex-col bg-[var(--c-canvas)] px-4 py-6 sm:px-10 sm:py-8">
+    <div className="flex min-h-dvh flex-col bg-canvas px-4 py-6 sm:px-10 sm:py-8">
       <Wordmark />
       <main className="flex flex-1 items-center justify-center py-12">
         <Tile className="grid w-full max-w-md gap-8 p-8">
@@ -29,7 +20,7 @@ export function AcceptInvite({ data }: { data: AcceptInviteData }) {
                 <Monogram
                   className="size-16 rounded-[18px] font-display text-xl"
                   name={invite.orgName}
-                  seed={orgSeed(invite.orgName)}
+                  seed={invite.orgSlug}
                   tone="solid"
                 />
                 <div className="grid gap-2">

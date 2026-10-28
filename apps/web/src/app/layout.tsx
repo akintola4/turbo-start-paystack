@@ -1,7 +1,6 @@
 import "@fontsource-variable/bricolage-grotesque";
 import "@fontsource-variable/figtree";
 import "./globals.css";
-import "./theme.css";
 
 import { GeistMono } from "geist/font/mono";
 import type { Metadata, Viewport } from "next";
@@ -12,7 +11,7 @@ import { Providers } from "@/components/providers";
 export const metadata: Metadata = {
   title: {
     default: "Turbo Start Paystack",
-    template: "%s · Turbo Start Paystack",
+    template: "%s | Turbo Start Paystack",
   },
   description:
     "Multi-tenant SaaS starter with organizations, roles and Paystack subscriptions.",

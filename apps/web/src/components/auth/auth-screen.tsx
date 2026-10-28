@@ -19,7 +19,7 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
               </p>
             </div>
             <AuthForm
-              className="c-auth"
+              className="[&_[data-slot=input]]:h-11 [&_[data-slot=input]]:px-3.5 [&_[data-slot=input]]:text-[15px]"
               footer={<AuthSwitch className="text-center" mode={mode} />}
               mode={mode}
               submitClassName="h-11 rounded-full text-[15px]"
@@ -27,7 +27,7 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
           </div>
         </main>
       </div>
-      <aside className="relative hidden overflow-hidden bg-[var(--c-hero)] p-10 text-[var(--c-hero-foreground)] lg:m-3 lg:flex lg:flex-col lg:justify-between lg:rounded-[28px]">
+      <aside className="relative hidden overflow-hidden bg-hero p-10 text-hero-foreground lg:m-3 lg:flex lg:flex-col lg:justify-between lg:rounded-[28px]">
         <GlyphMosaic />
         <p className="max-w-[28ch] text-balance font-display font-medium text-[28px] leading-tight tracking-tight">
           One subscription engine for every currency Paystack settles.

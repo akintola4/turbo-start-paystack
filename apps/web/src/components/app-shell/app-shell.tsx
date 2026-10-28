@@ -28,7 +28,7 @@ export function AppShell({
   const status = data.plan.status ? STATUS_META[data.plan.status].label : null;
   return (
     <SidebarProvider
-      className="bg-[var(--c-canvas)]"
+      className="bg-canvas"
       style={{ "--sidebar-width": "18rem" } as CSSProperties}
     >
       <Sidebar className="p-3" collapsible="offcanvas" variant="floating">
@@ -39,7 +39,7 @@ export function AppShell({
             orgs={data.orgs}
           >
             <button
-              className="flex w-full items-center gap-3 rounded-[14px] border bg-background p-2.5 text-left shadow-[var(--c-shadow)] outline-none transition-[border-color] hover:border-primary/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[popup-open]:border-primary/40"
+              className="flex w-full items-center gap-3 rounded-[14px] border bg-background p-2.5 text-left shadow-tile outline-none transition-[border-color] hover:border-primary/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 data-[popup-open]:border-primary/40"
               type="button"
             >
               <Monogram
@@ -99,8 +99,8 @@ export function AppShell({
           </UserMenu>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset className="bg-[var(--c-canvas)]">
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-[var(--c-canvas)]/90 px-4 backdrop-blur md:hidden">
+      <SidebarInset className="bg-canvas">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-canvas/90 px-4 backdrop-blur md:hidden">
           <SidebarTrigger
             aria-label="Open navigation"
             className="-ml-1 size-9"

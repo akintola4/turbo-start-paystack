@@ -160,6 +160,8 @@ export type AcceptInviteData = {
   signedInAs: string | null;
   invite: {
     orgName: string;
+    /** Seeds the org monogram so its colour matches the rest of the app. */
+    orgSlug: string;
     role: string;
     inviter: string | null;
     email: string;

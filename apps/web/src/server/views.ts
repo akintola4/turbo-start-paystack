@@ -4,7 +4,6 @@ import { ROLE_RANK, type Role, rankOf } from "@workspace/auth/permissions";
 import {
   type Currency,
   catalog,
-  formatMoney,
   getPlan,
   getPlanPrice,
   planPriceId,
@@ -28,6 +27,7 @@ import type {
   SubscriptionStatus,
   SubscriptionSummary,
 } from "@/lib/view-models";
+import { formatMoney } from "@/lib/money";
 import { getServerContext } from "./context";
 import {
   listMyOrganizations,
@@ -417,6 +417,7 @@ export async function loadAcceptInvite(id: string): Promise<AcceptInviteData> {
   const [row] = await db
     .select({
       orgName: schema.organization.name,
+      orgSlug: schema.organization.slug,
       role: schema.invitation.role,
       email: schema.invitation.email,
       inviter: schema.user.name,
@@ -442,6 +443,7 @@ export async function loadAcceptInvite(id: string): Promise<AcceptInviteData> {
     invite: row
       ? {
           orgName: row.orgName,
+          orgSlug: row.orgSlug,
           role: row.role ?? "member",
           inviter: row.inviter,
           email: session ? row.email : "",

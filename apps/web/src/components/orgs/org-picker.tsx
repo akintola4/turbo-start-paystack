@@ -12,7 +12,7 @@ import { Chip, PageHeader, Tile, Wordmark } from "@/components/primitives";
 export function OrgPicker({ data }: { data: OrgPickerData }) {
   const first = data.user.name.split(" ")[0] ?? data.user.name;
   return (
-    <div className="min-h-dvh bg-[var(--c-canvas)]">
+    <div className="min-h-dvh bg-canvas">
       <header className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4 sm:h-20 sm:px-6">
         <Wordmark href="/app" />
         <UserMenu align="end" contentClassName="w-60" user={data.user}>
@@ -47,7 +47,7 @@ export function OrgPicker({ data }: { data: OrgPickerData }) {
               return (
                 <li key={org.id}>
                   <Link
-                    className="group grid h-full gap-6 rounded-[20px] border bg-card p-6 shadow-[var(--c-shadow)] outline-none transition-[border-color,box-shadow] hover:border-primary/40 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    className="group grid h-full gap-6 rounded-[20px] border bg-card p-6 shadow-tile outline-none transition-[border-color,box-shadow] hover:border-primary/40 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     href={`/app/${org.slug}`}
                   >
                     <div className="flex items-start justify-between gap-3">

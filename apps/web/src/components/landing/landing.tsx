@@ -1,7 +1,9 @@
-import { CURRENCIES, catalog, formatMoney } from "@workspace/billing";
+import { CURRENCIES, catalog } from "@workspace/billing";
 import { Button, buttonVariants } from "@workspace/ui/components/button";
 import { BadgeCheckIcon, Building2Icon, RefreshCwIcon } from "lucide-react";
 import Link from "next/link";
+
+import { formatMoney } from "@/lib/money";
 
 import {
   type CurrencyTable,
@@ -76,7 +78,7 @@ export function Landing() {
 
       <main className="mx-auto grid max-w-6xl gap-16 px-4 pt-10 pb-24 sm:gap-20 sm:px-6 sm:pt-16">
         <section className="grid gap-10 md:grid-cols-[minmax(0,1fr)_22rem] md:items-center lg:grid-cols-[minmax(0,1fr)_26rem] lg:gap-16">
-          <div className="c-rise grid content-center gap-8">
+          <div className="animate-rise grid content-center gap-8">
             <h1 className="text-balance font-display font-semibold text-[44px] leading-[1.02] tracking-[-0.02em] sm:text-[64px]">
               Bill teams across Africa in their own money.
             </h1>
@@ -104,14 +106,14 @@ export function Landing() {
               </a>
             </div>
           </div>
-          <div className="hidden rounded-[28px] bg-[var(--c-hero)] p-5 md:block">
+          <div className="hidden rounded-[28px] bg-hero p-5 md:block">
             <GlyphMosaic />
           </div>
         </section>
 
         <section
           aria-label="Example plans"
-          className="c-rise rounded-[28px] bg-[var(--c-canvas)] p-4 [animation-delay:80ms] sm:p-6"
+          className="animate-rise rounded-[28px] bg-canvas p-4 [animation-delay:80ms] sm:p-6"
         >
           <CurrencyPicker table={currencyTable()} />
         </section>

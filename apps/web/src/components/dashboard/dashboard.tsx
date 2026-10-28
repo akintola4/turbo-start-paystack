@@ -16,13 +16,7 @@ import {
   roleLabel,
   STATUS_META,
 } from "@/lib/format";
-import {
-  Chip,
-  Money,
-  PageHeader,
-  Tile,
-  glyphMoney,
-} from "@/components/primitives";
+import { Chip, Money, PageHeader, Tile } from "@/components/primitives";
 
 const RANK: Record<string, number> = {
   owner: 4,
@@ -37,17 +31,15 @@ function PlanTile({ data }: { data: DashboardData }) {
   const sub = data.subscription;
   if (!sub) {
     return (
-      <Tile className="grid content-between gap-8 border-0 bg-[var(--c-hero)] text-[var(--c-hero-foreground)] md:col-span-2">
+      <Tile className="grid content-between gap-8 border-0 bg-hero text-hero-foreground md:col-span-2">
         <div className="grid gap-1">
-          <p className="font-medium text-[var(--c-hero-muted)] text-sm">
-            Current plan
-          </p>
+          <p className="font-medium text-hero-muted text-sm">Current plan</p>
           <p className="font-display font-semibold text-[32px] leading-none tracking-tight">
             {data.entitlement.planName}
           </p>
         </div>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <p className="max-w-[40ch] text-[var(--c-hero-muted)] text-sm">
+          <p className="max-w-[40ch] text-hero-muted text-sm">
             {data.can.viewBilling
               ? "Upgrade for more members and support. Paid plans start with a 14-day trial."
               : "Ask an owner or billing manager about upgrading."}
@@ -56,7 +48,7 @@ function PlanTile({ data }: { data: DashboardData }) {
             <Link
               className={buttonVariants({
                 className:
-                  "rounded-full bg-white px-5 text-[oklch(0.3_0.08_163)] hover:bg-white/90",
+                  "rounded-full bg-hero-action px-5 text-hero-action-foreground hover:bg-hero-action/90",
               })}
               href={data.hrefs.billing}
             >
@@ -80,15 +72,15 @@ function PlanTile({ data }: { data: DashboardData }) {
         ? "Renewal failed"
         : "Next charge";
   return (
-    <Tile className="grid content-between gap-8 border-0 bg-[var(--c-hero)] text-[var(--c-hero-foreground)] md:col-span-2">
+    <Tile className="grid content-between gap-8 border-0 bg-hero text-hero-foreground md:col-span-2">
       <div className="flex items-start justify-between gap-4">
         <div className="grid gap-1">
-          <p className="font-medium text-[var(--c-hero-muted)] text-sm">
+          <p className="font-medium text-hero-muted text-sm">
             {sub.planName} plan
           </p>
           <p className="font-medium text-sm">{label}</p>
         </div>
-        <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-white/15 px-2.5 font-medium text-xs">
+        <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-hero-tile px-2.5 font-medium text-xs">
           <span aria-hidden className="size-1.5 rounded-full bg-current" />
           {status.label}
         </span>
@@ -96,7 +88,7 @@ function PlanTile({ data }: { data: DashboardData }) {
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="grid gap-2">
           <Money label={sub.priceLabel} size="xl" />
-          <p className="text-[var(--c-hero-muted)] text-sm tabular-nums">
+          <p className="text-hero-muted text-sm tabular-nums">
             {formatDate(when)}
             {days !== null && days >= 0
               ? ` (in ${days} ${days === 1 ? "day" : "days"})`
@@ -108,7 +100,7 @@ function PlanTile({ data }: { data: DashboardData }) {
           <Link
             className={buttonVariants({
               className:
-                "rounded-full bg-white px-5 text-[oklch(0.3_0.08_163)] hover:bg-white/90",
+                "rounded-full bg-hero-action px-5 text-hero-action-foreground hover:bg-hero-action/90",
             })}
             href={data.hrefs.billing}
           >
@@ -154,19 +146,19 @@ export function Dashboard({ data }: { data: DashboardData }) {
 
       {sub?.status === "past_due" ? (
         <div
-          className="flex flex-col gap-4 rounded-[20px] border border-[var(--c-warn-border)] bg-[var(--c-warn-surface)] p-5 sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col gap-4 rounded-[20px] border border-tone-warning-border bg-tone-warning p-5 sm:flex-row sm:items-center sm:justify-between"
           role="alert"
         >
           <div className="flex gap-3">
             <AlertTriangleIcon
               aria-hidden
-              className="mt-0.5 size-5 shrink-0 text-[var(--c-warn-ink)]"
+              className="mt-0.5 size-5 shrink-0 text-tone-warning-foreground"
             />
             <div className="grid gap-1">
               <p className="font-display font-semibold">
                 The last renewal didn't go through
               </p>
-              <p className="text-[var(--c-warn-ink)] text-sm">
+              <p className="text-tone-warning-foreground text-sm">
                 Update the card before {formatDate(sub.graceUntil)} to keep paid
                 features on.
               </p>
@@ -295,7 +287,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
                         {inv.description}
                       </span>
                       <span className="text-right font-display font-semibold tabular-nums">
-                        {glyphMoney(inv.amountLabel)}
+                        {inv.amountLabel}
                       </span>
                       <span className="hidden justify-self-end sm:inline-flex">
                         <Chip tone={meta.tone}>{meta.label}</Chip>

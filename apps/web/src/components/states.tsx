@@ -24,7 +24,7 @@ export function PageLoading() {
 
 export function ConfirmingPayment() {
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-[var(--c-canvas)] px-4">
+    <main className="flex min-h-dvh items-center justify-center bg-canvas px-4">
       <div
         className="grid max-w-sm justify-items-center gap-5 text-center"
         role="status"

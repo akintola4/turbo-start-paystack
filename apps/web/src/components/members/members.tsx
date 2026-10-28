@@ -25,7 +25,7 @@ import { MemberCards } from "@/components/members/member-cards";
 import { Chip, PageHeader, Tile } from "@/components/primitives";
 
 const TAB =
-  "h-8 flex-1 gap-2 rounded-full px-4 font-medium data-[active]:shadow-[var(--c-shadow)] sm:flex-none";
+  "h-8 flex-1 gap-2 rounded-full px-4 font-medium data-[active]:shadow-tile sm:flex-none";
 
 export function Members({ data }: { data: MembersData }) {
   const pct = Math.min(

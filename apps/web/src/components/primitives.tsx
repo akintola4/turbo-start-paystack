@@ -1,4 +1,5 @@
 import { cn } from "@workspace/tailwind-config/utils";
+import { CreditCardIcon } from "lucide-react";
 import Link from "next/link";
 import type { HTMLAttributes, ReactNode } from "react";
 
@@ -67,13 +68,10 @@ export function Wordmark({
 }
 
 const TONE: Record<Tone, string> = {
-  positive:
-    "bg-[oklch(0.94_0.05_162)] text-[oklch(0.38_0.1_162)] dark:bg-[oklch(0.32_0.06_162)] dark:text-[oklch(0.9_0.08_162)]",
-  info: "bg-[oklch(0.94_0.04_235)] text-[oklch(0.42_0.11_240)] dark:bg-[oklch(0.32_0.06_240)] dark:text-[oklch(0.88_0.07_235)]",
-  warning:
-    "bg-[oklch(0.95_0.07_85)] text-[oklch(0.42_0.1_65)] dark:bg-[oklch(0.34_0.07_75)] dark:text-[oklch(0.9_0.1_85)]",
-  negative:
-    "bg-[oklch(0.95_0.03_25)] text-[oklch(0.48_0.17_27)] dark:bg-[oklch(0.33_0.07_25)] dark:text-[oklch(0.88_0.07_25)]",
+  positive: "bg-tone-positive text-tone-positive-foreground",
+  info: "bg-tone-info text-tone-info-foreground",
+  warning: "bg-tone-warning text-tone-warning-foreground",
+  negative: "bg-tone-negative text-tone-negative-foreground",
   neutral: "bg-muted text-muted-foreground",
 };
 
@@ -114,7 +112,7 @@ export function HighlightChip({
   return (
     <span
       className={cn(
-        "inline-flex h-6 items-center rounded-full bg-[var(--c-highlight)] px-2.5 font-semibold text-[var(--c-highlight-foreground)] text-xs",
+        "inline-flex h-6 items-center rounded-full bg-highlight px-2.5 font-semibold text-highlight-foreground text-xs",
         className
       )}
     >
@@ -137,7 +135,7 @@ export function Tile({
   return (
     <As
       className={cn(
-        "rounded-[20px] border bg-card p-6 text-card-foreground shadow-[var(--c-shadow)]",
+        "rounded-[20px] border bg-card p-6 text-card-foreground shadow-tile",
         className
       )}
       {...props}
@@ -145,25 +143,6 @@ export function Tile({
       {children}
     </As>
   );
-}
-
-const SYMBOL: Record<string, string> = {
-  NGN: "₦",
-  GHS: "GH₵",
-  ZAR: "R",
-  KES: "KSh",
-  USD: "$",
-};
-
-/** "NGN 30,000.00" becomes "₦30,000.00": local symbols read faster than ISO codes. */
-export function glyphMoney(label: string) {
-  return label.replace(/^([A-Z]{3})\s?/, (match, code: string) => {
-    const symbol = SYMBOL[code];
-    if (!symbol) {
-      return match;
-    }
-    return symbol.length > 1 ? `${symbol} ` : symbol;
-  });
 }
 
 /** Large money figure: symbol and decimals step down, digits stay tabular. */
@@ -178,7 +157,7 @@ export function Money({
   size?: "md" | "lg" | "xl";
   per?: string;
 }) {
-  const { symbol, whole, decimals } = splitMoney(glyphMoney(label));
+  const { symbol, whole, decimals } = splitMoney(label);
   const sizes = {
     md: "text-2xl",
     lg: "text-[32px]",
@@ -257,8 +236,8 @@ export function GlyphMosaic() {
           <div
             className={
               strong
-                ? "flex aspect-square items-center justify-center rounded-[20px] bg-[var(--c-highlight)] font-display font-semibold text-[var(--c-highlight-foreground)] text-[clamp(28px,3.4vw,44px)]"
-                : "flex aspect-square items-center justify-center rounded-[20px] bg-white/10 font-display font-semibold text-[clamp(28px,3.4vw,44px)] text-white/90"
+                ? "flex aspect-square items-center justify-center rounded-[20px] bg-highlight font-display font-semibold text-highlight-foreground text-[clamp(28px,3.4vw,44px)]"
+                : "flex aspect-square items-center justify-center rounded-[20px] bg-hero-tile font-display font-semibold text-[clamp(28px,3.4vw,44px)] text-hero-foreground"
             }
             key={`${g}-${i}`}
           >
@@ -267,5 +246,35 @@ export function GlyphMosaic() {
         );
       })}
     </div>
+  );
+}
+
+/**
+ * "Visa ending 4081" with the masked digits drawn as dots, not typed as
+ * bullet characters, so they sit on the text's x-height in every font.
+ */
+export function CardNumber({
+  brand,
+  last4,
+  className,
+}: {
+  brand: string | null;
+  last4: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn("inline-flex items-center gap-2 tabular-nums", className)}
+    >
+      <CreditCardIcon aria-hidden className="size-4 shrink-0 opacity-70" />
+      <span className="capitalize">{brand ?? "Card"}</span>
+      <span aria-hidden className="inline-flex items-center gap-[3px]">
+        {[0, 1, 2, 3].map((i) => (
+          <span className="size-1 rounded-full bg-current opacity-70" key={i} />
+        ))}
+      </span>
+      <span className="sr-only">ending in</span>
+      {last4}
+    </span>
   );
 }

@@ -47,7 +47,7 @@ export function CurrencyPicker({ table }: { table: CurrencyTable }) {
           {table.map((t) => (
             <ToggleGroupItem
               aria-label={`${t.name} (${t.code})`}
-              className="h-9 flex-1 rounded-full px-4 font-semibold text-muted-foreground text-sm first:rounded-full last:rounded-full data-[pressed]:bg-background data-[pressed]:text-foreground data-[pressed]:shadow-[var(--c-shadow)] sm:flex-none"
+              className="h-9 flex-1 rounded-full px-4 font-semibold text-muted-foreground text-sm first:rounded-full last:rounded-full data-[pressed]:bg-background data-[pressed]:text-foreground data-[pressed]:shadow-tile sm:flex-none"
               key={t.code}
               value={t.code}
             >
@@ -63,7 +63,7 @@ export function CurrencyPicker({ table }: { table: CurrencyTable }) {
         {current.plans.map((plan) => (
           <li
             className={cn(
-              "relative grid content-start gap-5 rounded-[20px] border bg-card p-6 shadow-[var(--c-shadow)]",
+              "relative grid content-start gap-5 rounded-[20px] border bg-card p-6 shadow-tile",
               plan.key === "pro" && "border-primary/40 ring-1 ring-primary/30"
             )}
             key={plan.key}
