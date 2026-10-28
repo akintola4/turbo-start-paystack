@@ -1,5 +1,5 @@
 {
-  "id": "7ee06e98-be6a-4853-b04d-6b9a238c01fc",
+  "id": "073aaf90-aac6-4102-b568-5e8a62b8dd71",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -746,7 +746,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "billing_customer_code_idx": {
+          "name": "billing_customer_code_idx",
+          "columns": [
+            {
+              "expression": "paystack_customer_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "billing_customer_organization_id_organization_id_fk": {
           "name": "billing_customer_organization_id_organization_id_fk",
@@ -763,15 +779,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "billing_customer_paystack_customer_code_unique": {
-          "name": "billing_customer_paystack_customer_code_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "paystack_customer_code"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1174,12 +1182,24 @@
           "primaryKey": false,
           "notNull": true
         },
+        "email_token": {
+          "name": "email_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "replaced_at": {
           "name": "replaced_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "disabled_at": {
+          "name": "disabled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

@@ -95,8 +95,7 @@ CREATE TABLE "billing_customer" (
 	"paystack_customer_code" text NOT NULL,
 	"email" text NOT NULL,
 	"currency" char(3) NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "billing_customer_paystack_customer_code_unique" UNIQUE("paystack_customer_code")
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "invoice" (
@@ -149,7 +148,9 @@ CREATE TABLE "plan_price" (
 CREATE TABLE "replaced_subscription" (
 	"paystack_subscription_code" text PRIMARY KEY NOT NULL,
 	"organization_id" text NOT NULL,
-	"replaced_at" timestamp with time zone DEFAULT now() NOT NULL
+	"email_token" text,
+	"replaced_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"disabled_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "subscription" (
@@ -217,6 +218,7 @@ CREATE UNIQUE INDEX "member_org_user_unique" ON "member" USING btree ("organizat
 CREATE INDEX "session_user_id_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" USING btree ("identifier");--> statement-breakpoint
 CREATE INDEX "audit_log_org_idx" ON "audit_log" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "billing_customer_code_idx" ON "billing_customer" USING btree ("paystack_customer_code");--> statement-breakpoint
 CREATE INDEX "invoice_org_idx" ON "invoice" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "payment_intent_org_idx" ON "payment_intent" USING btree ("organization_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "subscription_one_live_per_org" ON "subscription" USING btree ("organization_id") WHERE "subscription"."status" not in ('canceled', 'expired');--> statement-breakpoint

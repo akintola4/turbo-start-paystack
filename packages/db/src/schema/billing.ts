@@ -75,16 +75,22 @@ export const planPrice = pgTable("plan_price", {
   updatedAt,
 });
 
-export const billingCustomer = pgTable("billing_customer", {
-  organizationId: text("organization_id")
-    .primaryKey()
-    .references(() => organization.id, { onDelete: "cascade" }),
-  paystackCustomerCode: text("paystack_customer_code").notNull().unique(),
-  email: text("email").notNull(),
-  // Locked at first checkout. Changing currency means a new subscription.
-  currency: char("currency", { length: 3 }).notNull(),
-  createdAt,
-});
+export const billingCustomer = pgTable(
+  "billing_customer",
+  {
+    organizationId: text("organization_id")
+      .primaryKey()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    // Not unique: Paystack has one customer per email, so two organizations
+    // billed to the same address share a customer code.
+    paystackCustomerCode: text("paystack_customer_code").notNull(),
+    email: text("email").notNull(),
+    // Locked at first checkout. Changing currency means a new subscription.
+    currency: char("currency", { length: 3 }).notNull(),
+    createdAt,
+  },
+  (t) => [index("billing_customer_code_idx").on(t.paystackCustomerCode)]
+);
 
 export const subscription = pgTable(
   "subscription",
@@ -135,7 +141,10 @@ export const subscription = pgTable(
 export const replacedSubscription = pgTable("replaced_subscription", {
   paystackSubscriptionCode: text("paystack_subscription_code").primaryKey(),
   organizationId: orgId(),
+  // Encrypted email token so a failed disable can be retried by reconcile.
+  emailToken: text("email_token"),
   replacedAt: timestamp("replaced_at", tz).notNull().defaultNow(),
+  disabledAt: timestamp("disabled_at", tz),
 });
 
 export const invoice = pgTable(
