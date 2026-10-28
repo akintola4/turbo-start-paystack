@@ -1,0 +1,49 @@
+{
+  "name": "turbo-start-paystack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source multi-tenant SaaS starter with Paystack billing: a pnpm/Turborepo monorepo with Next.js 16, Better Auth organizations, Drizzle and webhook-driven Paystack subscriptions.",
+  "keywords": [
+    "paystack",
+    "saas",
+    "starter",
+    "nextjs",
+    "turborepo",
+    "monorepo",
+    "better-auth",
+    "drizzle",
+    "subscriptions",
+    "multi-tenant"
+  ],
+  "license": "MIT",
+  "author": "akintola4",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akintola4/turbo-start-paystack.git"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=web",
+    "lint": "turbo run lint",
+    "format": "turbo run format",
+    "format:check": "turbo run format:check",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @workspace/db db:generate",
+    "db:migrate": "pnpm --filter @workspace/db db:migrate",
+    "billing:sync": "pnpm --filter @workspace/scripts billing:sync",
+    "paystack:mock": "pnpm --filter @workspace/scripts paystack:mock",
+    "webhook:replay": "pnpm --filter @workspace/scripts webhook:replay"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@workspace/typescript-config": "workspace:*",
+    "turbo": "^2.11.9",
+    "typescript": "catalog:"
+  },
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=24"
+  }
+}
