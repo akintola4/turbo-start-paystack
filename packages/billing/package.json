@@ -28,6 +28,7 @@
     "./catalog": "./src/catalog.ts",
     "./money": "./src/money.ts",
     "./entitlements": "./src/entitlements.ts",
-    "./testing": "./test/support.ts"
+    "./fake": "./src/fake-paystack.ts",
+    "./fixtures": "./src/fixtures.ts"
   }
 }

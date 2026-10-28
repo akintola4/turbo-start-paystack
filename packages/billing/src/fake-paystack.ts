@@ -46,7 +46,11 @@ type Failure = {
 
 const id = (prefix: string) => `${prefix}_${randomBytes(6).toString("hex")}`;
 
-export function createFakePaystack(options?: { checkoutBaseUrl?: string }) {
+export function createFakePaystack(options?: {
+  checkoutBaseUrl?: string;
+  now?: () => Date;
+}) {
+  const now = options?.now ?? (() => new Date());
   const checkoutBaseUrl =
     options?.checkoutBaseUrl ?? "https://checkout.paystack.test";
   const customers = new Map<string, { customer_code: string; email: string }>();
@@ -118,11 +122,11 @@ export function createFakePaystack(options?: { checkoutBaseUrl?: string }) {
       throw new Error(`fake paystack: unknown reference ${reference}`);
     }
     tx.status = "success";
-    tx.paid_at = new Date().toISOString();
+    tx.paid_at = now().toISOString();
     tx.authorization = authorization;
     let subscription: Sub | undefined;
     if (tx.plan) {
-      const next = new Date();
+      const next = new Date(now());
       next.setUTCMonth(next.getUTCMonth() + 1);
       subscription = {
         subscription_code: id("SUB"),
@@ -223,7 +227,7 @@ export function createFakePaystack(options?: { checkoutBaseUrl?: string }) {
         email,
         metadata: (body.metadata as Record<string, unknown>) ?? {},
         status: chargeOutcome === "paused" ? "pending" : status,
-        paid_at: chargeOutcome === "success" ? new Date().toISOString() : null,
+        paid_at: chargeOutcome === "success" ? now().toISOString() : null,
         authorization: testAuthorization({
           authorization_code: String(body.authorization_code),
         }),
@@ -262,7 +266,7 @@ export function createFakePaystack(options?: { checkoutBaseUrl?: string }) {
         plan,
         customer: String(body.customer),
         authorization: String(body.authorization ?? ""),
-        next_payment_date: String(body.start_date ?? new Date().toISOString()),
+        next_payment_date: String(body.start_date ?? now().toISOString()),
       };
       subscriptions.set(sub.subscription_code, sub);
       return ok(subView(sub));

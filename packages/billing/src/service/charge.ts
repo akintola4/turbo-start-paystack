@@ -1,0 +1,397 @@
+import { type DbOrTx, schema } from "@workspace/db";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
+
+import { addInterval, getPlan, getPlanPrice } from "../catalog";
+import { BillingError } from "../errors";
+import { type PaystackTransaction, planCodeOf } from "../paystack/types";
+import {
+  addDays,
+  audit,
+  type BillingDeps,
+  billingCustomer,
+  cardFields,
+  liveSubscription,
+  newId,
+  type Outcome,
+  type PaymentIntentRow,
+  planPriceRow,
+  seal,
+  TERMINAL_STATUSES,
+  unseal,
+} from "./context";
+import { upsertInvoice } from "./invoices";
+import { switchPlanNow } from "./switch-plan";
+import { resyncSubscription } from "./sync-remote";
+
+/**
+ * Applies a successful charge, whether it arrived as a `charge.success`
+ * webhook or from `GET /transaction/verify` on the callback page. Both paths
+ * call this inside a transaction; the payment intent row lock plus its
+ * status makes the second arrival a no-op.
+ */
+export async function applyChargeSuccess(
+  deps: BillingDeps,
+  tx: DbOrTx,
+  data: PaystackTransaction
+): Promise<Outcome> {
+  if (data.status !== "success") {
+    return { error: `charge status ${data.status}` };
+  }
+  const [intent] = await tx
+    .select()
+    .from(schema.paymentIntent)
+    .where(eq(schema.paymentIntent.id, data.reference))
+    .for("update");
+  if (intent) {
+    return applyIntentCharge(deps, tx, intent, data);
+  }
+  return applyRenewalCharge(deps, tx, data);
+}
+
+async function applyIntentCharge(
+  deps: BillingDeps,
+  tx: DbOrTx,
+  intent: PaymentIntentRow,
+  data: PaystackTransaction
+): Promise<Outcome> {
+  if (intent.status === "succeeded") {
+    return {};
+  }
+  // Amount, currency and tenant must match what the server asked for. The
+  // metadata is ours (set server-side), but it is still checked, not trusted.
+  const metadataOrg = data.metadata?.organization_id;
+  if (
+    data.amount !== intent.amountSubunit ||
+    data.currency !== intent.currency ||
+    (metadataOrg !== undefined && metadataOrg !== intent.organizationId)
+  ) {
+    await tx
+      .update(schema.paymentIntent)
+      .set({ status: "failed" })
+      .where(eq(schema.paymentIntent.id, intent.id));
+    await audit(tx, {
+      organizationId: intent.organizationId,
+      action: "billing.charge_mismatch",
+      target: intent.id,
+      data: {
+        expected: { amount: intent.amountSubunit, currency: intent.currency },
+        received: { amount: data.amount, currency: data.currency, metadataOrg },
+      },
+    });
+    deps.logger.error("charge does not match its payment intent", {
+      reference: intent.id,
+    });
+    return { error: "charge_mismatch" };
+  }
+
+  await tx
+    .update(schema.paymentIntent)
+    .set({ status: "succeeded" })
+    .where(eq(schema.paymentIntent.id, intent.id));
+
+  switch (intent.kind) {
+    case "subscribe":
+      return activateFromCheckout(deps, tx, intent, data);
+    case "trial":
+      return startTrialFromCharge(deps, tx, intent, data);
+    default:
+      return finalizeUpgradeFromCharge(deps, tx, intent, data);
+  }
+}
+
+async function activateFromCheckout(
+  deps: BillingDeps,
+  tx: DbOrTx,
+  intent: PaymentIntentRow,
+  data: PaystackTransaction
+): Promise<Outcome> {
+  const price = getPlanPrice(intent.planPriceId);
+  if (!price) {
+    return { error: "unknown plan price" };
+  }
+  const paidAt = data.paid_at ? new Date(data.paid_at) : deps.now();
+  const card = cardFields(deps, data.authorization, data.customer?.email);
+  const existing = await liveSubscription(tx, intent.organizationId, {
+    lock: true,
+  });
+  let subscriptionId: string;
+  if (existing) {
+    // `subscription.create` got here first and created the row.
+    subscriptionId = existing.id;
+    await tx
+      .update(schema.subscription)
+      .set({
+        ...card,
+        status: existing.status === "incomplete" ? "active" : existing.status,
+        currentPeriodStart: existing.currentPeriodStart ?? paidAt,
+        currentPeriodEnd:
+          existing.currentPeriodEnd ?? addInterval(paidAt, price.interval),
+      })
+      .where(eq(schema.subscription.id, existing.id));
+  } else {
+    subscriptionId = newId();
+    await tx.insert(schema.subscription).values({
+      id: subscriptionId,
+      organizationId: intent.organizationId,
+      planPriceId: intent.planPriceId,
+      status: "active",
+      currency: intent.currency,
+      currentPeriodStart: paidAt,
+      currentPeriodEnd: addInterval(paidAt, price.interval),
+      ...card,
+    });
+  }
+  await upsertInvoice(tx, {
+    organizationId: intent.organizationId,
+    subscriptionId,
+    reference: data.reference,
+    amountSubunit: data.amount,
+    currency: data.currency,
+    status: "paid",
+    paidAt,
+    periodStart: paidAt,
+    periodEnd: addInterval(paidAt, price.interval),
+    description: `${price.planKey} (${price.interval})`,
+  });
+  await audit(tx, {
+    organizationId: intent.organizationId,
+    actorUserId: intent.createdByUserId,
+    action: "billing.subscribed",
+    data: { planPriceId: intent.planPriceId, reference: data.reference },
+  });
+  return {};
+}
+
+/**
+ * Card-up-front trial: the tokenisation charge succeeded, so create the real
+ * Paystack subscription starting when the trial ends, then refund the charge.
+ */
+async function startTrialFromCharge(
+  deps: BillingDeps,
+  tx: DbOrTx,
+  intent: PaymentIntentRow,
+  data: PaystackTransaction
+): Promise<Outcome> {
+  const price = getPlanPrice(intent.planPriceId);
+  const plan = price && getPlan(price.planKey);
+  const row = await planPriceRow(tx, intent.planPriceId);
+  const customer = await billingCustomer(tx, intent.organizationId);
+  if (!(price && plan && row?.paystackPlanCode && customer)) {
+    return { error: "trial plan or customer missing" };
+  }
+  const refund = async () => {
+    try {
+      await deps.paystack.refund({ transaction: data.reference });
+    } catch (error) {
+      deps.logger.warn("tokenisation refund failed", {
+        reference: data.reference,
+        error: String(error),
+      });
+      await audit(tx, {
+        organizationId: intent.organizationId,
+        action: "billing.refund_failed",
+        target: data.reference,
+      });
+    }
+  };
+
+  if (!data.authorization?.reusable) {
+    await refund();
+    await audit(tx, {
+      organizationId: intent.organizationId,
+      action: "billing.trial_card_not_reusable",
+      target: data.reference,
+    });
+    return { error: "card_not_reusable" };
+  }
+  if (await liveSubscription(tx, intent.organizationId, { lock: true })) {
+    return {};
+  }
+
+  const now = deps.now();
+  const trialEndsAt = addDays(now, plan.trialDays);
+  const subscriptionId = newId();
+  await tx.insert(schema.subscription).values({
+    id: subscriptionId,
+    organizationId: intent.organizationId,
+    planPriceId: intent.planPriceId,
+    status: "trialing",
+    currency: intent.currency,
+    currentPeriodStart: now,
+    currentPeriodEnd: trialEndsAt,
+    trialEndsAt,
+    ...cardFields(deps, data.authorization, data.customer?.email),
+  });
+  const created = await deps.paystack.createSubscription({
+    customer: customer.paystackCustomerCode,
+    plan: row.paystackPlanCode,
+    authorization: data.authorization.authorization_code,
+    start_date: trialEndsAt.toISOString(),
+  });
+  await tx
+    .update(schema.subscription)
+    .set({
+      paystackSubscriptionCode: created.subscription_code,
+      paystackEmailToken: created.email_token
+        ? seal(deps, created.email_token)
+        : null,
+    })
+    .where(eq(schema.subscription.id, subscriptionId));
+  await refund();
+  await upsertInvoice(tx, {
+    organizationId: intent.organizationId,
+    subscriptionId,
+    reference: data.reference,
+    amountSubunit: data.amount,
+    currency: data.currency,
+    status: "void",
+    paidAt: now,
+    description: "Card verification (refunded)",
+  });
+  await audit(tx, {
+    organizationId: intent.organizationId,
+    actorUserId: intent.createdByUserId,
+    action: "billing.trial_started",
+    data: { planPriceId: intent.planPriceId, trialEndsAt },
+  });
+  await deps.notify?.({
+    type: "trial_started",
+    organizationId: intent.organizationId,
+    trialEndsAt,
+  });
+  return {};
+}
+
+/** The upgrade's proration was paid through checkout (fallback) or arrived
+ *  late: finish the plan switch. */
+async function finalizeUpgradeFromCharge(
+  deps: BillingDeps,
+  tx: DbOrTx,
+  intent: PaymentIntentRow,
+  data: PaystackTransaction
+): Promise<Outcome> {
+  const sub = await liveSubscription(tx, intent.organizationId, { lock: true });
+  const paidAt = data.paid_at ? new Date(data.paid_at) : deps.now();
+  await upsertInvoice(tx, {
+    organizationId: intent.organizationId,
+    subscriptionId: sub?.id ?? null,
+    reference: data.reference,
+    amountSubunit: data.amount,
+    currency: data.currency,
+    status: "paid",
+    paidAt,
+    description: "Plan upgrade (prorated)",
+  });
+  if (!sub || sub.planPriceId === intent.planPriceId) {
+    return {};
+  }
+  const newCard = cardFields(deps, data.authorization, data.customer?.email);
+  const authorizationCode =
+    (data.authorization?.reusable
+      ? data.authorization.authorization_code
+      : null) ?? unseal(deps, sub.authorizationCode);
+  if (!authorizationCode) {
+    return { error: "no reusable card for upgrade" };
+  }
+  try {
+    await switchPlanNow(deps, tx, sub, {
+      targetPlanPriceId: intent.planPriceId,
+      authorizationCode,
+      actorUserId: intent.createdByUserId,
+      newCard,
+      refundReference: data.reference,
+    });
+  } catch (error) {
+    if (error instanceof BillingError) {
+      return { error: error.code };
+    }
+    throw error;
+  }
+  return {};
+}
+
+/**
+ * A charge we did not initiate directly: a Paystack-scheduled renewal (or the
+ * first charge after a trial or a scheduled downgrade). Matched on customer +
+ * plan code, then re-derived from `GET /subscription/:code`, because one
+ * Paystack customer (email) can pay for several organizations.
+ */
+async function applyRenewalCharge(
+  deps: BillingDeps,
+  tx: DbOrTx,
+  data: PaystackTransaction
+): Promise<Outcome> {
+  const planCode = planCodeOf(data.plan);
+  const customerCode = data.customer?.customer_code;
+  if (!(planCode && customerCode)) {
+    return { error: "charge not linked to a subscription" };
+  }
+  const prices = await tx
+    .select({ id: schema.planPrice.id })
+    .from(schema.planPrice)
+    .where(eq(schema.planPrice.paystackPlanCode, planCode));
+  const priceIds = prices.map((p) => p.id);
+  if (priceIds.length === 0) {
+    return { error: "unknown plan code" };
+  }
+  const rows = await tx
+    .select({ sub: schema.subscription })
+    .from(schema.subscription)
+    .innerJoin(
+      schema.billingCustomer,
+      eq(
+        schema.subscription.organizationId,
+        schema.billingCustomer.organizationId
+      )
+    )
+    .where(
+      and(
+        eq(schema.billingCustomer.paystackCustomerCode, customerCode),
+        notInArray(schema.subscription.status, [...TERMINAL_STATUSES])
+      )
+    )
+    .for("update", { of: schema.subscription });
+  const candidates = rows
+    .map((r) => r.sub)
+    .filter(
+      (s) =>
+        priceIds.includes(s.planPriceId) ||
+        (s.scheduledPlanPriceId !== null &&
+          priceIds.includes(s.scheduledPlanPriceId))
+    );
+  if (candidates.length === 0) {
+    // The subscription row may not exist yet; reconcile retries this event.
+    return { error: "no subscription for renewal charge", retry: true };
+  }
+  const paidAt = data.paid_at ? new Date(data.paid_at) : deps.now();
+  for (const sub of candidates) {
+    await resyncSubscription(deps, tx, sub, { paidAt });
+  }
+  const only = candidates.length === 1 ? candidates[0] : undefined;
+  if (only) {
+    await tx
+      .update(schema.subscription)
+      .set(cardFields(deps, data.authorization, data.customer?.email))
+      .where(
+        and(
+          eq(schema.subscription.id, only.id),
+          inArray(schema.subscription.status, [
+            "active",
+            "past_due",
+            "trialing",
+          ])
+        )
+      );
+    await upsertInvoice(tx, {
+      organizationId: only.organizationId,
+      subscriptionId: only.id,
+      reference: data.reference,
+      amountSubunit: data.amount,
+      currency: data.currency,
+      status: "paid",
+      paidAt,
+      description: "Renewal",
+    });
+  }
+  return {};
+}
