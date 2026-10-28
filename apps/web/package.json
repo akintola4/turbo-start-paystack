@@ -13,14 +13,21 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@workspace/auth": "workspace:*",
+    "@workspace/db": "workspace:*",
+    "@workspace/email": "workspace:*",
     "@workspace/env": "workspace:*",
     "@workspace/logger": "workspace:*",
     "@workspace/tailwind-config": "workspace:*",
     "@workspace/ui": "workspace:*",
+    "better-auth": "catalog:",
+    "drizzle-orm": "catalog:",
     "lucide-react": "catalog:",
     "next": "16.4.3",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "server-only": "^0.0.1",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",
