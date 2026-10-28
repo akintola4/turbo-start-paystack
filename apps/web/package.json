@@ -10,10 +10,13 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "format:check": "biome format .",
-    "check-types": "next typegen && tsc --noEmit"
+    "check-types": "next typegen && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@paystack/inline-js": "^2.22.0",
     "@workspace/auth": "workspace:*",
+    "@workspace/billing": "workspace:*",
     "@workspace/db": "workspace:*",
     "@workspace/email": "workspace:*",
     "@workspace/env": "workspace:*",
@@ -30,11 +33,13 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "catalog:",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@workspace/typescript-config": "workspace:*",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

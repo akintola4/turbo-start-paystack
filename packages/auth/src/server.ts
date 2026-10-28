@@ -351,3 +351,5 @@ export function createAuth(options: CreateAuthOptions) {
 
 export type AuthService = ReturnType<typeof createAuth>;
 export type Auth = AuthService["auth"];
+
+export { roleHasPermission } from "./roles";
