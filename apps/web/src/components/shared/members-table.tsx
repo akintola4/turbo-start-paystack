@@ -76,7 +76,7 @@ function SortHeader({
         : ArrowUpDownIcon;
   return (
     <Button
-      className="-ml-2 h-7 gap-1 px-2 font-medium text-inherit hover:text-foreground"
+      className="-ml-2 h-7 gap-1 px-2 font-medium text-inherit text-xs hover:text-foreground"
       onClick={onClick}
       size="sm"
       variant="ghost"
@@ -168,7 +168,7 @@ export function MembersTable({
           if (roleEditor === "select" && m.canUpdate) {
             return (
               <RoleSelect
-                className="w-32"
+                className="w-28 sm:w-32"
                 member={m}
                 organizationId={organizationId}
                 roles={roles}
@@ -247,7 +247,7 @@ export function MembersTable({
               aria-label="Search members"
               className="pl-8"
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name or email"
+              placeholder="Search members"
               type="search"
               value={query}
             />
@@ -280,7 +280,7 @@ export function MembersTable({
                     className={cn(
                       "h-9 text-muted-foreground text-xs",
                       header.column.id === "actions" && "w-12",
-                      header.column.id === "role" && "w-40",
+                      header.column.id === "role" && "w-32 sm:w-40",
                       header.column.id === "joined" &&
                         "hidden w-36 md:table-cell"
                     )}

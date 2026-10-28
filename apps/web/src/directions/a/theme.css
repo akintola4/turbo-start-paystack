@@ -1,1 +1,105 @@
-/* direction a */
+/* Direction A, "Ledger": the app as a financial statement. Light first. */
+html[data-direction="a"] {
+  --app-font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --app-font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --app-font-display:
+    var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.21 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.02 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.02 260);
+  --primary: oklch(0.27 0.05 255);
+  --primary-foreground: oklch(0.985 0.003 250);
+  --secondary: oklch(0.965 0.004 250);
+  --secondary-foreground: oklch(0.27 0.05 255);
+  --muted: oklch(0.965 0.004 250);
+  --muted-foreground: oklch(0.52 0.018 258);
+  --accent: oklch(0.955 0.006 250);
+  --accent-foreground: oklch(0.21 0.02 260);
+  --success: oklch(0.55 0.13 155);
+  --warning: oklch(0.72 0.15 70);
+  --destructive: oklch(0.56 0.2 25);
+  --border: oklch(0.915 0.006 255);
+  --input: oklch(0.885 0.008 255);
+  --ring: oklch(0.6 0.14 240);
+  --radius: 0.5rem;
+
+  --sidebar: oklch(0.975 0.003 250);
+  --sidebar-foreground: oklch(0.3 0.02 258);
+  --sidebar-primary: oklch(0.27 0.05 255);
+  --sidebar-primary-foreground: oklch(0.985 0.003 250);
+  --sidebar-accent: oklch(0.935 0.007 250);
+  --sidebar-accent-foreground: oklch(0.21 0.02 260);
+  --sidebar-border: oklch(0.915 0.006 255);
+  --sidebar-ring: oklch(0.6 0.14 240);
+
+  /* Direction-local tokens */
+  --ledger-accent: oklch(0.55 0.15 245);
+  --ledger-sheet: oklch(1 0 0);
+  --ledger-rule: oklch(0.93 0.005 255);
+  --ledger-info-bg: oklch(0.97 0.02 240);
+  --ledger-info-border: oklch(0.87 0.05 240);
+  --ledger-warn-bg: oklch(0.975 0.035 80);
+  --ledger-warn-border: oklch(0.86 0.09 75);
+  --ledger-warn-ink: oklch(0.45 0.1 60);
+  --ledger-pos-ink: oklch(0.45 0.11 155);
+  --ledger-pos-bg: oklch(0.96 0.04 155);
+  --ledger-neg-ink: oklch(0.5 0.17 25);
+  --ledger-neg-bg: oklch(0.965 0.025 25);
+}
+
+html[data-direction="a"].dark {
+  --background: oklch(0.17 0.015 255);
+  --foreground: oklch(0.95 0.005 250);
+  --card: oklch(0.205 0.016 255);
+  --card-foreground: oklch(0.95 0.005 250);
+  --popover: oklch(0.22 0.016 255);
+  --popover-foreground: oklch(0.95 0.005 250);
+  --primary: oklch(0.93 0.01 250);
+  --primary-foreground: oklch(0.2 0.03 258);
+  --secondary: oklch(0.26 0.016 255);
+  --secondary-foreground: oklch(0.95 0.005 250);
+  --muted: oklch(0.25 0.015 255);
+  --muted-foreground: oklch(0.7 0.015 255);
+  --accent: oklch(0.27 0.018 255);
+  --accent-foreground: oklch(0.95 0.005 250);
+  --success: oklch(0.72 0.14 155);
+  --warning: oklch(0.8 0.13 75);
+  --destructive: oklch(0.68 0.18 25);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.7 0.13 240);
+
+  --sidebar: oklch(0.17 0.015 255);
+  --sidebar-foreground: oklch(0.82 0.01 255);
+  --sidebar-primary: oklch(0.93 0.01 250);
+  --sidebar-primary-foreground: oklch(0.2 0.03 258);
+  --sidebar-accent: oklch(0.24 0.016 255);
+  --sidebar-accent-foreground: oklch(0.96 0.005 250);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.7 0.13 240);
+
+  --ledger-accent: oklch(0.74 0.12 240);
+  --ledger-sheet: oklch(0.205 0.016 255);
+  --ledger-rule: oklch(1 0 0 / 7%);
+  --ledger-info-bg: oklch(0.25 0.04 245);
+  --ledger-info-border: oklch(0.38 0.07 245);
+  --ledger-warn-bg: oklch(0.26 0.04 75);
+  --ledger-warn-border: oklch(0.42 0.08 75);
+  --ledger-warn-ink: oklch(0.86 0.1 80);
+  --ledger-pos-ink: oklch(0.8 0.12 155);
+  --ledger-pos-bg: oklch(0.28 0.05 155);
+  --ledger-neg-ink: oklch(0.8 0.12 25);
+  --ledger-neg-bg: oklch(0.29 0.06 25);
+}
+
+html[data-direction="a"] body {
+  font-feature-settings: "ss01" off;
+}
+
+html[data-direction="a"] ::selection {
+  background: oklch(0.6 0.14 240 / 0.22);
+}

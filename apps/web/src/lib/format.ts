@@ -20,7 +20,10 @@ export function formatDate(
   if (!value) {
     return "—";
   }
-  return (style === "short" ? shortFmt : dateFmt).format(new Date(value));
+  // en-GB writes September as "Sept"; keep every month to three letters.
+  return (style === "short" ? shortFmt : dateFmt)
+    .format(new Date(value))
+    .replace("Sept", "Sep");
 }
 
 /** Whole days from now until `value` (negative when past). */
