@@ -38,8 +38,11 @@ export const env = createEnv({
     CRON_SECRET: z.string().min(16),
 
     EMAIL_FROM: z.string().min(3).default("Turbo Start <noreply@example.com>"),
-    // Optional: without it, emails are logged (dev only).
+    // Optional: without it, emails are logged (development only).
     RESEND_API_KEY: z.string().min(1).optional(),
+    // "log" lets a local production build (next start) log emails instead of
+    // sending them. Never set it on a real deployment.
+    EMAIL_TRANSPORT: z.enum(["resend", "log"]).optional(),
   },
 
   experimental__runtimeEnv: {

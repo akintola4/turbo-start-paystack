@@ -31,6 +31,7 @@ function createServerContext(): ServerContext {
   const sendEmail = createEmailSender({
     from: env.EMAIL_FROM,
     resendApiKey: env.RESEND_API_KEY,
+    allowLogInProduction: env.EMAIL_TRANSPORT === "log",
   });
   const billing = createBillingService({
     db,

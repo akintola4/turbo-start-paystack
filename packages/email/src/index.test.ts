@@ -9,6 +9,26 @@ describe("email", () => {
     expect(getDevOutbox().at(-1)?.to).toBe("x@y.test");
   });
 
+  it("refuses to drop mail in production unless explicitly allowed", async () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const strict = createEmailSender({ from: "a@b.test" });
+      await expect(
+        strict({ to: "x@y.test", subject: "s", text: "t" })
+      ).rejects.toThrow(/RESEND_API_KEY/);
+      const local = createEmailSender({
+        from: "a@b.test",
+        allowLogInProduction: true,
+      });
+      await expect(
+        local({ to: "x@y.test", subject: "s", text: "t" })
+      ).resolves.toBeUndefined();
+    } finally {
+      process.env.NODE_ENV = previous;
+    }
+  });
+
   it("posts to Resend when a key is set", async () => {
     const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
     const send = createEmailSender({

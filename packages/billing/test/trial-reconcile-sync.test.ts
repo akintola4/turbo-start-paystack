@@ -124,8 +124,14 @@ describe("card-up-front trial (PLAN §6.3 T1)", () => {
     h.billing.deps.trialMode = "off";
     try {
       const org = await h.createOrg();
-      const checkout = await h.billing.startCheckout({ ...org, planPriceId: "starter-monthly-ngn" });
-      expect(checkout).toMatchObject({ kind: "subscribe", amountSubunit: 1_000_000 });
+      const checkout = await h.billing.startCheckout({
+        ...org,
+        planPriceId: "starter-monthly-ngn",
+      });
+      expect(checkout).toMatchObject({
+        kind: "subscribe",
+        amountSubunit: 1_000_000,
+      });
     } finally {
       h.billing.deps.trialMode = "card";
     }

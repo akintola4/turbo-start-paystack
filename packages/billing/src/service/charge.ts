@@ -10,7 +10,9 @@ import {
   type BillingDeps,
   billingCustomer,
   cardFields,
+  customerCodeOf,
   liveSubscription,
+  lockCustomer,
   newId,
   type Outcome,
   type PaymentIntentRow,
@@ -37,6 +39,9 @@ export async function applyChargeSuccess(
   if (data.status !== "success") {
     return { error: `charge status ${data.status}` };
   }
+  // Same lock as the webhook dispatcher: the callback page's verify path
+  // must not interleave with subscription.create either.
+  await lockCustomer(tx, customerCodeOf(data));
   const [intent] = await tx
     .select()
     .from(schema.paymentIntent)

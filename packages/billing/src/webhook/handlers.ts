@@ -12,7 +12,9 @@ import {
   addDays,
   audit,
   type BillingDeps,
+  customerCodeOf,
   isReplacedCode,
+  lockCustomer,
   newId,
   type Outcome,
   type SubscriptionRow,
@@ -46,6 +48,7 @@ export async function dispatchEvent(
   event: string,
   data: unknown
 ): Promise<Outcome> {
+  await lockCustomer(tx, customerCodeOf(data));
   switch (event) {
     case "charge.success":
       return applyChargeSuccess(deps, tx, transactionSchema.parse(data));

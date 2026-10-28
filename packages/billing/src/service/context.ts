@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { type Database, type DbOrTx, schema } from "@workspace/db";
 import type { Logger } from "@workspace/logger";
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 
 import { decryptSecret, encryptSecret } from "../crypto";
 import type { PaystackClient } from "../paystack/client";
@@ -165,4 +165,38 @@ export function cardFields(
 
 export function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 86_400_000);
+}
+
+/**
+ * Serialises everything that happens for one Paystack customer within a
+ * transaction. Paystack sends `charge.success` and `subscription.create`
+ * back to back; processed concurrently, the second would not see the row the
+ * first is creating. Transaction-scoped, so it is released on commit.
+ */
+export async function lockCustomer(
+  tx: DbOrTx,
+  customerCode: string | undefined
+) {
+  if (!customerCode) {
+    return;
+  }
+  await tx.execute(
+    sql`select pg_advisory_xact_lock(hashtext(${`paystack:${customerCode}`}))`
+  );
+}
+
+/** Pulls `customer.customer_code` out of any Paystack event payload. */
+export function customerCodeOf(data: unknown): string | undefined {
+  if (data && typeof data === "object" && "customer" in data) {
+    const customer = (data as { customer?: unknown }).customer;
+    if (
+      customer &&
+      typeof customer === "object" &&
+      "customer_code" in customer
+    ) {
+      const code = (customer as { customer_code?: unknown }).customer_code;
+      return typeof code === "string" ? code : undefined;
+    }
+  }
+  return;
 }

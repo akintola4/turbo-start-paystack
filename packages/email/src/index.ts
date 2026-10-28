@@ -37,17 +37,23 @@ export function textToHtml(text: string): string {
 /**
  * Sends through Resend's HTTP API when `resendApiKey` is set. Without it the
  * message goes to the dev outbox and a log line; that fallback refuses to run
- * when NODE_ENV is production so mail is never silently dropped there.
+ * when NODE_ENV is production (so mail is never silently dropped there)
+ * unless `allowLogInProduction` is set explicitly (EMAIL_TRANSPORT=log), which
+ * is only meant for running a production build locally.
  */
 export function createEmailSender(options: {
   from: string;
   resendApiKey?: string;
   fetch?: typeof fetch;
+  allowLogInProduction?: boolean;
 }): EmailSender {
   const doFetch = options.fetch ?? fetch;
   return async (message) => {
     if (!options.resendApiKey) {
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        !options.allowLogInProduction
+      ) {
         throw new Error("RESEND_API_KEY is required in production");
       }
       devOutbox.push(message);
