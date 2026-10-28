@@ -10,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog";
-import { Button, buttonVariants } from "@workspace/ui/components/button";
+import { Button } from "@workspace/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +59,7 @@ import {
 import { toast } from "sonner";
 
 import type { MemberRow, Role } from "@/lib/view-models";
+import { useRowPresenceActions } from "@/components/motion";
 import { authClient } from "@/lib/auth-client";
 import { ROLE_META, roleLabel } from "@/lib/format";
 
@@ -303,15 +304,18 @@ function useRemoveMember(
   member: Pick<MemberRow, "id" | "name">
 ) {
   const router = useRouter();
+  const presence = useRowPresenceActions();
   const [pending, setPending] = useState(false);
   async function remove() {
     setPending(true);
+    presence?.markLeaving(member.id);
     const result = await authClient.organization.removeMember({
       organizationId,
       memberIdOrEmail: member.id,
     });
     setPending(false);
     if (result.error) {
+      presence?.unmark(member.id);
       toast.error(result.error.message ?? "Could not remove the member");
       return;
     }

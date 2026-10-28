@@ -124,7 +124,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
   const inviteRoles = INVITABLE.filter((r) => (RANK[r] ?? 0) <= rank);
 
   return (
-    <div className="grid gap-8">
+    <div className="grid animate-content gap-8">
       <PageHeader
         actions={
           data.can.invite ? (

@@ -11,6 +11,7 @@ import { CopyIcon, MoreHorizontalIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { useRowPresenceActions } from "@/components/motion";
 import { authClient } from "@/lib/auth-client";
 
 /** One "…" menu per invitation so the column lines up with the members table. */
@@ -22,6 +23,7 @@ export function InvitationMenu({
   email: string;
 }) {
   const router = useRouter();
+  const presence = useRowPresenceActions();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -50,10 +52,12 @@ export function InvitationMenu({
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={async () => {
+            presence?.markLeaving(invitationId);
             const result = await authClient.organization.cancelInvitation({
               invitationId,
             });
             if (result.error) {
+              presence?.unmark(invitationId);
               toast.error(
                 result.error.message ?? "Could not revoke the invitation"
               );

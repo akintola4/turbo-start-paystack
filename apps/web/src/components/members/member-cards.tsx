@@ -1,9 +1,23 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { Monogram } from "@/components/avatars";
+import { useRowPresence } from "@/components/motion";
 import { MemberRowMenu } from "@/components/members/member-actions";
 import type { MemberRow, Role } from "@/lib/view-models";
 import { formatDate, roleLabel } from "@/lib/format";
+
+function PresenceItem({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <li
+      className="flex items-center gap-3 px-2 py-3"
+      data-presence={useRowPresence(id)}
+    >
+      {children}
+    </li>
+  );
+}
 
 /** Mobile list: one row per member, role under the name, actions in a menu. */
 export function MemberCards({
@@ -20,7 +34,7 @@ export function MemberCards({
   return (
     <ul className="grid divide-y">
       {members.map((m) => (
-        <li className="flex items-center gap-3 px-2 py-3" key={m.id}>
+        <PresenceItem id={m.id} key={m.id}>
           <Monogram
             className="size-10"
             name={m.name}
@@ -48,7 +62,7 @@ export function MemberCards({
             roles={roles}
             triggerClassName="rounded-full"
           />
-        </li>
+        </PresenceItem>
       ))}
     </ul>
   );

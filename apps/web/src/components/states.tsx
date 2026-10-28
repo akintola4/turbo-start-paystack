@@ -1,4 +1,4 @@
-import { Button, buttonVariants } from "@workspace/ui/components/button";
+import { buttonVariants } from "@workspace/ui/components/button";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { Loader2Icon } from "lucide-react";
 import Link from "next/link";
@@ -26,7 +26,7 @@ export function ConfirmingPayment() {
   return (
     <main className="flex min-h-dvh items-center justify-center bg-canvas px-4">
       <div
-        className="grid max-w-sm justify-items-center gap-5 text-center"
+        className="grid max-w-sm animate-content justify-items-center gap-5 text-center [animation-delay:150ms]"
         role="status"
       >
         <span className="relative">
@@ -45,6 +45,12 @@ export function ConfirmingPayment() {
             takes a second or two.
           </p>
         </div>
+        <span
+          aria-hidden
+          className="relative h-1 w-40 overflow-hidden rounded-full bg-muted"
+        >
+          <span className="absolute inset-y-0 left-0 w-1/3 animate-indeterminate rounded-full bg-primary" />
+        </span>
       </div>
     </main>
   );

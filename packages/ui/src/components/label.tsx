@@ -1,10 +1,11 @@
 "use client";
 
-import * as React from "react";
+import type * as React from "react";
 import { cn } from "@workspace/tailwind-config/utils";
 
 function Label({ className, ...props }: React.ComponentProps<"label">) {
   return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: generic label; callers pass htmlFor or wrap the control.
     <label
       data-slot="label"
       className={cn(

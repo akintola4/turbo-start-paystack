@@ -1,4 +1,4 @@
-import { Button, buttonVariants } from "@workspace/ui/components/button";
+import { buttonVariants } from "@workspace/ui/components/button";
 import { Progress } from "@workspace/ui/components/progress";
 import {
   Tabs,
@@ -22,6 +22,7 @@ import type { MembersData } from "@/lib/view-models";
 import { daysUntil, formatDate, roleLabel } from "@/lib/format";
 import { InvitationMenu } from "@/components/members/invitation-menu";
 import { MemberCards } from "@/components/members/member-cards";
+import { PresenceTableRow, RowPresenceProvider } from "@/components/motion";
 import { Chip, PageHeader, Tile } from "@/components/primitives";
 
 const TAB =
@@ -34,7 +35,7 @@ export function Members({ data }: { data: MembersData }) {
   );
   const full = data.limit.used >= data.limit.max;
   return (
-    <div className="grid gap-8">
+    <div className="grid animate-content gap-8">
       <PageHeader
         description={`Everyone with access to ${data.org.name}, and what they can do.`}
         title="Members"
@@ -119,81 +120,85 @@ export function Members({ data }: { data: MembersData }) {
             ) : null}
           </TabsList>
           <TabsContent value="people">
-            <div className="hidden md:block">
-              <MembersTable
-                members={data.members}
-                monogramShape="circle"
-                organizationId={data.org.id}
-                orgName={data.org.name}
-                roles={data.assignableRoles}
-              />
-            </div>
-            <div className="md:hidden">
-              <MemberCards
-                members={data.members}
-                organizationId={data.org.id}
-                orgName={data.org.name}
-                roles={data.assignableRoles}
-              />
-            </div>
+            <RowPresenceProvider ids={data.members.map((m) => m.id)}>
+              <div className="hidden md:block">
+                <MembersTable
+                  members={data.members}
+                  monogramShape="circle"
+                  organizationId={data.org.id}
+                  orgName={data.org.name}
+                  roles={data.assignableRoles}
+                />
+              </div>
+              <div className="md:hidden">
+                <MemberCards
+                  members={data.members}
+                  organizationId={data.org.id}
+                  orgName={data.org.name}
+                  roles={data.assignableRoles}
+                />
+              </div>
+            </RowPresenceProvider>
           </TabsContent>
           {data.can.invite ? (
             <TabsContent value="invitations">
               {data.invitations.length ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="h-9 text-muted-foreground text-xs">
-                        Invitee
-                      </TableHead>
-                      <TableHead className="h-9 w-40 text-muted-foreground text-xs">
-                        Role
-                      </TableHead>
-                      <TableHead className="hidden h-9 w-36 text-muted-foreground text-xs md:table-cell">
-                        Expires
-                      </TableHead>
-                      <TableHead className="h-9 w-12">
-                        <span className="sr-only">Actions</span>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.invitations.map((inv) => {
-                      const days = daysUntil(inv.expiresAt);
-                      return (
-                        <TableRow key={inv.id}>
-                          <TableCell className="h-14 w-full max-w-0 py-2.5">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                                <MailIcon aria-hidden className="size-4" />
-                              </span>
-                              <span className="truncate font-medium">
-                                {inv.email}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="h-14 py-2.5">
-                            <Chip dot={false} tone="info">
-                              {roleLabel(inv.role)}
-                            </Chip>
-                          </TableCell>
-                          <TableCell className="hidden h-14 py-2.5 text-muted-foreground tabular-nums md:table-cell">
-                            {formatDate(inv.expiresAt)}
-                            {days !== null && days <= 2 ? " (soon)" : ""}
-                          </TableCell>
-                          <TableCell className="h-14 py-2.5">
-                            <div className="flex justify-end">
-                              <InvitationMenu
-                                email={inv.email}
-                                invitationId={inv.id}
-                              />
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                <RowPresenceProvider ids={data.invitations.map((i) => i.id)}>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="h-9 text-muted-foreground text-xs">
+                          Invitee
+                        </TableHead>
+                        <TableHead className="h-9 w-40 text-muted-foreground text-xs">
+                          Role
+                        </TableHead>
+                        <TableHead className="hidden h-9 w-36 text-muted-foreground text-xs md:table-cell">
+                          Expires
+                        </TableHead>
+                        <TableHead className="h-9 w-12">
+                          <span className="sr-only">Actions</span>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.invitations.map((inv) => {
+                        const days = daysUntil(inv.expiresAt);
+                        return (
+                          <PresenceTableRow id={inv.id} key={inv.id}>
+                            <TableCell className="h-14 w-full max-w-0 py-2.5">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                                  <MailIcon aria-hidden className="size-4" />
+                                </span>
+                                <span className="truncate font-medium">
+                                  {inv.email}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="h-14 py-2.5">
+                              <Chip dot={false} tone="info">
+                                {roleLabel(inv.role)}
+                              </Chip>
+                            </TableCell>
+                            <TableCell className="hidden h-14 py-2.5 text-muted-foreground tabular-nums md:table-cell">
+                              {formatDate(inv.expiresAt)}
+                              {days !== null && days <= 2 ? " (soon)" : ""}
+                            </TableCell>
+                            <TableCell className="h-14 py-2.5">
+                              <div className="flex justify-end">
+                                <InvitationMenu
+                                  email={inv.email}
+                                  invitationId={inv.id}
+                                />
+                              </div>
+                            </TableCell>
+                          </PresenceTableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </RowPresenceProvider>
               ) : (
                 <div className="grid justify-items-start gap-3 rounded-[14px] bg-muted/60 p-5">
                   <p className="text-sm">No one is waiting to join.</p>

@@ -139,10 +139,10 @@ export type BillingData = {
   payment: string | null;
   subscription: SubscriptionSummary | null;
   entitlement: { planName: string; active: boolean; reason: string };
-  plans: PlanOption[];
+  /** Plan options for each interval, so the picker can switch without a request. */
+  plans: { monthly: PlanOption[]; annually: PlanOption[] };
   invoices: InvoiceRow[];
   publicKey?: string;
-  hrefs: { monthly: string; annually: string };
 };
 
 export type OrgPickerData = {

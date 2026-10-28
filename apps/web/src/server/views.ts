@@ -23,6 +23,7 @@ import type {
   MemberRow,
   MembersData,
   OrgPickerData,
+  PlanOption,
   ShellData,
   SubscriptionStatus,
   SubscriptionSummary,
@@ -307,54 +308,56 @@ export async function loadBilling(
   const currentPlan = currentPrice ? getPlan(currentPrice.planKey) : undefined;
   const currentRank = currentPlan?.rank ?? 0;
 
-  const plans = catalog.map((plan) => {
-    const id = plan.prices.length
-      ? planPriceId(plan.key, interval, currency)
-      : null;
-    const price = id ? getPlanPrice(id) : undefined;
-    const monthlyId = plan.prices.length
-      ? planPriceId(plan.key, "monthly", currency)
-      : null;
-    const monthly = monthlyId ? getPlanPrice(monthlyId) : undefined;
-    const saving =
-      interval === "annually" && price && monthly
-        ? `Save ${Math.round((1 - price.amountSubunit / (monthly.amountSubunit * 12)) * 100)}%`
-        : null;
-    const isCurrent = sub ? sub.planPriceId === id : plan.key === "free";
-    const action: BillingData["plans"][number]["action"] =
-      !(price && id) || isCurrent ? null : sub ? "change-plan" : "checkout";
-    const change =
-      action === "change-plan"
-        ? plan.rank > currentRank
-          ? "upgrade"
-          : plan.rank < currentRank
-            ? "downgrade"
-            : "switch"
-        : null;
-    return {
-      key: plan.key,
-      name: plan.name,
-      description: plan.description,
-      features: plan.features,
-      trialDays: plan.trialDays,
-      memberLimit: plan.limits.members,
-      rank: plan.rank,
-      price:
-        price && id
-          ? {
-              id,
-              label: formatMoney(price.amountSubunit, price.currency),
-              amountSubunit: price.amountSubunit,
-              interval: price.interval,
-            }
-          : null,
-      saving,
-      isCurrent,
-      action,
-      change,
-    } as const;
-  });
-
+  const plansFor = (interval: "monthly" | "annually") =>
+    catalog
+      .map((plan) => {
+        const id = plan.prices.length
+          ? planPriceId(plan.key, interval, currency)
+          : null;
+        const price = id ? getPlanPrice(id) : undefined;
+        const monthlyId = plan.prices.length
+          ? planPriceId(plan.key, "monthly", currency)
+          : null;
+        const monthly = monthlyId ? getPlanPrice(monthlyId) : undefined;
+        const saving =
+          interval === "annually" && price && monthly
+            ? `Save ${Math.round((1 - price.amountSubunit / (monthly.amountSubunit * 12)) * 100)}%`
+            : null;
+        const isCurrent = sub ? sub.planPriceId === id : plan.key === "free";
+        const action: PlanOption["action"] =
+          !(price && id) || isCurrent ? null : sub ? "change-plan" : "checkout";
+        const change =
+          action === "change-plan"
+            ? plan.rank > currentRank
+              ? "upgrade"
+              : plan.rank < currentRank
+                ? "downgrade"
+                : "switch"
+            : null;
+        return {
+          key: plan.key,
+          name: plan.name,
+          description: plan.description,
+          features: plan.features,
+          trialDays: plan.trialDays,
+          memberLimit: plan.limits.members,
+          rank: plan.rank,
+          price:
+            price && id
+              ? {
+                  id,
+                  label: formatMoney(price.amountSubunit, price.currency),
+                  amountSubunit: price.amountSubunit,
+                  interval: price.interval,
+                }
+              : null,
+          saving,
+          isCurrent,
+          action,
+          change,
+        } as const;
+      })
+      .map((p) => ({ ...p, features: [...p.features] }));
   return {
     org: {
       id: organization.id,
@@ -371,10 +374,9 @@ export async function loadBilling(
       active: entitlement.active,
       reason: entitlement.reason,
     },
-    plans: plans.map((p) => ({ ...p, features: [...p.features] })),
+    plans: { monthly: plansFor("monthly"), annually: plansFor("annually") },
     invoices: invoices.map(invoiceRow),
     publicKey: clientEnv.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
-    hrefs: { monthly: "?interval=monthly", annually: "?interval=annually" },
   };
 }
 

@@ -38,6 +38,7 @@ import { type ReactNode, useMemo, useState } from "react";
 
 import type { MemberRow, Role } from "@/lib/view-models";
 import { formatDate, roleLabel } from "@/lib/format";
+import { PresenceTableRow } from "@/components/motion";
 import { Monogram } from "@/components/avatars";
 import { MemberRowMenu, RoleSelect } from "@/components/members/member-actions";
 
@@ -307,7 +308,7 @@ export function MembersTable({
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <PresenceTableRow id={row.original.id} key={row.id}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       className={cn(
@@ -323,7 +324,7 @@ export function MembersTable({
                       )}
                     </TableCell>
                   ))}
-                </TableRow>
+                </PresenceTableRow>
               ))
             ) : (
               <TableRow className="hover:bg-transparent">

@@ -1,4 +1,4 @@
-import { Button, buttonVariants } from "@workspace/ui/components/button";
+import { buttonVariants } from "@workspace/ui/components/button";
 import Link from "next/link";
 
 import { AcceptInviteButton } from "@/components/auth/accept-invite-button";

@@ -1,5 +1,5 @@
 import { CURRENCIES, catalog } from "@workspace/billing";
-import { Button, buttonVariants } from "@workspace/ui/components/button";
+import { buttonVariants } from "@workspace/ui/components/button";
 import { BadgeCheckIcon, Building2Icon, RefreshCwIcon } from "lucide-react";
 import Link from "next/link";
 

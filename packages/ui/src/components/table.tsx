@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import type * as React from "react";
 import { cn } from "@workspace/tailwind-config/utils";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {

@@ -8,6 +8,7 @@ import { cn } from "@workspace/tailwind-config/utils";
 import { CheckIcon } from "lucide-react";
 import { useState } from "react";
 
+import { SwapOnChange } from "@/components/motion";
 import { HighlightChip, Money } from "@/components/primitives";
 
 export type CurrencyPlan = {
@@ -78,11 +79,9 @@ export function CurrencyPicker({ table }: { table: CurrencyTable }) {
             </div>
             <div className="grid gap-1.5">
               {plan.monthly ? (
-                <Money
-                  key={`${code}-${plan.key}`}
-                  label={plan.monthly}
-                  per="month"
-                />
+                <SwapOnChange value={plan.monthly}>
+                  <Money label={plan.monthly} per="month" />
+                </SwapOnChange>
               ) : (
                 <span className="font-display font-semibold text-[32px] leading-none tracking-tight">
                   Free
