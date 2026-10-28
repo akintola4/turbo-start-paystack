@@ -13,9 +13,13 @@
     "@radix-ui/react-slot": "^1.5.0",
     "@workspace/tailwind-config": "workspace:*",
     "class-variance-authority": "^0.7.1",
+    "cmdk": "^1.1.1",
     "lucide-react": "catalog:",
+    "next-themes": "^0.4.6",
+    "radix-ui": "^1.8.1",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "sonner": "^2.0.8",
     "tw-animate-css": "catalog:"
   },
   "devDependencies": {
@@ -28,6 +32,7 @@
   },
   "exports": {
     "./globals.css": "./src/styles/globals.css",
-    "./components/*": "./src/components/*.tsx"
+    "./components/*": "./src/components/*.tsx",
+    "./hooks/*": "./src/hooks/*.ts"
   }
 }

@@ -1,13 +1,14 @@
 import { Suspense } from "react";
 
-import { AuthForm } from "@/components/auth-form";
+import { getDirection } from "@/directions/registry";
 
 export const metadata = { title: "Create account" };
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  const D = await getDirection();
   return (
     <Suspense>
-      <AuthForm mode="sign-up" />
+      <D.Auth mode="sign-up" />
     </Suspense>
   );
 }
