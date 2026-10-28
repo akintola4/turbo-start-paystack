@@ -172,21 +172,24 @@ export type AcceptInviteData = {
   hrefs: { signUp: string; signIn: string };
 };
 
+/** Direction components may be async server components. */
+type View<P = object> = (props: P) => ReactNode | Promise<ReactNode>;
+
 /** What every direction module provides. */
 export type Direction = {
   id: DirectionId;
   name: string;
-  Landing: () => ReactNode;
-  Auth: (props: { mode: "sign-in" | "sign-up" }) => ReactNode;
-  AcceptInvite: (props: { data: AcceptInviteData }) => ReactNode;
-  OrgPicker: (props: { data: OrgPickerData }) => ReactNode;
-  AppShell: (props: { data: ShellData; children: ReactNode }) => ReactNode;
-  Dashboard: (props: { data: DashboardData }) => ReactNode;
-  Members: (props: { data: MembersData }) => ReactNode;
-  Billing: (props: { data: BillingData }) => ReactNode;
+  Landing: View;
+  Auth: View<{ mode: "sign-in" | "sign-up" }>;
+  AcceptInvite: View<{ data: AcceptInviteData }>;
+  OrgPicker: View<{ data: OrgPickerData }>;
+  AppShell: View<{ data: ShellData; children: ReactNode }>;
+  Dashboard: View<{ data: DashboardData }>;
+  Members: View<{ data: MembersData }>;
+  Billing: View<{ data: BillingData }>;
   /** Rendered by loading.tsx inside the app shell. */
-  PageLoading: () => ReactNode;
+  PageLoading: View;
   /** Rendered by the billing callback's loading.tsx. */
-  ConfirmingPayment: () => ReactNode;
-  NotFound: () => ReactNode;
+  ConfirmingPayment: View;
+  NotFound: View;
 };
