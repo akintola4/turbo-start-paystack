@@ -1,27 +1,20 @@
 import "server-only";
 
+import { type AuthService, createAuth } from "@workspace/auth/server";
 import {
-  type AuthService,
-  createAuth,
-  roleHasPermission,
-} from "@workspace/auth/server";
-import {
-  type BillingNotification,
   type BillingService,
   createBillingService,
   createPaystackClient,
 } from "@workspace/billing";
-import { createDb, type Database, schema } from "@workspace/db";
+import { createDb, type Database } from "@workspace/db";
 import {
   createEmailSender,
   createMailer,
   type EmailSender,
 } from "@workspace/email";
 import { env } from "@workspace/env/server";
-import { Logger } from "@workspace/logger";
-import { eq } from "drizzle-orm";
 
-const logger = new Logger("web");
+import { notifyBillingAdmins } from "./billing-emails";
 
 type ServerContext = {
   db: Database;
@@ -61,7 +54,7 @@ function createServerContext(): ServerContext {
     callbackUrl: `${env.BETTER_AUTH_URL}/billing/callback`,
     graceDays: env.BILLING_GRACE_DAYS,
     trialMode: env.BILLING_TRIAL_MODE,
-    notify: (notification) => notifyBillingAdmins(db, sendEmail, notification),
+    notify: (notification) => notifyBillingAdmins({ db, mailer }, notification),
   });
   const authService = createAuth({
     db,
@@ -93,53 +86,4 @@ const globalForContext = globalThis as unknown as {
 export function getServerContext(): ServerContext {
   globalForContext.__serverContext ??= createServerContext();
   return globalForContext.__serverContext;
-}
-
-/** Emails everyone who can manage billing in the organization. */
-async function notifyBillingAdmins(
-  db: Database,
-  sendEmail: EmailSender,
-  notification: BillingNotification
-) {
-  const members = await db
-    .select({ email: schema.user.email, role: schema.member.role })
-    .from(schema.member)
-    .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
-    .where(eq(schema.member.organizationId, notification.organizationId));
-  const recipients = members.filter((m) =>
-    roleHasPermission(m.role, "billing:manage")
-  );
-  const message = describe(notification);
-  for (const recipient of recipients) {
-    try {
-      await sendEmail({ to: recipient.email, ...message });
-    } catch (error) {
-      logger.error("billing notification failed", { error: String(error) });
-    }
-  }
-}
-
-function describe(n: BillingNotification): { subject: string; text: string } {
-  switch (n.type) {
-    case "past_due":
-      return {
-        subject: "Your payment failed",
-        text: `We couldn't charge your card for your subscription. Update your card to keep access${n.manageLink ? `: ${n.manageLink}` : " from the billing page."}`,
-      };
-    case "expiring_card":
-      return {
-        subject: "Your card is about to expire",
-        text: "The card on your subscription expires soon. Update it from the billing page.",
-      };
-    case "trial_started":
-      return {
-        subject: "Your trial has started",
-        text: `Your trial runs until ${n.trialEndsAt.toDateString()}. Your card will be charged then unless you cancel.`,
-      };
-    default:
-      return {
-        subject: "A payment was disputed",
-        text: `Payment ${n.reference} was disputed. Check your Paystack dashboard.`,
-      };
-  }
 }
