@@ -1,4 +1,4 @@
-import { getDirection } from "@/directions/registry";
+import { Billing } from "@/components/billing/billing";
 import { loadBilling } from "@/server/views";
 
 export const metadata = { title: "Billing" };
@@ -11,9 +11,5 @@ export default async function BillingPage({
   searchParams: Promise<{ payment?: string; interval?: string }>;
 }) {
   const { orgSlug } = await params;
-  const [D, data] = await Promise.all([
-    getDirection(),
-    loadBilling(orgSlug, await searchParams),
-  ]);
-  return <D.Billing data={data} />;
+  return <Billing data={await loadBilling(orgSlug, await searchParams)} />;
 }

@@ -1,6 +1,5 @@
-import { getDirection } from "@/directions/registry";
+import { PageLoading } from "@/components/states";
 
-export default async function Loading() {
-  const D = await getDirection();
-  return <D.PageLoading />;
+export default function Loading() {
+  return <PageLoading />;
 }

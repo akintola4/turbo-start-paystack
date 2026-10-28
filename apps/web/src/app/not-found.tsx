@@ -1,6 +1,5 @@
-import { getDirection } from "@/directions/registry";
+import { NotFound } from "@/components/states";
 
-export default async function NotFound() {
-  const D = await getDirection();
-  return <D.NotFound />;
+export default function NotFoundPage() {
+  return <NotFound />;
 }

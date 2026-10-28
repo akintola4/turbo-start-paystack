@@ -1,6 +1,5 @@
-import { getDirection } from "@/directions/registry";
+import { Landing } from "@/components/landing/landing";
 
-export default async function HomePage() {
-  const D = await getDirection();
-  return <D.Landing />;
+export default function HomePage() {
+  return <Landing />;
 }

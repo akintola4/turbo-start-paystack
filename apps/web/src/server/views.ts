@@ -27,7 +27,7 @@ import type {
   ShellData,
   SubscriptionStatus,
   SubscriptionSummary,
-} from "@/directions/types";
+} from "@/lib/view-models";
 import { getServerContext } from "./context";
 import {
   listMyOrganizations,

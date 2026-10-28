@@ -1,14 +1,13 @@
 import { Suspense } from "react";
 
-import { getDirection } from "@/directions/registry";
+import { AuthScreen } from "@/components/auth/auth-screen";
 
 export const metadata = { title: "Sign in" };
 
-export default async function SignInPage() {
-  const D = await getDirection();
+export default function SignInPage() {
   return (
     <Suspense>
-      <D.Auth mode="sign-in" />
+      <AuthScreen mode="sign-in" />
     </Suspense>
   );
 }

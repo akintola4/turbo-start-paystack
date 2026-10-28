@@ -1,18 +1,22 @@
-import { cn } from "@workspace/tailwind-config/utils";
+import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import type * as React from "react";
+import { cn } from "@workspace/tailwind-config/utils";
 
 const alertVariants = cva(
-  "relative grid w-full gap-1 rounded-lg border px-4 py-3 text-sm",
+  "group/alert relative grid w-full gap-0.5 rounded-lg border px-4 py-3 text-left text-sm has-data-[slot=alert-action]:relative has-data-[slot=alert-action]:pr-18 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2.5 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default: "bg-card text-card-foreground",
-        warning: "border-warning/50 bg-warning/10 text-foreground",
-        destructive: "border-destructive/50 bg-destructive/10 text-foreground",
+        warning:
+          "border-warning/40 bg-warning/10 text-foreground *:[svg]:text-warning-foreground-soft",
+        destructive:
+          "bg-card text-destructive *:data-[slot=alert-description]:text-destructive/90 *:[svg]:text-current",
       },
     },
-    defaultVariants: { variant: "default" },
+    defaultVariants: {
+      variant: "default",
+    },
   }
 );
 
@@ -23,9 +27,9 @@ function Alert({
 }: React.ComponentProps<"div"> & VariantProps<typeof alertVariants>) {
   return (
     <div
-      className={cn(alertVariants({ variant }), className)}
       data-slot="alert"
       role="alert"
+      className={cn(alertVariants({ variant }), className)}
       {...props}
     />
   );
@@ -34,8 +38,11 @@ function Alert({
 function AlertTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("font-medium", className)}
       data-slot="alert-title"
+      className={cn(
+        "font-medium group-has-[>svg]/alert:col-start-2 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground",
+        className
+      )}
       {...props}
     />
   );
@@ -47,11 +54,24 @@ function AlertDescription({
 }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("text-muted-foreground", className)}
       data-slot="alert-description"
+      className={cn(
+        "text-sm text-balance text-muted-foreground md:text-pretty [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground [&_p:not(:last-child)]:mb-4",
+        className
+      )}
       {...props}
     />
   );
 }
 
-export { Alert, AlertDescription, AlertTitle };
+function AlertAction({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="alert-action"
+      className={cn("absolute top-2.5 right-3", className)}
+      {...props}
+    />
+  );
+}
+
+export { Alert, AlertTitle, AlertDescription, AlertAction };

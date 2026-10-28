@@ -1,14 +1,13 @@
 import { Suspense } from "react";
 
-import { getDirection } from "@/directions/registry";
+import { AuthScreen } from "@/components/auth/auth-screen";
 
 export const metadata = { title: "Create account" };
 
-export default async function SignUpPage() {
-  const D = await getDirection();
+export default function SignUpPage() {
   return (
     <Suspense>
-      <D.Auth mode="sign-up" />
+      <AuthScreen mode="sign-up" />
     </Suspense>
   );
 }

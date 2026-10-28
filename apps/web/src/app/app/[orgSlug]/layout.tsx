@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { getDirection } from "@/directions/registry";
+import { AppShell } from "@/components/app-shell/app-shell";
 import { loadShell } from "@/server/views";
 
 export default async function OrgLayout({
@@ -12,6 +12,5 @@ export default async function OrgLayout({
 }) {
   const { orgSlug } = await params;
   // Membership is checked here on the server for every page under the org.
-  const [D, data] = await Promise.all([getDirection(), loadShell(orgSlug)]);
-  return <D.AppShell data={data}>{children}</D.AppShell>;
+  return <AppShell data={await loadShell(orgSlug)}>{children}</AppShell>;
 }

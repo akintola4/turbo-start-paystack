@@ -1,4 +1,4 @@
-import type { SubscriptionStatus } from "@/directions/types";
+import type { SubscriptionStatus } from "@/lib/view-models";
 
 /** Dates render in UTC so server and client output match (no hydration drift). */
 const dateFmt = new Intl.DateTimeFormat("en-GB", {

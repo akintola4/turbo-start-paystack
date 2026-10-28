@@ -1,4 +1,4 @@
-import { getDirection } from "@/directions/registry";
+import { Members } from "@/components/members/members";
 import { loadMembers } from "@/server/views";
 
 export const metadata = { title: "Members" };
@@ -11,6 +11,5 @@ export default async function MembersPage({
   const { orgSlug } = await params;
   // Every query is scoped by the organization resolved from the slug and the
   // caller's membership, never by an id from the client.
-  const [D, data] = await Promise.all([getDirection(), loadMembers(orgSlug)]);
-  return <D.Members data={data} />;
+  return <Members data={await loadMembers(orgSlug)} />;
 }

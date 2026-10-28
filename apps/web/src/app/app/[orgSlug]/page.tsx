@@ -1,4 +1,4 @@
-import { getDirection } from "@/directions/registry";
+import { Dashboard } from "@/components/dashboard/dashboard";
 import { loadDashboard } from "@/server/views";
 
 export const metadata = { title: "Overview" };
@@ -10,6 +10,5 @@ export default async function OrgOverviewPage({
 }) {
   const { orgSlug } = await params;
   // Paid features check the entitlement on the server (PLAN §2.3 #7).
-  const [D, data] = await Promise.all([getDirection(), loadDashboard(orgSlug)]);
-  return <D.Dashboard data={data} />;
+  return <Dashboard data={await loadDashboard(orgSlug)} />;
 }
