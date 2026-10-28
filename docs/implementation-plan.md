@@ -243,3 +243,26 @@ scripts/                     paystack-mock.ts (local fake Paystack API), webhook
 - [ ] Commit `docs: readme, decisions and paystack verification checklist`.
 
 M3/M4 items not covered above (React Email templates, dunning retries via charge_authorization, invoice PDFs, Playwright e2e in test mode, docs site) are listed in README "Later".
+
+---
+
+## Execution notes (added after the build)
+
+Tasks 1–13 were implemented in order. Where the build departed from the plan
+above, the reason is in `docs/decisions.md`; the main ones:
+
+- The billing service was split into focused modules under
+  `packages/billing/src/service/` (checkout, charge, switch-plan, plan-change,
+  sync-remote, invoices) rather than one `service.ts`.
+- `billing_customer.paystack_customer_code` is not unique (one Paystack
+  customer per email can pay for several organizations); renewals are matched
+  on customer + plan and re-derived from `GET /subscription/:code`.
+- Added `replaced_subscription.email_token`/`disabled_at` so a failed disable
+  during a plan change is retried by reconcile.
+- Added `BILLING_TRIAL_MODE=card|off` and `EMAIL_TRANSPORT=log`.
+- The end-to-end smoke on real Postgres found a race between `charge.success`
+  and `subscription.create`; processing is now serialised per Paystack
+  customer with an advisory lock, covered by a `TEST_DATABASE_URL` test and a
+  Postgres service in CI.
+- Not done from Task 5: an org switcher based on the shadcn sidebar and the
+  dnd-kit data table (a plain select and table are used instead).
