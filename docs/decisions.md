@@ -135,10 +135,62 @@ can be revisited.
 29. **Tests: PGlite plus a fake Paystack behind msw.** Concurrency tests need
     real Postgres and run when `TEST_DATABASE_URL` is set; CI provides a
     Postgres 17 service.
-30. **Email: plain-text messages over Resend's HTTP API**, no SDK. React Email
-    templates are later work. Without a key, mail is logged in development;
-    in production that fallback throws unless `EMAIL_TRANSPORT=log` is set on
-    purpose (for running a production build locally).
+30. **Email: React Email templates over Resend's HTTP API**, no SDK. Every
+    email is a template in `packages/email/src/templates` rendered to HTML
+    plus a plain-text part (`render(…, { plainText: true })`); both go to
+    `POST /emails` with `fetch`. When the caller has a natural key (payment
+    reference, subscription plus date) the request carries an
+    `Idempotency-Key` (sha256 of key and recipient; Resend remembers keys for
+    24 hours), so a retried webhook or a verify/webhook race does not send
+    twice. Without a key, mail is logged in development; in production that
+    fallback throws unless `EMAIL_TRANSPORT=log` is set on purpose (for
+    running a production build locally). Plan: `docs/email-plan.md`.
+    - **Packages:** `react-email` 6 for the components and the `email dev`
+      preview (with `@react-email/ui`), `@react-email/render` for rendering.
+      `@react-email/components` is deprecated on npm; v6 moved the components
+      into `react-email`.
+    - **Styling: inline styles from one theme object, not the `<Tailwind>`
+      component.** The theme (`packages/email/src/theme.ts`: product name,
+      logo URL, support link, light and dark colours) is the single place to
+      rebrand, and it is set from env (`EMAIL_BRAND_NAME`, `EMAIL_LOGO_URL`,
+      `EMAIL_SUPPORT_URL`). Inline styles survive clients that strip
+      `<style>` (some Gmail views), need no Tailwind config or render-time CSS
+      processing, and keep the emails' look independent of the app's
+      Tailwind setup. A small `<style>` block adds only what inline styles
+      cannot do: dark-mode colours for clients that honour
+      `prefers-color-scheme` (Apple Mail, iOS, Outlook.com via
+      `[data-ogsc]`) and a narrower card on phones. Gmail and Outlook for
+      Windows apply their own inversion to the light design.
+    - **The theme is a prop, not React context.** The email package is
+      imported by server code that Next.js bundles for route handlers and
+      server components, where `createContext` is not allowed.
+    - **Links are never taken from user input.** App links are built from
+      `BETTER_AUTH_URL` with each path segment encoded; Better Auth's
+      verification and reset URLs must be on that origin or the send throws;
+      Paystack manage-card links must be https on a Paystack domain (or the
+      local mock's origin), otherwise the billing page is linked instead.
+      Names are rendered as React text, so they are escaped, and line breaks
+      are stripped from subjects.
+    - **Billing emails are sent after the database commit.**
+      `transactionWithNotifications` queues `notify` calls made inside a
+      transaction and delivers them after it commits, so a rolled-back
+      webhook or plan change never emails and a slow send never holds row
+      locks. A failed send is logged, not retried: the billing state is
+      already correct, and the event key keeps a later resend idempotent.
+    - **Who gets billing email:** members whose role has `billing:manage`.
+    - **Trial-ending reminder: 3 days before, at most once.** Reconcile claims
+      the reminder by setting `subscription.trial_reminder_sent_at` with a
+      conditional update, then sends after commit. If that send fails the
+      reminder is lost rather than repeated. The amount is the price that
+      will be charged (a downgrade scheduled during the trial wins).
+    - **Cancellation email** is sent when our cancel runs, or when Paystack's
+      `subscription.not_renew`/`disable` moves an active or trialing
+      subscription to non-renewing (cancelled from Paystack's side). Our own
+      cancel already set non-renewing, so its webhook does not email again.
+    - **Receipts** go out for the first checkout charge and for renewals. A
+      prorated upgrade sends the plan-change email (with the amount) instead
+      of a separate receipt. Paystack also emails its own receipt to the card
+      holder.
 31. **Packages are source-only** like turbo-start-sanity, but use a
     `library.json` tsconfig with `moduleResolution: Bundler` so relative
     imports don't need `.js` extensions.

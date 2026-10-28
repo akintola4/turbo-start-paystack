@@ -9,8 +9,8 @@ production without a key unless `EMAIL_TRANSPORT=log`.
 
 `react-email` 6 is now the package that ships the components and the preview
 CLI; `@react-email/components` is deprecated on npm. Components are imported
-from `react-email` and `render` from `@react-email/render`. Both are in the
-pnpm catalog.
+from `react-email` and `render` from `@react-email/render`; the preview UI is
+`@react-email/ui` (dev only). All three are in the pnpm catalog.
 
 ## File layout
 
@@ -22,12 +22,14 @@ packages/email/
     transport.ts          Resend fetch transport, dev outbox, Idempotency-Key
     mailer.ts             createMailer: render template -> { subject, html, text } -> send
     render.ts             renderEmail(element) -> { html, text }
-    theme.ts              EmailTheme (product name, logo URL, colours, support URL)
+    theme.ts              EmailTheme (product name, logo URL, colours, support URL),
+                          passed to components as a prop (no React context: the
+                          package is bundled into Next.js server code)
     links.ts              appLink() / checked external links (no user-supplied URLs)
     format.ts             formatMoney (integer subunits + currency), formatDate (UTC)
     components/           Layout, Button, Heading, Text, DetailTable
     templates/*.tsx       one file per email
-    samples.ts            sample props shared by previews, tests and screenshots
+  scripts/export.tsx      renders every template's sample props to .html/.txt
 ```
 
 ## Templates
@@ -45,7 +47,8 @@ packages/email/
 | `trial-started`, `card-expiring`, `payment-disputed` | small notices that already existed as plain text | existing notifications |
 
 Each template exports its component, a `subject(props)` function and sample
-`PreviewProps`. All user-provided strings (names, org names) are rendered as
+`PreviewProps` (used by the preview, the tests and the export script). All
+user-provided strings (names, org names) are rendered as
 React text, so they are escaped. Links are never taken from user input: app
 links are built from the configured app URL, Better Auth URLs must share its
 origin, and Paystack manage links must be https on a Paystack host (or the

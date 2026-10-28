@@ -266,3 +266,6 @@ above, the reason is in `docs/decisions.md`; the main ones:
   Postgres service in CI.
 - Not done from Task 5: an org switcher based on the shadcn sidebar and the
   dnd-kit data table (a plain select and table are used instead).
+- Email templates (React Email, receipts, plan-change, cancellation and
+  trial-ending emails) were added afterwards; plan in `docs/email-plan.md`,
+  decisions in `docs/decisions.md` #30.

@@ -21,7 +21,8 @@ subscription code.
   (owner, admin, billing, member, viewer) and `requirePermission`
 - `packages/db`: Drizzle schema for auth and billing tables, migrations, and
   test databases (PGlite, or a real Postgres for concurrency tests)
-- `packages/email`: email sender (Resend over HTTP, or a log in development)
+- `packages/email`: React Email templates and the sender (Resend over
+  HTTP, or a log in development)
 - `packages/ui`, `packages/env`, `packages/logger`, `packages/tailwind-config`,
   `packages/typescript-config`: shared UI (shadcn, new-york), env validation
   (t3-env), a logger that redacts tokens, and config
@@ -85,9 +86,12 @@ refuses to boot if a required one is missing or malformed.
 | `BILLING_GRACE_DAYS` | no | Days a failed renewal keeps access. Default 7 |
 | `BILLING_TRIAL_MODE` | no | `card` (default): card-up-front trials. `off`: no trials |
 | `CRON_SECRET` | yes | 16+ chars. Bearer token for `/api/cron/billing-reconcile` |
-| `EMAIL_FROM` | no | Sender address |
+| `EMAIL_FROM` | no | Sender, e.g. `Acme <billing@mail.acme.com>`. Its domain must be verified in Resend |
 | `RESEND_API_KEY` | prod | Without it, emails are written to the server log (development only) |
 | `EMAIL_TRANSPORT` | no | `log` lets a local `next start` log emails. Never set it on a real deployment |
+| `EMAIL_BRAND_NAME` | no | Product name in email headers and footers. Default `Turbo Start` |
+| `EMAIL_LOGO_URL` | no | https URL of a logo (shown 28px tall). Without it, the name is used as a wordmark |
+| `EMAIL_SUPPORT_URL` | no | `https:` or `mailto:` link for "Contact support" in the footer |
 
 ### 3. Create the database
 
@@ -131,6 +135,7 @@ would. It is for development only and is not a Paystack simulator.
 
 ```bash
 pnpm dev:web           # Next.js app
+pnpm email:preview     # React Email preview of every template on :3001
 pnpm build             # build everything
 pnpm lint              # Biome
 pnpm format            # Biome format
@@ -177,6 +182,58 @@ against real Paystack test mode is listed in `docs/paystack-verification.md`.
    Vercel; elsewhere use any scheduler.
 
 More detail, including a going-live checklist, is in `docs/paystack-setup.md`.
+
+## Email
+
+Emails are React Email templates in `packages/email/src/templates`. Each
+send renders an HTML part and a plain-text part and posts both to Resend's
+HTTP API. Without `RESEND_API_KEY`, development logs each email (and keeps
+the last 50 in memory for the smoke test); in production a send without a
+key throws, so mail is never silently dropped, unless `EMAIL_TRANSPORT=log`
+is set.
+
+| Template | Sent when |
+|---|---|
+| Verify email | Sign-up |
+| Reset password | Password reset requested |
+| Organization invitation | Someone is invited (inviter, organization, role, 7-day expiry) |
+| Payment receipt | First checkout charge and each renewal |
+| Payment failed | A renewal fails: grace-period end date and Paystack's update-card link |
+| Trial ending | Reconcile, 3 days before a trial ends (once): date, plan and amount |
+| Subscription cancelled | Cancelled in the app or on Paystack: access-until date and resume link |
+| Plan changed | Upgrade (prorated amount charged now) or downgrade (scheduled for period end) |
+| Trial started, card expiring, payment disputed | Paystack card-up-front trial starts, `subscription.expiring_cards`, `charge.dispute.create` |
+
+Billing emails go to every member who can manage billing (owner and the
+`billing` role), after the database change has committed.
+
+### Resend setup
+
+1. Create an API key in Resend (sending access is enough) and set
+   `RESEND_API_KEY`.
+2. Add and verify your sending domain in Resend (Domains → Add domain, then
+   the SPF and DKIM DNS records it shows). A subdomain such as
+   `mail.acme.com` keeps it separate from your main mail.
+3. Set `EMAIL_FROM` to an address on that domain, e.g.
+   `Acme <billing@mail.acme.com>`. Resend rejects sends from unverified
+   domains with a 403, which the app logs.
+
+### Branding and preview
+
+Set `EMAIL_BRAND_NAME`, `EMAIL_LOGO_URL` and `EMAIL_SUPPORT_URL`, or edit the
+colours in `packages/email/src/theme.ts` (one theme object, light and dark).
+
+```bash
+pnpm email:preview                              # http://localhost:3001
+pnpm --filter @workspace/email export /tmp/out  # every template as .html and .txt
+```
+
+The preview uses the sample props at the bottom of each template file.
+
+<p>
+  <img alt="Payment receipt email, light mode" src="docs/images/email-receipt-light.png" width="380">
+  <img alt="Payment failed email, dark mode on a phone" src="docs/images/email-payment-failed-dark-mobile.png" width="240">
+</p>
 
 ## Roles
 
@@ -236,17 +293,18 @@ and Paystack's API, so retries and out-of-order delivery end in the same state.
 In this version:
 
 - Email and password auth, organizations, invitations, five roles, org switcher
+- React Email templates for auth and billing email, with trial-ending
+  reminders
 - Plan catalog and sync, subscribe, card-up-front trial, prorated upgrade,
   scheduled downgrade, cancel and resume, failed-payment grace period,
   reconcile cron, billing page with invoices
 - Multi-currency catalog (NGN default; GHS, ZAR, KES and USD by config)
-- 130+ tests, CI with a real Postgres service
+- 190+ tests, CI with a real Postgres service
 
 Later:
 
 - Magic link, email OTP, Google sign-in, two-factor auth, operator admin
-- React Email templates, trial-ending reminders, card-retry schedule for
-  failed renewals, PDF receipts
+- Card-retry schedule for failed renewals, PDF receipts
 - Undoing a scheduled downgrade, organization soft delete
 - Per-seat and usage-based pricing, coupons
 - Playwright tests against Paystack test mode, a docs site
