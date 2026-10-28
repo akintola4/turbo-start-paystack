@@ -1,0 +1,33 @@
+{
+  "name": "@workspace/ui",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.5.0",
+    "@workspace/tailwind-config": "workspace:*",
+    "class-variance-authority": "^0.7.1",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tw-animate-css": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@workspace/typescript-config": "workspace:*",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:"
+  },
+  "exports": {
+    "./globals.css": "./src/styles/globals.css",
+    "./components/*": "./src/components/*.tsx"
+  }
+}

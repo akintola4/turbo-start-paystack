@@ -1,0 +1,33 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "check-types": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@workspace/env": "workspace:*",
+    "@workspace/logger": "workspace:*",
+    "@workspace/tailwind-config": "workspace:*",
+    "@workspace/ui": "workspace:*",
+    "lucide-react": "catalog:",
+    "next": "16.4.3",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}
