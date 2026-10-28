@@ -120,6 +120,17 @@ describe("card-up-front trial (PLAN §6.3 T1)", () => {
     expect(h.fake.refunds.at(-1)?.transaction).toBe(checkout.reference);
   });
 
+  it("skips trials entirely when trialMode is off", async () => {
+    h.billing.deps.trialMode = "off";
+    try {
+      const org = await h.createOrg();
+      const checkout = await h.billing.startCheckout({ ...org, planPriceId: "starter-monthly-ngn" });
+      expect(checkout).toMatchObject({ kind: "subscribe", amountSubunit: 1_000_000 });
+    } finally {
+      h.billing.deps.trialMode = "card";
+    }
+  });
+
   it("does not offer a second trial", async () => {
     const org = await h.createOrg({ previouslySubscribed: true });
     const checkout = await h.billing.startCheckout({

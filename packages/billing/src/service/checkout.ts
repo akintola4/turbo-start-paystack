@@ -95,7 +95,10 @@ export async function startCheckout(
     .from(schema.subscription)
     .where(eq(schema.subscription.organizationId, input.organizationId))
     .limit(1);
-  const kind = plan.trialDays > 0 && !previous ? "trial" : "subscribe";
+  const kind =
+    deps.trialMode !== "off" && plan.trialDays > 0 && !previous
+      ? "trial"
+      : "subscribe";
   const amount =
     kind === "trial"
       ? TOKENIZATION_AMOUNT[price.currency]

@@ -31,6 +31,8 @@ export const env = createEnv({
     BILLING_CURRENCY: z
       .enum(["NGN", "GHS", "ZAR", "KES", "USD"])
       .default("NGN"),
+    // card: card-up-front trial on plans with trialDays. off: no trials.
+    BILLING_TRIAL_MODE: z.enum(["card", "off"]).default("card"),
 
     // Bearer token for /api/cron/*.
     CRON_SECRET: z.string().min(16),

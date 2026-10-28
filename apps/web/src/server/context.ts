@@ -41,6 +41,7 @@ function createServerContext(): ServerContext {
     encryptionKey: env.BILLING_ENCRYPTION_KEY,
     callbackUrl: `${env.BETTER_AUTH_URL}/billing/callback`,
     graceDays: env.BILLING_GRACE_DAYS,
+    trialMode: env.BILLING_TRIAL_MODE,
     notify: (notification) => notifyBillingAdmins(db, sendEmail, notification),
   });
   const authService = createAuth({

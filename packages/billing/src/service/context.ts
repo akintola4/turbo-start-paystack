@@ -21,6 +21,9 @@ export type BillingDeps = {
   callbackUrl: string;
   /** Days a past_due subscription keeps access. */
   graceDays: number;
+  /** "card" (default): card-up-front trial on plans with trialDays.
+   *  "off": every checkout charges the first period immediately. */
+  trialMode?: "card" | "off";
   now: () => Date;
   logger: Pick<Logger, "info" | "warn" | "error">;
   notify?: (notification: BillingNotification) => Promise<void>;
