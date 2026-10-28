@@ -152,7 +152,17 @@ export type OrgPickerData = {
     planName: string;
     status: SubscriptionStatus | null;
     memberCount: number;
+    /** Billing details, only when the viewer's role can see billing. */
+    billing: {
+      priceLabel: string;
+      /** ISO: next charge, trial end, access end or grace deadline. */
+      date: string | null;
+      kind: "charge" | "trial" | "ends" | "grace";
+    } | null;
+    /** Lower sorts first: past due, then trials ending within 7 days. */
+    attention: number;
   })[];
+  view: "list" | "grid";
 };
 
 export type AcceptInviteData = {

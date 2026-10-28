@@ -1,6 +1,13 @@
 import "server-only";
 
-import { ROLE_RANK, type Role, rankOf } from "@workspace/auth/permissions";
+import {
+  ROLE_RANK,
+  type Role,
+  rankOf,
+  roleHasPermission,
+} from "@workspace/auth/permissions";
+
+import { ORG_VIEW_COOKIE } from "@/lib/org-view";
 import {
   type Currency,
   catalog,
@@ -12,7 +19,7 @@ import { schema } from "@workspace/db";
 import { env as clientEnv } from "@workspace/env/client";
 import { env } from "@workspace/env/server";
 import { and, count, eq, gt, inArray } from "drizzle-orm";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import type {
@@ -423,6 +430,52 @@ export async function loadBilling(
   };
 }
 
+function orgBilling(summary: SubscriptionSummary | null) {
+  if (!summary) {
+    return null;
+  }
+  if (summary.status === "past_due") {
+    return {
+      priceLabel: summary.priceLabel,
+      date: summary.graceUntil,
+      kind: "grace" as const,
+    };
+  }
+  if (summary.cancelAtPeriodEnd || summary.status === "non_renewing") {
+    return {
+      priceLabel: summary.priceLabel,
+      date: summary.currentPeriodEnd,
+      kind: "ends" as const,
+    };
+  }
+  if (summary.status === "trialing") {
+    return {
+      priceLabel: summary.priceLabel,
+      date: summary.trialEndsAt,
+      kind: "trial" as const,
+    };
+  }
+  return {
+    priceLabel: summary.priceLabel,
+    date: summary.currentPeriodEnd,
+    kind: "charge" as const,
+  };
+}
+
+function attentionOf(summary: SubscriptionSummary | null) {
+  if (summary?.status === "past_due") {
+    return 0;
+  }
+  if (summary?.status === "trialing" && summary.trialEndsAt) {
+    const days =
+      (new Date(summary.trialEndsAt).getTime() - Date.now()) / 86_400_000;
+    if (days <= 7) {
+      return 1;
+    }
+  }
+  return 2;
+}
+
 export async function loadOrgPicker(): Promise<OrgPickerData> {
   const session = await requireSession();
   const orgs = await listMyOrganizations(session.user.id);
@@ -436,17 +489,28 @@ export async function loadOrgPicker(): Promise<OrgPickerData> {
         .groupBy(schema.member.organizationId)
     : [];
   const subs = await Promise.all(ids.map((id) => billing.getSubscription(id)));
+  const view =
+    (await cookies()).get(ORG_VIEW_COOKIE)?.value === "grid" ? "grid" : "list";
   return {
     user: userRef(session),
-    orgs: orgs.map((org, i) => {
-      const summary = summarize(subs[i]);
-      return {
-        ...org,
-        planName: summary?.planName ?? "Free",
-        status: summary?.status ?? null,
-        memberCount: counts.find((c) => c.org === org.id)?.n ?? 1,
-      };
-    }),
+    view,
+    orgs: orgs
+      .map((org, i) => {
+        const summary = summarize(subs[i]);
+        return {
+          ...org,
+          planName: summary?.planName ?? "Free",
+          status: summary?.status ?? null,
+          memberCount: counts.find((c) => c.org === org.id)?.n ?? 1,
+          billing: roleHasPermission(org.role, "billing:view")
+            ? orgBilling(summary)
+            : null,
+          attention: attentionOf(summary),
+        };
+      })
+      .sort(
+        (a, b) => a.attention - b.attention || a.name.localeCompare(b.name)
+      ),
   };
 }
 
