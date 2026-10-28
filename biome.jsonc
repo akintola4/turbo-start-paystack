@@ -82,6 +82,7 @@
     {
       "includes": [
         "**/scripts/**/*.ts",
+        "**/scripts/**/*.tsx",
         "**/scripts/**/*.js",
         "packages/logger/**/*.ts",
         "scripts/**/*.ts"

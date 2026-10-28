@@ -4,6 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "dev": "email dev --dir emails --port 3001",
+    "export": "tsx scripts/export.tsx",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -11,11 +13,18 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@workspace/logger": "workspace:*"
+    "@react-email/render": "catalog:",
+    "@workspace/logger": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-email": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "@workspace/typescript-config": "workspace:*",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
