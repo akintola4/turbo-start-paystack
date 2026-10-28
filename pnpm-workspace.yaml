@@ -6,6 +6,8 @@ packages:
 catalog:
   "@electric-sql/pglite": ^0.5.13
   "@react-email/render": ^2.1.1
+  # Preview UI for `email dev`; keep on the same minor as react-email.
+  "@react-email/ui": ^6.11.3
   "@tailwindcss/postcss": ^4.3.3
   "@types/node": ^24.19.2
   "@types/react": ^19.3.0

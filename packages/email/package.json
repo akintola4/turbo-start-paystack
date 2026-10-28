@@ -20,6 +20,7 @@
     "react-email": "catalog:"
   },
   "devDependencies": {
+    "@react-email/ui": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

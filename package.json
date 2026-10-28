@@ -25,6 +25,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "dev:web": "turbo run dev --filter=web",
+    "email:preview": "pnpm --filter @workspace/email dev",
     "lint": "turbo run lint",
     "format": "turbo run format",
     "format:check": "turbo run format:check",
