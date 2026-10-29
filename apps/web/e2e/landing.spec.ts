@@ -1,12 +1,16 @@
 import { expect, type Page, test } from "@playwright/test";
 
+import { INSTALL_COMMAND, INSTALL_STEPS } from "../src/lib/landing";
+
 /*
- * Landing page behaviour: the copy button, one currency across hero, pricing
- * and footer, the receipt respecting reduced motion, and no sideways scroll
- * at any supported width. Needs only the web app running (no database).
+ * Landing page behaviour: the one currency control (the hero wall, where
+ * hover only previews), the one theme control, the closing receipt and its
+ * copy button, the finished-by-default webhook comparison, optical alignment
+ * of the display headings, code-token contrast, and no sideways scroll at
+ * any supported width. Needs only the web app running (no database).
  */
 
-const COMMAND = "npx degit akintola4/turbo-start-paystack my-saas";
+const WIDTHS = [300, 375, 768, 1024, 1440, 1920, 2560];
 
 async function heroPrice(page: Page) {
   return (await page.locator("[data-hero-price]").innerText()).replace(
@@ -15,63 +19,130 @@ async function heroPrice(page: Page) {
   );
 }
 
+const amountDue = (page: Page) => page.locator("[data-amount-due] .sr-only");
+const wallTile = (page: Page, code: string) =>
+  page.locator(`[data-wall-tile][data-currency=${code}]`).first();
+
 test("copy puts the full command on the clipboard without moving anything", async ({
   page,
   context,
 }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/");
-  const bar = page.locator("[data-command]").locator("..");
+  const command = page.locator("[data-command]");
   const button = page.locator("[data-copy]");
   await button.scrollIntoViewIfNeeded();
   const before = await button.boundingBox();
-  const barBefore = await bar.boundingBox();
+  const commandBefore = await command.boundingBox();
   await button.click();
   await expect(button).toHaveAccessibleName("Copied");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-    COMMAND
+    INSTALL_COMMAND
   );
   expect(await button.boundingBox()).toEqual(before);
-  expect(await bar.boundingBox()).toEqual(barBefore);
+  expect(await command.boundingBox()).toEqual(commandBefore);
   await expect(page.getByText("Copied the install command")).toBeVisible();
 });
 
-test("the command is never cut off", async ({ page }) => {
-  for (const width of [300, 375, 768, 1024, 1440, 1920]) {
+test("the command shows every step and is never cut off", async ({ page }) => {
+  for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
-    const fits = await page
-      .locator("[data-command]")
-      .evaluate((el) => el.scrollWidth <= el.clientWidth);
+    const command = page.locator("[data-command]");
+    const fits = await command.evaluate(
+      (el) => el.scrollWidth <= el.clientWidth
+    );
     expect(fits, `command overflows at ${width}px`).toBe(true);
-    await expect(page.locator("[data-command]")).toHaveText(`$ ${COMMAND}`);
+    const lines = await command.locator(":scope > span").allInnerTexts();
+    expect(lines.map((l) => l.replace(/\s+/g, " ").trim())).toEqual(
+      INSTALL_STEPS.map((step) => `$ ${step}`)
+    );
   }
 });
 
-test("one currency drives the hero, pricing and the footer", async ({
+test("the hero wall is the page's only currency control", async ({ page }) => {
+  await page.goto("/");
+  const groups = page.locator("[role=radiogroup]:has([data-currency])");
+  await expect(groups).toHaveCount(1);
+  await expect(groups.first()).toHaveAttribute("id", "currency");
+});
+
+test("the footer holds the page's only theme control", async ({ page }) => {
+  await page.goto("/");
+  const themes = page.locator("[role=radiogroup][aria-label=Theme]");
+  await expect(themes).toHaveCount(1);
+  await expect(
+    page.locator("footer [role=radiogroup][aria-label=Theme]")
+  ).toHaveCount(1);
+});
+
+test("one currency drives the hero, pricing, the receipt and the footer", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.locator("#pricing [role=radio][data-currency=GHS]").click();
+  await wallTile(page, "GHS").click();
   await expect.poll(() => heroPrice(page)).toContain("cedis");
-  await expect(
-    page.locator("[data-wall-tile][data-currency=GHS]").first()
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("[data-amount-due] .sr-only")).toHaveText(
-    "GH₵0.00"
+  await expect(wallTile(page, "GHS")).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator("#pricing")).toContainText("Priced in cedis");
+  await expect(amountDue(page)).toHaveText("GH₵0.00");
+  await expect(page.locator(".footer-wordmark-glyph.is-on")).toHaveAttribute(
+    "data-currency",
+    "GHS"
   );
+});
 
-  await page.locator("footer [role=radio][data-currency=KES]").click();
-  await expect(
-    page.locator("#pricing [role=radio][data-currency=KES]")
-  ).toHaveAttribute("aria-checked", "true");
+test("pointing at a tile previews it without choosing it", async ({ page }) => {
+  await page.goto("/");
+  const cookie = () => page.evaluate(() => document.cookie);
+  const before = await cookie();
+
+  await wallTile(page, "KES").hover();
   await expect.poll(() => heroPrice(page)).toContain("shillings");
+  await expect(wallTile(page, "KES")).toHaveAttribute("aria-checked", "false");
+  await expect(page.locator("#pricing")).toContainText("Priced in naira");
+  await expect(amountDue(page)).toHaveText("₦0.00");
+  expect(await cookie()).toBe(before);
 
-  await page.locator("[data-wall-tile][data-currency=USD]").first().click();
+  // Leaving the wall ends the preview.
+  await page.mouse.move(5, 5);
+  await expect.poll(() => heroPrice(page)).toContain("naira");
+
+  // A click commits, and only then is it remembered.
+  await wallTile(page, "KES").click();
+  await expect(page.locator("#pricing")).toContainText("Priced in shillings");
+  expect(await cookie()).toContain("tsp-currency=KES");
+});
+
+test("arrow keys on the wall move and choose", async ({ page }) => {
+  await page.goto("/");
+  await wallTile(page, "NGN").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(wallTile(page, "GHS")).toBeFocused();
+  await expect(wallTile(page, "GHS")).toHaveAttribute("aria-checked", "true");
+  await expect(amountDue(page)).toHaveText("GH₵0.00");
+});
+
+test("the webhook comparison opens on its outcome", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.locator("[data-verdict=browser]").first()).toBeVisible();
+  await expect(page.locator("[data-verdict=signed]").first()).toBeVisible();
   await expect(
-    page.locator("#pricing [role=radio][data-currency=USD]")
-  ).toHaveAttribute("aria-checked", "true");
-  await expect(page.locator("[data-amount-due] .sr-only")).toHaveText("$0.00");
+    page.getByRole("button", { name: "Replay the requests" })
+  ).toBeVisible();
+});
+
+test("on phones each request shows both answers", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto("/");
+  const compact = page.locator("[data-webhooks-compact]");
+  await expect(compact).toBeVisible();
+  const rows = compact.locator("ol > li");
+  await expect(rows).toHaveCount(3);
+  for (let i = 0; i < 3; i++) {
+    await expect(rows.nth(i)).toContainText("Browser");
+    await expect(rows.nth(i)).toContainText("Signed");
+  }
 });
 
 /** The paper's vertical offset when the feeder's top is at 70% of the viewport. */
@@ -110,7 +181,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       reducedMotion: "reduce",
     });
     const page = await context.newPage();
-    for (const width of [300, 375, 768, 1024, 1440, 1920]) {
+    for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/");
       const overflow = await page.evaluate(
@@ -123,6 +194,31 @@ for (const colorScheme of ["light", "dark"] as const) {
     await context.close();
   });
 }
+
+test("the landing does not shift as it loads", async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: "reduce" });
+  const page = await context.newPage();
+  await page.addInitScript(() => {
+    (window as unknown as { __cls: number }).__cls = 0;
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries() as (PerformanceEntry & {
+        value: number;
+        hadRecentInput: boolean;
+      })[]) {
+        if (!entry.hadRecentInput) {
+          (window as unknown as { __cls: number }).__cls += entry.value;
+        }
+      }
+    }).observe({ type: "layout-shift", buffered: true });
+  });
+  await page.goto("/");
+  await page.waitForTimeout(2500);
+  const cls = await page.evaluate(
+    () => (window as unknown as { __cls: number }).__cls
+  );
+  expect(cls).toBeLessThan(0.01);
+  await context.close();
+});
 
 test("the landing logs no console errors or warnings", async ({ page }) => {
   const problems: string[] = [];
@@ -145,46 +241,31 @@ test("the landing logs no console errors or warnings", async ({ page }) => {
   expect(problems).toEqual([]);
 });
 
-test("footer and receipt controls stay in sync and are remembered", async ({
-  page,
-}) => {
+test("theme and currency are remembered", async ({ page }) => {
   await page.goto("/");
-  const receipt = page.locator("section[aria-labelledby=receipt-title]");
   await page.locator("footer [data-segment=dark]").click();
-  await expect(receipt.getByRole("radio", { name: "Dark" })).toHaveAttribute(
-    "aria-checked",
-    "true"
-  );
-  await page.locator("footer [role=radio][data-currency=ZAR]").click();
-  await expect(page.locator("[data-amount-due] .sr-only")).toHaveText("R0.00");
-  await receipt.locator("[role=radio][data-currency=GHS]").click();
-  await expect(
-    page.locator("footer [role=radio][data-currency=GHS]")
-  ).toHaveAttribute("aria-checked", "true");
-  await expect(page.locator(".footer-wordmark-glyph.is-on")).toHaveAttribute(
-    "data-currency",
-    "GHS"
-  );
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await wallTile(page, "ZAR").click();
+  await expect(amountDue(page)).toHaveText("R0.00");
 
   await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
-  await expect(
-    page.locator("#pricing [role=radio][data-currency=GHS]")
-  ).toHaveAttribute("aria-checked", "true");
+  await expect(wallTile(page, "ZAR")).toHaveAttribute("aria-checked", "true");
+  await expect(amountDue(page)).toHaveText("R0.00");
 });
 
-test("the wordmark tile holds every symbol at every width", async ({
+test("the wordmark runs edge to edge and its tile holds every symbol", async ({
   page,
 }) => {
   for (const width of [300, 375, 768, 1024, 1440, 1920]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
-    // At the very bottom the wordmark has finished rising.
-    await page.evaluate(() =>
-      window.scrollTo(0, document.documentElement.scrollHeight)
-    );
     for (const code of ["NGN", "GHS", "ZAR", "KES", "USD"]) {
-      await page.locator(`footer [role=radio][data-currency=${code}]`).click();
+      await wallTile(page, code).click();
+      // At the very bottom the wordmark has finished rising.
+      await page.evaluate(() =>
+        window.scrollTo(0, document.documentElement.scrollHeight)
+      );
       await page.waitForTimeout(500); // the symbol's slide-in settles
       const fit = await page.evaluate(() => {
         const wrap = document.querySelector("[data-wordmark]") as HTMLElement;
@@ -193,38 +274,37 @@ test("the wordmark tile holds every symbol at every width", async ({
         const w = wrap.getBoundingClientRect();
         const t = tile.getBoundingClientRect();
         const g = glyph.getBoundingClientRect();
-        return (
-          t.right <= w.right &&
-          g.left >= t.left &&
-          g.right <= t.right &&
-          g.top >= t.top &&
-          g.bottom <= t.bottom
-        );
+        return {
+          reachesEdge: Math.abs(t.right - w.right) <= 1,
+          inside:
+            g.left >= t.left &&
+            g.right <= t.right &&
+            g.top >= t.top &&
+            g.bottom <= t.bottom,
+        };
       });
-      expect(fit, `${code} at ${width}px`).toBe(true);
+      expect(fit, `${code} at ${width}px`).toEqual({
+        reachesEdge: true,
+        inside: true,
+      });
     }
   }
 });
 
 test("every control on the landing has press feedback", async ({ page }) => {
-  for (const q of [""]) {
-    await page.goto(`/${q}`);
-    const missing = await page.evaluate(() => {
-      const controls = document.querySelectorAll<HTMLElement>(
-        'button, a[role=button], [data-slot=button], [role=radio], [role=tab], a[class*="bg-"]'
+  await page.goto("/");
+  const missing = await page.evaluate(() => {
+    const controls = document.querySelectorAll<HTMLElement>(
+      'button, a[role=button], [data-slot=button], [role=radio], [role=tab], a[class*="bg-"], footer a'
+    );
+    return [...controls]
+      .filter((el) => !el.closest("[data-sonner-toaster], nextjs-portal"))
+      .filter((el) => ![...el.classList].some((c) => c.startsWith("pressable")))
+      .map(
+        (el) => `${el.tagName} "${(el.textContent ?? "").trim().slice(0, 30)}"`
       );
-      return [...controls]
-        .filter((el) => !el.closest("[data-sonner-toaster], nextjs-portal"))
-        .filter(
-          (el) => ![...el.classList].some((c) => c.startsWith("pressable"))
-        )
-        .map(
-          (el) =>
-            `${el.tagName} "${(el.textContent ?? "").trim().slice(0, 30)}"`
-        );
-    });
-    expect(missing, `controls without press feedback on /${q}`).toEqual([]);
-  }
+  });
+  expect(missing).toEqual([]);
 });
 
 test("the copy button's label is centred in both states", async ({
@@ -264,7 +344,142 @@ test("the copy button's label is centred in both states", async ({
   expect(copied.iconOffset).toBeLessThanOrEqual(0.5);
 });
 
-test("every feature tab shows all four border edges", async ({ browser }) => {
+/**
+ * First column of ink in a screenshot clip, scanning right from `pad` px left
+ * of `edge`: the first column whose colour differs clearly from the clip's
+ * left edge (the background).
+ */
+async function inkLeft(
+  page: Page,
+  edge: number,
+  top: number,
+  height: number
+): Promise<number> {
+  const pad = 12;
+  const png = await page.screenshot({
+    clip: { x: edge - pad, y: top, width: pad + 48, height },
+  });
+  const x = await page.evaluate(
+    async ({ b64 }) => {
+      const img = new Image();
+      img.src = `data:image/png;base64,${b64}`;
+      await img.decode();
+      const c = document.createElement("canvas");
+      c.width = img.width;
+      c.height = img.height;
+      const ctx = c.getContext("2d") as CanvasRenderingContext2D;
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0, 0, img.width, img.height).data;
+      const at = (px: number, py: number): [number, number, number] => {
+        const i = (py * img.width + px) * 4;
+        return [data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0];
+      };
+      const bg = at(0, Math.floor(img.height / 2));
+      for (let px = 0; px < img.width; px++) {
+        for (let py = 0; py < img.height; py++) {
+          const p = at(px, py);
+          const d =
+            Math.abs(p[0] - bg[0]) +
+            Math.abs(p[1] - bg[1]) +
+            Math.abs(p[2] - bg[2]);
+          if (d > 200) {
+            return px;
+          }
+        }
+      }
+      return -1;
+    },
+    { b64: png.toString("base64") }
+  );
+  return edge - pad + x;
+}
+
+test("display headings put their first letter's ink on the content edge", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    reducedMotion: "reduce",
+    deviceScaleFactor: 1,
+  });
+  const page = await context.newPage();
+  await page.goto("/");
+  await page.evaluate(() => document.fonts.ready);
+  const targets = page.locator(
+    "h1[data-hero-title] > span:first-child, main h2.display-l"
+  );
+  const count = await targets.count();
+  expect(count).toBeGreaterThanOrEqual(5);
+  for (let i = 0; i < count; i++) {
+    const t = targets.nth(i);
+    await t.scrollIntoViewIfNeeded();
+    const m = await t.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      return {
+        edge: r.left - Number.parseFloat(style.marginLeft),
+        top: r.top,
+        line: Number.parseFloat(style.lineHeight) || r.height,
+        text: (el.textContent ?? "").slice(0, 20),
+      };
+    });
+    const ink = await inkLeft(page, m.edge, m.top, Math.round(m.line * 0.8));
+    expect(
+      Math.abs(ink - m.edge),
+      `"${m.text}" ink at ${ink}, edge at ${m.edge}`
+    ).toBeLessThanOrEqual(1.5);
+  }
+  await context.close();
+});
+
+for (const colorScheme of ["light", "dark"] as const) {
+  test(`code tokens pass AA on the code surface, ${colorScheme}`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ colorScheme });
+    const page = await context.newPage();
+    await page.goto("/");
+    const worst = await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1;
+      canvas.height = 1;
+      const ctx = canvas.getContext("2d", {
+        willReadFrequently: true,
+      }) as CanvasRenderingContext2D;
+      const rgb = (color: string) => {
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, 1, 1);
+        return [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+      };
+      const lum = (c: number[]) => {
+        const [r, g, b] = c.map((v) => {
+          const s = v / 255;
+          return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b ?? 0);
+      };
+      const figure = document.querySelector("[data-code]") as HTMLElement;
+      const bg = lum(rgb(getComputedStyle(figure).backgroundColor));
+      const spans = figure.querySelectorAll<HTMLElement>(
+        "[data-token], code > span:not([aria-hidden])"
+      );
+      let min = Number.POSITIVE_INFINITY;
+      for (const span of spans) {
+        const fg = lum(rgb(getComputedStyle(span).color));
+        const ratio = (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
+        min = Math.min(min, ratio);
+      }
+      return min;
+    });
+    expect(worst).toBeGreaterThanOrEqual(4.5);
+    await context.close();
+  });
+}
+
+test("the active feature tab shows all four indicator edges", async ({
+  browser,
+}) => {
   for (const colorScheme of ["light", "dark"] as const) {
     for (const width of [375, 1024, 1440]) {
       const context = await browser.newContext({
@@ -307,9 +522,9 @@ test("every feature tab shows all four border edges", async ({ browser }) => {
             const px = (x: number, y: number) =>
               ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
             const diff = (a: Uint8ClampedArray, b: Uint8ClampedArray) =>
-              Math.abs(a[0]! - b[0]!) +
-              Math.abs(a[1]! - b[1]!) +
-              Math.abs(a[2]! - b[2]!);
+              Math.abs((a[0] ?? 0) - (b[0] ?? 0)) +
+              Math.abs((a[1] ?? 0) - (b[1] ?? 0)) +
+              Math.abs((a[2] ?? 0) - (b[2] ?? 0));
             // Strongest contrast in a 3px band across each edge midpoint,
             // against the background 3px outside the tab.
             const band = (pts: [number, number][], out: [number, number]) =>
@@ -363,4 +578,13 @@ test("every feature tab shows all four border edges", async ({ browser }) => {
       await context.close();
     }
   }
+});
+
+test("feature tab filenames share one baseline", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const bottoms = await page
+    .locator("[data-tab-file]")
+    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().bottom));
+  expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(0.5);
 });
