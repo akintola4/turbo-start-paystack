@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "email dev --dir emails --port 3001",
     "export": "tsx scripts/export.tsx",
+    "icons": "tsx scripts/icons.ts",
+    "screenshots": "tsx scripts/screenshots.ts",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -21,11 +23,13 @@
     "react-email": "catalog:"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@react-email/ui": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@workspace/typescript-config": "workspace:*",
+    "lucide-react": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

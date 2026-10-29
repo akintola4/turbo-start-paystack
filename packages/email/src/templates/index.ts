@@ -1,65 +1,133 @@
 import type { ComponentType } from "react";
 
+import type { EmailContent } from "../content";
 import type { EmailTheme } from "../theme";
-import { CardExpiring, cardExpiringSubject } from "./card-expiring";
+import {
+  CardExpiring,
+  cardExpiringContent,
+  cardExpiringSubject,
+} from "./card-expiring";
 import {
   OrganizationInvitation,
+  organizationInvitationContent,
   organizationInvitationSubject,
 } from "./organization-invitation";
-import { PaymentDisputed, paymentDisputedSubject } from "./payment-disputed";
-import { PaymentFailed, paymentFailedSubject } from "./payment-failed";
-import { PaymentReceipt, paymentReceiptSubject } from "./payment-receipt";
-import { PlanChanged, planChangedSubject } from "./plan-changed";
-import { ResetPassword, resetPasswordSubject } from "./reset-password";
+import {
+  PaymentDisputed,
+  paymentDisputedContent,
+  paymentDisputedSubject,
+} from "./payment-disputed";
+import {
+  PaymentFailed,
+  paymentFailedContent,
+  paymentFailedSubject,
+} from "./payment-failed";
+import {
+  PaymentReceipt,
+  paymentReceiptContent,
+  paymentReceiptSubject,
+} from "./payment-receipt";
+import {
+  PlanChanged,
+  planChangedContent,
+  planChangedSubject,
+} from "./plan-changed";
+import {
+  ResetPassword,
+  resetPasswordContent,
+  resetPasswordSubject,
+} from "./reset-password";
 import {
   SubscriptionCanceled,
+  subscriptionCanceledContent,
   subscriptionCanceledSubject,
 } from "./subscription-canceled";
-import { TrialEnding, trialEndingSubject } from "./trial-ending";
-import { TrialStarted, trialStartedSubject } from "./trial-started";
-import { VerifyEmail, verifyEmailSubject } from "./verify-email";
+import {
+  TrialEnding,
+  trialEndingContent,
+  trialEndingSubject,
+} from "./trial-ending";
+import {
+  TrialStarted,
+  trialStartedContent,
+  trialStartedSubject,
+} from "./trial-started";
+import {
+  VerifyEmail,
+  verifyEmailContent,
+  verifyEmailSubject,
+} from "./verify-email";
 
 type Template<P> = {
   Component: ComponentType<P & { theme?: EmailTheme }> & { PreviewProps: P };
   subject: (props: P) => string;
+  /** What the email says; the HTML and the plain text both render it. */
+  content: (props: P, theme: EmailTheme) => EmailContent;
 };
 
 const define = <P>(
   Component: Template<P>["Component"],
-  subject: Template<P>["subject"]
-): Template<P> => ({ Component, subject });
+  subject: Template<P>["subject"],
+  content: Template<P>["content"]
+): Template<P> => ({ Component, subject, content });
 
 /** Every email, by name. Previews, tests and the screenshot export iterate
  *  over this, so a new template only needs adding here. */
 export const templates = {
-  "verify-email": define<VerifyEmailProps>(VerifyEmail, verifyEmailSubject),
+  "verify-email": define<VerifyEmailProps>(
+    VerifyEmail,
+    verifyEmailSubject,
+    verifyEmailContent
+  ),
   "reset-password": define<ResetPasswordProps>(
     ResetPassword,
-    resetPasswordSubject
+    resetPasswordSubject,
+    resetPasswordContent
   ),
   "organization-invitation": define<OrganizationInvitationProps>(
     OrganizationInvitation,
-    organizationInvitationSubject
+    organizationInvitationSubject,
+    organizationInvitationContent
   ),
   "payment-receipt": define<PaymentReceiptProps>(
     PaymentReceipt,
-    paymentReceiptSubject
+    paymentReceiptSubject,
+    paymentReceiptContent
   ),
   "payment-failed": define<PaymentFailedProps>(
     PaymentFailed,
-    paymentFailedSubject
+    paymentFailedSubject,
+    paymentFailedContent
   ),
-  "trial-ending": define<TrialEndingProps>(TrialEnding, trialEndingSubject),
+  "trial-ending": define<TrialEndingProps>(
+    TrialEnding,
+    trialEndingSubject,
+    trialEndingContent
+  ),
   "subscription-canceled": define<SubscriptionCanceledProps>(
     SubscriptionCanceled,
-    subscriptionCanceledSubject
+    subscriptionCanceledSubject,
+    subscriptionCanceledContent
   ),
-  "plan-changed": define<PlanChangedProps>(PlanChanged, planChangedSubject),
-  "trial-started": define<TrialStartedProps>(TrialStarted, trialStartedSubject),
-  "card-expiring": define<CardExpiringProps>(CardExpiring, cardExpiringSubject),
+  "plan-changed": define<PlanChangedProps>(
+    PlanChanged,
+    planChangedSubject,
+    planChangedContent
+  ),
+  "trial-started": define<TrialStartedProps>(
+    TrialStarted,
+    trialStartedSubject,
+    trialStartedContent
+  ),
+  "card-expiring": define<CardExpiringProps>(
+    CardExpiring,
+    cardExpiringSubject,
+    cardExpiringContent
+  ),
   "payment-disputed": define<PaymentDisputedProps>(
     PaymentDisputed,
-    paymentDisputedSubject
+    paymentDisputedSubject,
+    paymentDisputedContent
   ),
 };
 

@@ -35,7 +35,7 @@ describe("createMailer", () => {
     expect(message?.text).toContain(
       "https://app.test/api/auth/verify-email?token=t"
     );
-    expect(message?.subject).toBe("Verify your email address");
+    expect(message?.subject).toBe("Confirm your email address");
     expect(message?.idempotencyKey).toBeUndefined();
   });
 

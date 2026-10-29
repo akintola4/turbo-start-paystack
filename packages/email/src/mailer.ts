@@ -63,7 +63,12 @@ export function idempotencyKey(key: string, to: string): string {
 
 export function createMailer(options: MailerOptions) {
   const appUrl = normalizeAppUrl(options.appUrl);
-  const theme: EmailTheme = createTheme(options.theme);
+  // Fonts and status icons are served by the app from /email
+  // (apps/web/public/email); a theme can point elsewhere or turn them off.
+  const theme: EmailTheme = createTheme({
+    assetsUrl: `${appUrl}/email`,
+    ...options.theme,
+  });
   const billingUrl = (slug: string) => appLink(appUrl, routes.billing(slug));
   const manageUrl = (link: string | undefined, slug: string) =>
     paystackLink(link, options.paystackOrigins) ?? billingUrl(slug);

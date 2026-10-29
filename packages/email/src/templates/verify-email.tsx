@@ -1,5 +1,6 @@
-import { Layout } from "../components/layout";
-import { Button, Heading, Text } from "../components/primitives";
+import { type EmailContent, firstName } from "../content";
+import { Email } from "../components/email";
+import type { EmailTheme } from "../theme";
 import { type Themed, themeOf } from "./shared";
 
 export type VerifyEmailProps = {
@@ -9,30 +10,39 @@ export type VerifyEmailProps = {
 };
 
 export const verifyEmailSubject = (_props: VerifyEmailProps) =>
-  "Verify your email address";
+  "Confirm your email address";
+
+export function verifyEmailContent(
+  props: VerifyEmailProps,
+  theme: EmailTheme
+): EmailContent {
+  return {
+    billing: false,
+    preview: `One click and your ${theme.productName} account is ready.`,
+    title: `${theme.productName} account`,
+    headline: "Confirm your email",
+    greetingName: firstName(props.name),
+    body: [
+      [
+        `Confirm this is your address to finish setting up ${theme.productName}. The link works for one hour.`,
+      ],
+    ],
+    cta: { label: "Confirm email", href: props.url, showUrl: true },
+    after: [
+      [
+        "Didn't sign up? Ignore this email. The account stays unconfirmed and can't be used.",
+      ],
+    ],
+    reason: `Sent because this address was used to sign up for ${theme.productName}.`,
+  };
+}
 
 export function VerifyEmail(props: Themed<VerifyEmailProps>) {
   const theme = themeOf(props);
-  return (
-    <Layout
-      preview={`Confirm your email to finish setting up ${theme.productName}.`}
-      reason={`You're receiving this because this address was used to sign up for ${theme.productName}. If that wasn't you, you can ignore this email.`}
-      theme={theme}
-    >
-      <Heading theme={theme}>Verify your email</Heading>
-      <Text theme={theme}>
-        {props.name ? `Hi ${props.name}, thanks` : "Thanks"} for signing up for{" "}
-        {theme.productName}. Confirm this is your email address to finish
-        setting up your account.
-      </Text>
-      <Button theme={theme} href={props.url} last>
-        Verify email address
-      </Button>
-    </Layout>
-  );
+  return <Email content={verifyEmailContent(props, theme)} theme={theme} />;
 }
 
 VerifyEmail.PreviewProps = {
-  name: "Ada Okafor",
+  name: "Adaeze Okafor",
   url: "https://app.example.com/api/auth/verify-email?token=preview-token&callbackURL=%2Fapp",
 } satisfies VerifyEmailProps;

@@ -1,6 +1,9 @@
-import { render, type toPlainText } from "@react-email/render";
-import { type ComponentType, createElement } from "react";
+import { render } from "@react-email/render";
+import { createElement } from "react";
 
+import { toPlainText } from "./content";
+import { Email, urgentFallbackCss } from "./components/email";
+import { msoHead } from "./components/kit";
 import {
   type TemplateName,
   type TemplateProps,
@@ -8,41 +11,32 @@ import {
 } from "./templates/index";
 import { defaultTheme, type EmailTheme } from "./theme";
 
-/** Plain-text tweaks: keep heading case, and "Label: value" for detail
- *  rows instead of the two cells run together. */
-const htmlToTextOptions = {
-  formatters: {
-    detailLabel: (
-      elem: { children: unknown[] },
-      walk: (nodes: unknown[], builder: unknown) => void,
-      builder: { addInline: (text: string) => void }
-    ) => {
-      walk(elem.children, builder);
-      builder.addInline(": ");
-    },
-  },
-  selectors: [
-    { selector: "h1", options: { uppercase: false } },
-    { selector: "td.em-label", format: "detailLabel" },
-  ],
-} as unknown as Parameters<typeof toPlainText>[1];
-
 export type RenderedEmail = { subject: string; html: string; text: string };
 
-/** Renders one template to its subject, HTML and plain-text alternative. */
+/** Renders one template to its subject, HTML and plain-text alternative.
+ *  Both parts come from the same `EmailContent`, so they can't disagree. */
 export async function renderEmail<N extends TemplateName>(
   name: N,
   props: TemplateProps<N>,
   theme: EmailTheme = defaultTheme
 ): Promise<RenderedEmail> {
   const template = templates[name] as unknown as {
-    Component: ComponentType<Record<string, unknown>>;
     subject: (p: TemplateProps<N>) => string;
+    content: (
+      p: TemplateProps<N>,
+      t: EmailTheme
+    ) => Parameters<typeof toPlainText>[0];
   };
-  const element = createElement(template.Component, { ...props, theme });
-  const [html, text] = await Promise.all([
-    render(element),
-    render(element, { plainText: true, htmlToTextOptions }),
-  ]);
-  return { subject: template.subject(props), html, text };
+  const content = template.content(props, theme);
+  const html = await render(createElement(Email, { content, theme }));
+  return {
+    subject: template.subject(props),
+    // React can't emit conditional comments; Outlook for Windows reads this
+    // one to pin its fallback fonts.
+    html: html.replace(
+      "</head>",
+      `${msoHead(urgentFallbackCss(theme))}</head>`
+    ),
+    text: toPlainText(content, theme),
+  };
 }

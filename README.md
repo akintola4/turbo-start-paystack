@@ -218,14 +218,26 @@ Billing emails go to every member who can manage billing (owner and the
    `Acme <billing@mail.acme.com>`. Resend rejects sends from unverified
    domains with a 403, which the app logs.
 
-### Branding and preview
+### Design, branding and preview
+
+Billing emails open on the app's forest money panel: plan and status, the
+amount or deadline, and one action, with the details on a card below. Verify,
+reset and invite use the same header, card and button without the panel.
+Rationale and client behaviour (fonts, ₦/₵, dark mode, size) are in
+`docs/decisions.md` #30; the research behind the design is in
+`docs/email-research.md`.
 
 Set `EMAIL_BRAND_NAME`, `EMAIL_LOGO_URL` and `EMAIL_SUPPORT_URL`, or edit the
-colours in `packages/email/src/theme.ts` (one theme object, light and dark).
+colours in `packages/email/src/theme.ts` (one theme object: light, dark and
+the forest panel). Emails load Geist, the ₦/₵ font subset and the status
+icons from `apps/web/public/email`, served at `${BETTER_AUTH_URL}/email`, so
+those files must be deployed with the app.
 
 ```bash
-pnpm email:preview                              # http://localhost:3001
-pnpm --filter @workspace/email export /tmp/out  # every template as .html and .txt
+pnpm email:preview                                         # http://localhost:3001
+pnpm --filter @workspace/email export /tmp/out             # every template as .html and .txt
+pnpm --filter @workspace/email screenshots /tmp/shots      # light/dark, desktop/phone, client checks
+pnpm --filter @workspace/email icons                       # regenerate the status icons
 ```
 
 The preview uses the sample props at the bottom of each template file.

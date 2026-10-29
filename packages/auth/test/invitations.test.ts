@@ -232,9 +232,9 @@ describe("invitations (PLAN §2.3 #3, #4, #5)", () => {
 
   it("sends the verification email as html and text", () => {
     const mail = ctx.outbox.find(
-      (m) => m.to === "bound@acme.test" && m.subject.startsWith("Verify")
+      (m) => m.to === "bound@acme.test" && m.subject.startsWith("Confirm")
     );
     expect(mail?.text).toContain("http://localhost:3000/api/auth/verify-email");
-    expect(mail?.html).toContain("Verify email address");
+    expect(mail?.html).toContain("Confirm email");
   });
 });

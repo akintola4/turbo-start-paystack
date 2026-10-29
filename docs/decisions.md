@@ -151,16 +151,56 @@ can be revisited.
       into `react-email`.
     - **Styling: inline styles from one theme object, not the `<Tailwind>`
       component.** The theme (`packages/email/src/theme.ts`: product name,
-      logo URL, support link, light and dark colours) is the single place to
-      rebrand, and it is set from env (`EMAIL_BRAND_NAME`, `EMAIL_LOGO_URL`,
-      `EMAIL_SUPPORT_URL`). Inline styles survive clients that strip
-      `<style>` (some Gmail views), need no Tailwind config or render-time CSS
-      processing, and keep the emails' look independent of the app's
-      Tailwind setup. A small `<style>` block adds only what inline styles
-      cannot do: dark-mode colours for clients that honour
-      `prefers-color-scheme` (Apple Mail, iOS, Outlook.com via
-      `[data-ogsc]`) and a narrower card on phones. Gmail and Outlook for
-      Windows apply their own inversion to the light design.
+      logo URL, support link, asset URL, light and dark colours, the forest
+      panel colours) is the single place to rebrand, and it is set from env
+      (`EMAIL_BRAND_NAME`, `EMAIL_LOGO_URL`, `EMAIL_SUPPORT_URL`). Inline
+      styles survive clients that strip `<style>`, need no Tailwind config or
+      render-time CSS processing, and keep the emails' look independent of
+      the app's Tailwind setup. The `<style>` block only adds what inline
+      styles can't: dark-mode colours, phone layout, web fonts and the Gmail
+      button fallback below.
+    - **Design: the "Forest card".** Chosen from three directions built from
+      the same content (research: `docs/email-research.md`). Billing emails
+      open on the app's forest money panel, the same in light and dark mode:
+      plan name and a status chip (Lucide icon plus word, as in the app), the
+      amount or deadline as the hero (`formatMoney` from
+      `@workspace/billing/money`, `.00` dropped at display size), up to two
+      meta tiles and one action. The explanation and a details table sit on
+      a card below. Verify, reset and invite have no money, so, as in the
+      app, they skip the panel; their card repeats the panel's rhythm (title
+      row, large headline, the same button). Sunflower is used once: the
+      "Update card" button. Each template builds an `EmailContent`
+      (`src/content.ts`); the layout (`src/components/email.tsx`) renders it
+      and the plain-text part is written from the same object, so the two
+      parts can't disagree.
+    - **Fonts and ₦/₵.** Geist has neither glyph. Where web fonts load (Apple
+      Mail, iOS Mail, Outlook for Mac) the emails load a 24 KB Latin subset of
+      Geist and the app's 1.6 KB Inter subset for ₦ and ₵ (`unicode-range`,
+      same size and metric overrides as `apps/web/src/app/layout.tsx`). Gmail
+      and Outlook don't load web fonts, so the fallback is designed, not
+      left to chance: `'Helvetica Neue', Helvetica, Arial`, which have both
+      glyphs and tabular figures by default (so right-aligned amounts line
+      up without `font-variant-numeric`). An `<!--[if mso]>` block pins
+      Outlook for Windows to Arial and Consolas instead of Times New Roman.
+      The files are in `apps/web/public/email`, served from
+      `${BETTER_AUTH_URL}/email` with a 30-day cache and CORS on fonts
+      (`apps/web/src/lib/email-assets.ts`); without an asset URL the emails
+      reference no fonts or images at all.
+    - **Dark mode.** Apple Mail, iOS Mail and Outlook for Mac get designed
+      dark colours via `prefers-color-scheme`; Outlook.com via
+      `[data-ogsc]`/`[data-ogsb]`. Gmail's apps and Outlook for Windows
+      invert colours they consider light and can't be detected, so every
+      button is dark with a light label (which inversion leaves alone), and
+      the sunflower "Update card" button switches to a dark tile with a
+      sunflower edge in Gmail (`u + .body`, Gmail's rewritten `<body>`) and
+      Outlook for Windows (the mso block).
+    - **Images and size.** The only images are the status icons (2x PNGs,
+      empty `alt` because the word next to them carries the meaning), so
+      images-off loses nothing. Every email is 13 to 17 KB of HTML, far under
+      Gmail's 102 KB clipping point; a test keeps each under 40 KB.
+      `pnpm --filter @workspace/email screenshots <dir>` renders every
+      template light and dark, desktop and phone, plus Gmail-style inversion,
+      images-off and no-web-font checks.
     - **The theme is a prop, not React context.** The email package is
       imported by server code that Next.js bundles for route handlers and
       server components, where `createContext` is not allowed.
