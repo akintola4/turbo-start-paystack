@@ -97,7 +97,7 @@ export function CreateOrgForm({
             <span className="font-mono text-foreground">/app/{slug}</span>
           </>
         ) : (
-          "Billing, members and roles belong to the organization."
+          "The address comes from the name."
         )}
       </p>
       {error ? (

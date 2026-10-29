@@ -6,12 +6,7 @@ import { OrgCollection } from "@/components/orgs/org-collection";
 import { VerifyCallout } from "@/components/orgs/verify-callout";
 import { UserMenu } from "@/components/app-shell/user-menu";
 import type { OrgPickerData } from "@/lib/view-models";
-import {
-  PageHeader,
-  Tile,
-  Wordmark,
-  StatusBadge,
-} from "@/components/primitives";
+import { PageHeader, Tile, Wordmark } from "@/components/primitives";
 
 export function OrgPicker({ data }: { data: OrgPickerData }) {
   const first = data.user.name.split(" ")[0] ?? data.user.name;

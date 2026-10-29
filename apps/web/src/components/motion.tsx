@@ -6,7 +6,6 @@ import {
   createContext,
   type ReactNode,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,

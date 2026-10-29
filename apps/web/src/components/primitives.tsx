@@ -368,7 +368,7 @@ export const GLYPHS = [
 ] as const;
 
 /** Reference grid order: each currency appears at least once. */
-const MOSAIC = [0, 1, 2, 3, 4, 0, 2, 1, 4];
+export const MOSAIC = [0, 1, 2, 3, 4, 0, 2, 1, 4];
 
 /**
  * The reference grid. The tiles for `active` take sunflower; the rest stay

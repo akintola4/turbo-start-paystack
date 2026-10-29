@@ -4,7 +4,7 @@ import { cn } from "@workspace/tailwind-config/utils";
 import { CheckIcon } from "lucide-react";
 import { type KeyboardEvent, useRef, useState } from "react";
 
-import { GlyphMosaic, Money, Panel, Tile } from "@/components/primitives";
+import { GLYPHS, MOSAIC, Money, Panel, Tile } from "@/components/primitives";
 
 export type CurrencyPlan = {
   key: string;
@@ -98,11 +98,122 @@ function CurrencyRadios({
 }
 
 /**
+ * The reference grid as controls: each tile selects its currency. Arrow keys
+ * move focus around the 3 x 3 grid (one tab stop), Enter or Space selects.
+ * Hover lifts a tile and press sinks it; the colour change runs on an inner
+ * layer with a short stagger so it never delays the press feedback.
+ */
+function TileGrid({
+  value,
+  previous,
+  onChange,
+  names,
+}: {
+  value: string;
+  previous: string | null;
+  onChange: (code: string) => void;
+  names: Record<string, string>;
+}) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const firstActive = Math.max(
+    0,
+    MOSAIC.findIndex((g) => GLYPHS[g]?.code === value)
+  );
+  const [focusIndex, setFocusIndex] = useState(firstActive);
+  // Stagger only the tiles that change, in reading order, 30ms apart.
+  const changing = MOSAIC.map((g, i) => ({ code: GLYPHS[g]?.code, i })).filter(
+    (t) => t.code === value || t.code === previous
+  );
+  const delayOf = (i: number) =>
+    Math.max(
+      0,
+      changing.findIndex((t) => t.i === i)
+    ) * 30;
+
+  const onKeyDown = (event: KeyboardEvent, i: number) => {
+    const moves: Record<string, number> = {
+      ArrowRight: i % 3 === 2 ? i : i + 1,
+      ArrowLeft: i % 3 === 0 ? i : i - 1,
+      ArrowDown: i + 3 > 8 ? i : i + 3,
+      ArrowUp: i - 3 < 0 ? i : i - 3,
+      Home: 0,
+      End: 8,
+    };
+    const next = moves[event.key];
+    if (next === undefined) {
+      return;
+    }
+    event.preventDefault();
+    setFocusIndex(next);
+    refs.current[next]?.focus();
+  };
+
+  return (
+    <fieldset className="grid min-w-0 grid-cols-3 gap-3 sm:gap-4">
+      <legend className="sr-only">Currencies</legend>
+      {MOSAIC.map((g, i) => {
+        const item = GLYPHS[g];
+        if (!item) {
+          return null;
+        }
+        const on = item.code === value;
+        return (
+          <button
+            aria-label={`Show prices in ${names[item.code] ?? item.code}`}
+            aria-pressed={on}
+            className="group/tile relative aspect-square rounded-tile transition-transform duration-(--dur-fast) ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] active:duration-(--dur-press) motion-reduce:transition-none"
+            key={`${item.code}-${i}`}
+            onClick={() => {
+              setFocusIndex(i);
+              onChange(item.code);
+            }}
+            onFocus={() => setFocusIndex(i)}
+            onKeyDown={(e) => onKeyDown(e, i)}
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
+            tabIndex={i === focusIndex ? 0 : -1}
+            type="button"
+          >
+            <span
+              aria-hidden
+              className={cn(
+                "absolute inset-0 flex select-none items-center justify-center rounded-tile font-bold transition-[background-color,color,scale] duration-(--dur-base) ease-out motion-reduce:transition-none",
+                on
+                  ? "scale-100 bg-highlight text-highlight-foreground"
+                  : "scale-[0.97] bg-panel-tile text-panel-foreground group-hover/tile:bg-panel-line",
+                item.glyph === "KSh"
+                  ? "text-[clamp(22px,4.4vw,38px)]"
+                  : "text-[clamp(30px,5.6vw,48px)]"
+              )}
+              style={{ transitionDelay: `${delayOf(i)}ms` }}
+            >
+              {item.glyph}
+            </span>
+          </button>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+/**
  * The landing's signature: the reference grid lights the tiles for the
  * chosen currency, and the plan prices below swap to it.
  */
 export function CurrencyShowcase({ table }: { table: CurrencyTable }) {
-  const [code, setCode] = useState(table[0]?.code ?? "NGN");
+  const [code, setCodeState] = useState(table[0]?.code ?? "NGN");
+  const [previous, setPrevious] = useState<string | null>(null);
+  const setCode = (next: string) => {
+    if (next === code) {
+      return;
+    }
+    setPrevious(code);
+    setCodeState(next);
+  };
+  const names = Object.fromEntries(table.map((t) => [t.code, t.name]));
+  const proOf = (t: CurrencyTable[number]) =>
+    t.plans.find((p) => p.key === "pro")?.monthly ?? "";
   const current = table.find((t) => t.code === code) ?? table[0];
   if (!current) {
     return null;
@@ -114,7 +225,21 @@ export function CurrencyShowcase({ table }: { table: CurrencyTable }) {
         aria-label="Currencies"
         className="grid gap-4 self-start p-4 sm:p-6"
       >
-        <GlyphMosaic active={code} />
+        <TileGrid
+          names={names}
+          onChange={setCode}
+          previous={previous}
+          value={code}
+        />
+        <div className="flex items-baseline justify-between gap-3 rounded-card bg-panel-tile px-4 py-3">
+          <span className="font-semibold text-panel-muted text-sm">Pro</span>
+          <Money
+            label={proOf(current)}
+            per="month"
+            reserve={table.map(proOf)}
+            size="md"
+          />
+        </div>
         <CurrencyRadios onChange={setCode} table={table} value={code} />
       </Panel>
       <section
