@@ -2,6 +2,22 @@ import type { Currency } from "@workspace/billing/money";
 
 /** Pure helpers for the landing page, kept here so they can be unit tested. */
 
+export const REPO = "https://github.com/akintola4/turbo-start-paystack";
+
+/** A file in the repo on GitHub. */
+export const fileUrl = (path: string) => `${REPO}/blob/main/${path}`;
+
+/** The install steps, one shell command each, as the README lists them. */
+export const INSTALL_STEPS = [
+  "npx degit akintola4/turbo-start-paystack my-saas",
+  "cd my-saas",
+  "pnpm install",
+  "pnpm setup",
+] as const;
+
+/** The same steps as one line, which is what Copy puts on the clipboard. */
+export const INSTALL_COMMAND = INSTALL_STEPS.join(" && ");
+
 export type CurrencyMeta = {
   code: Currency;
   /** Tile glyph. GH₵ shortens to ₵ on tiles only; amounts use GH₵. */
@@ -77,13 +93,20 @@ export function barcode(seed: string, length = 40): number[] {
   return out;
 }
 
-export type ProviderStatus = "normal" | "degraded" | "outage" | "maintenance";
+export type ProviderStatus =
+  | "normal"
+  | "incident"
+  | "degraded"
+  | "outage"
+  | "maintenance";
 
 /**
  * Paystack's status page (status.paystack.com/api/v2/summary.json) reports
- * `page.status` as UP, HASISSUES, UNDERMAINTENANCE, or impact words such as
- * ONEMAJOROUTAGE / MINOROUTAGE. Anything unrecognised returns null, and the
- * footer then shows a neutral link instead of guessing.
+ * `page.status` as UP, HASISSUES, UNDERMAINTENANCE, or an impact word that
+ * starts with ONE (one component affected: ONEMAJOROUTAGE, ONEMINOROUTAGE)
+ * or ALL (the whole platform). Only a platform-wide major outage is an
+ * "outage"; one bank or one component having trouble is an "incident".
+ * Anything unrecognised returns null and the footer shows a neutral link.
  */
 export function parseProviderStatus(raw: unknown): ProviderStatus | null {
   if (typeof raw !== "string") {
@@ -95,6 +118,9 @@ export function parseProviderStatus(raw: unknown): ProviderStatus | null {
   }
   if (s.includes("MAINTENANCE")) {
     return "maintenance";
+  }
+  if (s.startsWith("ONE")) {
+    return "incident";
   }
   if (s.includes("MAJOR")) {
     return "outage";

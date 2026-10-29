@@ -6,6 +6,8 @@ import {
   CURRENCY_META,
   currencyMeta,
   formatUpdated,
+  INSTALL_COMMAND,
+  INSTALL_STEPS,
   parseProviderStatus,
   rippleDelay,
   WALL,
@@ -59,9 +61,14 @@ describe("parseProviderStatus", () => {
   it("maps Paystack's status page values", () => {
     expect(parseProviderStatus("UP")).toBe("normal");
     expect(parseProviderStatus("HASISSUES")).toBe("degraded");
-    expect(parseProviderStatus("ONEMINOROUTAGE")).toBe("degraded");
-    expect(parseProviderStatus("ONEMAJOROUTAGE")).toBe("outage");
+    expect(parseProviderStatus("MINOROUTAGE")).toBe("degraded");
     expect(parseProviderStatus("UNDERMAINTENANCE")).toBe("maintenance");
+  });
+
+  it("calls one affected component an incident, not an outage", () => {
+    expect(parseProviderStatus("ONEMAJOROUTAGE")).toBe("incident");
+    expect(parseProviderStatus("ONEMINOROUTAGE")).toBe("incident");
+    expect(parseProviderStatus("ALLMAJOROUTAGE")).toBe("outage");
   });
 
   it("returns null for anything it doesn't recognise", () => {
@@ -80,5 +87,17 @@ describe("formatUpdated", () => {
     expect(formatUpdated(undefined)).toBeNull();
     expect(formatUpdated("")).toBeNull();
     expect(formatUpdated("not a date")).toBeNull();
+  });
+});
+
+describe("install command", () => {
+  it("is the README's steps chained into one line", () => {
+    expect(INSTALL_STEPS[0]).toBe(
+      "npx degit akintola4/turbo-start-paystack my-saas"
+    );
+    expect(INSTALL_STEPS.at(-1)).toBe("pnpm setup");
+    expect(INSTALL_COMMAND).toBe(
+      "npx degit akintola4/turbo-start-paystack my-saas && cd my-saas && pnpm install && pnpm setup"
+    );
   });
 });
