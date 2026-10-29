@@ -45,6 +45,16 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@workspace/ui"],
   typedRoutes: false,
   poweredByHeader: false,
+  // Server-side PDF rendering (invoice download). Kept out of the bundle;
+  // its fonts are read from disk, so trace them into the deployment.
+  serverExternalPackages: ["@react-pdf/renderer"],
+  outputFileTracingIncludes: {
+    "/app/[orgSlug]/settings/billing/invoices/[invoiceId]/pdf": [
+      "./src/server/pdf-fonts/*.ttf",
+      "./node_modules/geist/dist/fonts/geist-sans/Geist-{Regular,Medium,SemiBold}.ttf",
+      "./node_modules/geist/dist/fonts/geist-mono/GeistMono-Regular.ttf",
+    ],
+  },
   // Fonts and icons that transactional emails load from the app.
   headers: async () => emailAssetHeaders(),
   env: {

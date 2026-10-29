@@ -295,7 +295,7 @@ describe("invoice document for a refunded charge", () => {
     );
     expect(doc.title).toBe("Card check");
     expect(doc.status).toBe("refunded");
-    expect(doc.lines.map((l) => l.amountSubunit)).toEqual([5000, -5000]);
+    expect(doc.lines.map((l) => l.amountSubunit)).toEqual([5000]);
     expect(doc.totals).toMatchObject({
       taxRateBp: 0,
       taxSubunit: 0,

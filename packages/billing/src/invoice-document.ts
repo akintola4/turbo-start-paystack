@@ -157,14 +157,8 @@ export function buildInvoiceDocument(
       : splitInclusiveTax(total, taxRateBp);
   const refunded = status === "refunded" ? total : 0;
 
+  // A refund shows in the totals ("Refunded on …"), not as a second line.
   const lines = [chargeLine(row, split.netSubunit)];
-  if (refunded > 0) {
-    lines.push({
-      description: "Refund to card",
-      detail: null,
-      amountSubunit: -refunded,
-    });
-  }
   return {
     id: row.id,
     number: row.number,

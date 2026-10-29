@@ -16,6 +16,7 @@ export const BILLING_ACTIONS = [
   "cancel",
   "resume",
   "manage-card",
+  "billing-details",
 ] as const;
 export type BillingAction = (typeof BILLING_ACTIONS)[number];
 
@@ -29,6 +30,15 @@ type RouteDeps = {
 // email token is rejected outright, not silently ignored (PLAN §2.3 #1/#2/#11).
 const planBody = z.strictObject({ planPriceId: z.string().min(1).max(64) });
 const emptyBody = z.strictObject({});
+const optionalText = (max: number) => z.string().trim().max(max).nullable();
+/** Who invoices are made out to. Blank fields fall back to the org name
+ *  and the billing email. Never money, status or Paystack identifiers. */
+export const billingDetailsBody = z.strictObject({
+  legalName: optionalText(200),
+  address: optionalText(500),
+  taxId: optionalText(64),
+  email: z.union([z.literal(""), z.email().max(254)]).nullable(),
+});
 
 const json = (body: unknown, status = 200) => Response.json(body, { status });
 
@@ -203,6 +213,23 @@ const ACTION_HANDLERS: Record<
 
   "manage-card": withBody(emptyBody, async (deps, { organizationId }) =>
     json({ url: await deps.billing.getManageCardLink(organizationId) })
+  ),
+
+  "billing-details": withBody(
+    billingDetailsBody,
+    async (deps, { organizationId, actor, data }) => {
+      const row = await deps.billing.updateBillingDetails({
+        organizationId,
+        actor,
+        details: data,
+      });
+      return json({
+        legalName: row?.legalName ?? null,
+        address: row?.address ?? null,
+        taxId: row?.taxId ?? null,
+        email: row?.email ?? null,
+      });
+    }
   ),
 };
 
