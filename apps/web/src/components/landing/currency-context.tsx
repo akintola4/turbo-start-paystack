@@ -11,9 +11,14 @@ export type CurrencyOrigin =
   | { source: "other" };
 
 type LandingState = {
+  /** The chosen currency: pricing, demos, the receipt and the footer. */
   currency: Currency;
+  /** What the hero shows: a hovered tile's currency, else the chosen one. */
+  shown: Currency;
   origin: CurrencyOrigin;
   setCurrency: (code: Currency, origin?: CurrencyOrigin) => void;
+  /** Hover preview on the wall. Never saved; `null` ends it. */
+  preview: (code: Currency | null, origin?: CurrencyOrigin) => void;
   interval: Interval;
   setInterval: (interval: Interval) => void;
 };
@@ -25,8 +30,9 @@ const LandingContext = createContext<LandingState | null>(null);
 export const CURRENCY_COOKIE = "tsp-currency";
 
 /**
- * One currency for the whole landing: the hero wall, pricing, the receipt
- * and the footer all read and write it, so they never disagree.
+ * One currency for the whole landing. The hero wall is its only control:
+ * pointing at a tile previews it in the hero, and a click, tap or arrow key
+ * commits it (and only then is it remembered).
  */
 export function LandingProvider({
   children,
@@ -36,6 +42,7 @@ export function LandingProvider({
   initialCurrency?: Currency;
 }) {
   const [currency, setCurrencyState] = useState<Currency>(initialCurrency);
+  const [previewed, setPreviewed] = useState<Currency | null>(null);
   const [origin, setOrigin] = useState<CurrencyOrigin>({ source: "other" });
   const [interval, setInterval] = useState<Interval>("monthly");
   const setCurrency = (
@@ -43,13 +50,31 @@ export function LandingProvider({
     from: CurrencyOrigin = { source: "other" }
   ) => {
     setOrigin(from);
+    setPreviewed(null);
     setCurrencyState(code);
     // biome-ignore lint/suspicious/noDocumentCookie: a plain preference cookie; the Cookie Store API is not in Safari.
     document.cookie = `${CURRENCY_COOKIE}=${code}; path=/; max-age=31536000; samesite=lax`;
   };
+  const preview = (
+    code: Currency | null,
+    from: CurrencyOrigin = { source: "other" }
+  ) => {
+    if (code) {
+      setOrigin(from);
+    }
+    setPreviewed(code);
+  };
   return (
     <LandingContext.Provider
-      value={{ currency, origin, setCurrency, interval, setInterval }}
+      value={{
+        currency,
+        shown: previewed ?? currency,
+        origin,
+        setCurrency,
+        preview,
+        interval,
+        setInterval,
+      }}
     >
       {children}
     </LandingContext.Provider>
