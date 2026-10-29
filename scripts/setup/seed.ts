@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createAuth } from "@workspace/auth/server";
 import { type Database, schema } from "@workspace/db";
-import { createMailer } from "@workspace/email";
+import type { AuthMailer } from "@workspace/email";
 import { and, eq } from "drizzle-orm";
 
 /**
@@ -21,6 +21,12 @@ export const DEMO_USERS = [
   { name: "Chioma Eze", email: "chioma@kolalogistics.test", role: "member" },
 ] as const;
 
+const SILENT_MAILER: AuthMailer = {
+  verifyEmail: async () => undefined,
+  resetPassword: async () => undefined,
+  organizationInvitation: async () => undefined,
+};
+
 export async function seedDemo(input: {
   db: Database;
   secret: string;
@@ -31,11 +37,9 @@ export async function seedDemo(input: {
     db,
     secret: input.secret,
     baseURL: input.baseURL,
-    // No email at seed time: the users are marked verified below.
-    mailer: createMailer({
-      appUrl: input.baseURL,
-      send: async () => undefined,
-    }),
+    // No email at seed time (nothing is rendered either): the users are
+    // marked verified below.
+    mailer: SILENT_MAILER,
   });
 
   let createdUsers = 0;

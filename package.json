@@ -24,6 +24,7 @@
   "scripts": {
     "build": "turbo run build",
     "setup": "pnpm --filter @workspace/scripts run setup",
+    "setup:reset": "pnpm --filter @workspace/scripts run setup --reset",
     "dev": "pnpm --filter @workspace/scripts run dev:all",
     "dev:turbo": "turbo run dev",
     "dev:web": "turbo run dev --filter=web",

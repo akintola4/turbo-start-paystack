@@ -1,4 +1,9 @@
-// pnpm setup [--reset] [--db=<name>] [--yes]
+// pnpm setup            (or: pnpm run setup -- [--reset] [--db=<name>] [--yes])
+// pnpm setup:reset      drop and reseed the dev database
+// SETUP_DB=<name> pnpm setup   use another database name
+//
+// pnpm has a built-in `setup` command: `pnpm setup` runs this script, but
+// pnpm rejects flags after it, hence setup:reset and SETUP_DB.
 // One command from a fresh clone to a running local stack: checks the
 // prerequisites, fills apps/web/.env (never overwriting a value), picks free
 // ports, starts or reuses Postgres, migrates, creates the plans on the local
@@ -52,7 +57,7 @@ const argv = process.argv.slice(2);
 const flags = {
   reset: argv.includes("--reset"),
   yes: argv.includes("--yes") || argv.includes("-y"),
-  db: argv.find((a) => a.startsWith("--db="))?.slice(5),
+  db: argv.find((a) => a.startsWith("--db="))?.slice(5) || process.env.SETUP_DB,
 };
 const interactive = Boolean(process.stdout.isTTY && process.stdin.isTTY);
 const c = pc.createColors(
@@ -213,12 +218,12 @@ const tools = await step(
   "Checking prerequisites",
   async () => checkTools(),
   (t) =>
-    `Node ${c.dim(t.node)} · pnpm ${c.dim(t.pnpm ?? "")} · Postgres via ${
+    `Node ${c.dim(t.node)} · pnpm ${c.dim(t.pnpm ?? "")} · ${
       t.docker
-        ? c.cyan("Docker")
+        ? `Docker ${c.dim("available")}`
         : t.local
-          ? c.cyan("initdb/pg_ctl")
-          : c.yellow("DATABASE_URL only")
+          ? `initdb/pg_ctl ${c.dim("available")}`
+          : c.yellow("no Docker or local Postgres")
     }`
 );
 
@@ -340,7 +345,7 @@ if (flags.reset) {
   ) {
     fail(
       new SetupError("--reset needs the app and the mock stopped.", [
-        "Stop `pnpm dev` (Ctrl+C), then run `pnpm setup --reset` again.",
+        "Stop `pnpm dev` (Ctrl+C), then run `pnpm setup:reset` again.",
       ])
     );
   }
@@ -409,7 +414,7 @@ const env = parseEnv(finalText);
 const filled = Object.keys(plan.updates);
 const generated = filled.filter((k) => SECRET_KEYS.has(k)).length;
 p.log.success(
-  `${fresh ? "Created" : "Updated"} ${c.cyan("apps/web/.env")}${
+  `${fresh ? "Created" : filled.length ? "Updated" : "Kept"} ${c.cyan("apps/web/.env")}${
     filled.length
       ? ` · filled ${filled.length}${generated ? ` (${generated} secrets generated)` : ""}`
       : c.dim(" · nothing to fill")
