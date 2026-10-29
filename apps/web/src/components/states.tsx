@@ -1,0 +1,81 @@
+import { buttonVariants } from "@workspace/ui/components/button";
+import { Skeleton } from "@workspace/ui/components/skeleton";
+import { Loader2Icon } from "lucide-react";
+import Link from "next/link";
+
+import { Mark } from "@/components/primitives";
+
+export function PageLoading() {
+  return (
+    <div aria-busy="true" className="grid gap-8" role="status">
+      <span className="sr-only">Loading</span>
+      <div className="grid gap-3">
+        <Skeleton className="h-10 w-64 rounded-xl" />
+        <Skeleton className="h-5 w-96 max-w-full rounded-lg" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        <Skeleton className="h-44 rounded-tile md:col-span-2" />
+        <Skeleton className="h-44 rounded-tile" />
+      </div>
+      <Skeleton className="h-72 rounded-tile" />
+    </div>
+  );
+}
+
+export function ConfirmingPayment() {
+  return (
+    <main className="flex min-h-dvh items-center justify-center bg-background px-4">
+      <div
+        className="grid max-w-sm animate-content justify-items-center gap-5 text-center [animation-delay:150ms]"
+        role="status"
+      >
+        <span className="relative">
+          <Mark className="size-12" />
+          <Loader2Icon
+            aria-hidden
+            className="-right-2 -bottom-2 absolute size-6 animate-spin rounded-full bg-background p-1 text-primary"
+          />
+        </span>
+        <div className="grid gap-2">
+          <h1 className="font-semibold text-2xl tracking-[-0.02em]">
+            Confirming your payment
+          </h1>
+          <p className="text-muted-foreground">
+            We're checking with Paystack before we change anything. This usually
+            takes a second or two.
+          </p>
+        </div>
+        <span
+          aria-hidden
+          className="relative h-1 w-40 overflow-hidden rounded-full bg-muted"
+        >
+          <span className="absolute inset-y-0 left-0 w-1/3 animate-indeterminate rounded-full bg-primary" />
+        </span>
+      </div>
+    </main>
+  );
+}
+
+export function NotFound() {
+  return (
+    <main className="flex min-h-[70dvh] items-center justify-center px-4 py-16">
+      <div className="grid max-w-md justify-items-start gap-6">
+        <span className="font-semibold text-[88px] text-primary leading-none tracking-[-0.02em]er">
+          404
+        </span>
+        <div className="grid gap-2">
+          <h1 className="font-semibold text-2xl tracking-[-0.02em]">
+            This page isn't here
+          </h1>
+          <p className="text-muted-foreground">
+            The link may be old, or the organization belongs to a team you're
+            not part of.
+          </p>
+        </div>
+        <Link className={buttonVariants()} href="/app">
+          Go to your organizations
+        </Link>
+      </div>
+    </main>
+  );
+}

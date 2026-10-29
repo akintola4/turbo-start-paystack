@@ -1,29 +1,33 @@
-import { Slot } from "@radix-ui/react-slot";
-import { cn } from "@workspace/tailwind-config/utils";
+import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
-import type * as React from "react";
+import { cn } from "@workspace/tailwind-config/utils";
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium text-sm outline-none transition-[color,background-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "group/button relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-control border border-transparent font-semibold text-[15px] outline-none transition-[background-color,color,scale] duration-(--dur-fast) ease-out active:not-aria-[haspopup]:scale-[0.97] active:duration-(--dur-press) disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default:
-          "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white shadow-xs hover:bg-destructive/90",
+        default: "bg-primary text-primary-foreground hover:bg-primary-hover",
+        highlight:
+          "bg-highlight text-highlight-foreground hover:bg-highlight-hover",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground",
+          "bg-surface-1 text-foreground shadow-tile hover:bg-surface-2 aria-expanded:bg-surface-2",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-secondary text-secondary-foreground hover:bg-surface-3 aria-expanded:bg-surface-3",
+        ghost: "text-foreground hover:bg-accent aria-expanded:bg-accent",
+        destructive:
+          "bg-destructive-bg text-destructive hover:bg-destructive hover:text-background",
+        link: "text-link underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-10 px-6 has-[>svg]:px-4",
-        icon: "size-9",
+        default: "h-11 gap-2 px-4",
+        sm: "h-9 gap-1.5 px-3 text-sm before:absolute before:-inset-1",
+        lg: "h-12 gap-2 px-5",
+        icon: "size-11",
+        "icon-sm": "size-9 before:absolute before:-inset-1",
+        "icon-xs":
+          "size-7 rounded-chip before:absolute before:-inset-2 [&_svg:not([class*='size-'])]:size-3.5",
+        "icon-lg": "size-12",
       },
     },
     defaultVariants: {
@@ -35,19 +39,14 @@ const buttonVariants = cva(
 
 function Button({
   className,
-  variant,
-  size,
-  asChild = false,
+  variant = "default",
+  size = "default",
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean;
-  }) {
-  const Comp = asChild ? Slot : "button";
+}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
-    <Comp
-      className={cn(buttonVariants({ variant, size, className }))}
+    <ButtonPrimitive
       data-slot="button"
+      className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />
   );
