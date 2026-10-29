@@ -1,14 +1,13 @@
 import { CURRENCIES, catalog } from "@workspace/billing";
+import type { Currency } from "@workspace/billing/money";
 import { buttonVariants } from "@workspace/ui/components/button";
 import { ArrowUpRightIcon, GitForkIcon } from "lucide-react";
 
 import { LandingProvider } from "@/components/landing/currency-context";
 import { Hero } from "@/components/landing/hero";
 import { Pricing } from "@/components/landing/pricing";
-import {
-  type BuildInfo,
-  ReceiptFooter,
-} from "@/components/landing/receipt-footer";
+import { ReceiptSection } from "@/components/landing/receipt-section";
+import { type BuildInfo, SiteFooter } from "@/components/landing/site-footer";
 import { StartCommand } from "@/components/landing/start-command";
 import type { PlanInfo, PriceTable } from "@/components/landing/types";
 import { WebhookDemo } from "@/components/landing/webhook-demo";
@@ -90,15 +89,10 @@ const FEATURES = [
   },
 ];
 
-/** Plays the hero intro once per session, never under reduced motion. */
-const INTRO_GATE = `(function(){try{if(matchMedia('(prefers-reduced-motion: reduce)').matches||sessionStorage.getItem('tsp-intro'))return;sessionStorage.setItem('tsp-intro','1');var h=document.documentElement;h.classList.add('landing-intro');setTimeout(function(){h.classList.remove('landing-intro')},2500)}catch(e){}})()`;
-
-export function Landing() {
+export function Landing({ initialCurrency }: { initialCurrency: Currency }) {
   const prices = priceTable();
   return (
-    <LandingProvider>
-      {/* A static inline intro gate: it must run before the hero paints. */}
-      <script dangerouslySetInnerHTML={{ __html: INTRO_GATE }} />
+    <LandingProvider initialCurrency={initialCurrency}>
       {/* Padding, not the hero's margin: a top margin would collapse
           through <body> and shift the page once hydration settles. */}
       <div className="pt-2 sm:pt-3">
@@ -210,8 +204,9 @@ export function Landing() {
             and Postgres.
           </p>
         </section>
+        <ReceiptSection version={BUILD.version} />
       </main>
-      <ReceiptFooter build={BUILD} />
+      <SiteFooter build={BUILD} />
     </LandingProvider>
   );
 }

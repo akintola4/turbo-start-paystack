@@ -118,13 +118,13 @@ number-flow-react::part(symbol) {
 /* ------------------------------------------------------------- landing */
 
 /*
- * First visit per session only: an inline script adds .landing-intro before
- * the hero paints, and the hero's GSAP timeline removes it as it starts. A
- * fallback in the same script removes it after 2.5s if the bundle never runs.
+ * First visit per session only: the intro gate in the root layout sets
+ * <html data-intro="play"> before the hero paints, and the hero's GSAP
+ * timeline clears it as it starts (the gate clears it after 2.5s otherwise).
  */
-.landing-intro [data-hero-title],
-.landing-intro [data-hero-fade],
-.landing-intro [data-wall-tile] {
+[data-intro="play"] [data-hero-title],
+[data-intro="play"] [data-hero-fade],
+[data-intro="play"] [data-wall-tile] {
   opacity: 0;
 }
 
@@ -193,4 +193,61 @@ number-flow-react::part(symbol) {
 }
 @theme {
   --animate-status-pulse: status-pulse 2.4s var(--motion-ease-out) infinite;
+}
+
+/*
+ * Footer wordmark. Width in ems was measured in Geist 700 at -0.06em
+ * tracking: "turbo start" 4.674 + gap 0.1 + tile 0.71 = 5.484; dividing the
+ * container width by 5.52 fills it with a little slack and never overflows.
+ */
+.footer-wordmark {
+  font-size: calc(100cqw / 5.52);
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  line-height: 0.86;
+  white-space: nowrap;
+  color: var(--panel-foreground);
+  user-select: none;
+  /* Optical alignment: pull the "t" side bearing back to the content edge. */
+  margin-inline-start: -0.035em;
+}
+/* A cap-height square sitting on the baseline (no in-flow content, so its
+   baseline is its bottom edge). */
+.footer-wordmark-tile {
+  position: relative;
+  display: inline-block;
+  vertical-align: baseline;
+  width: 0.71em;
+  height: 0.71em;
+  margin-inline-start: 0.1em;
+  border-radius: 0.13em;
+  background-color: var(--highlight);
+  color: var(--highlight-foreground);
+  letter-spacing: 0;
+}
+.footer-wordmark-glyph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(40%);
+  transition:
+    opacity 240ms var(--motion-ease-out),
+    transform 420ms var(--motion-ease-out);
+}
+/* Trim to cap height so the symbol centres on its ink, not its line box. */
+.footer-wordmark-glyph > span {
+  display: block;
+  text-box: trim-both cap alphabetic;
+}
+.footer-wordmark-glyph.is-on {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .footer-wordmark-glyph {
+    transition: none;
+  }
 }

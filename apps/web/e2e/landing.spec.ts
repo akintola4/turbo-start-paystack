@@ -123,3 +123,24 @@ for (const colorScheme of ["light", "dark"] as const) {
     await context.close();
   });
 }
+
+test("the landing logs no console errors or warnings", async ({ page }) => {
+  const problems: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "error" || m.type() === "warning") {
+      problems.push(`${m.type()}: ${m.text()}`);
+    }
+  });
+  page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
+
+  await page.goto("/"); // first visit: the intro plays
+  await page.waitForTimeout(1500);
+  await page.reload(); // same session: no intro
+  await page.waitForTimeout(800);
+  await page.getByRole("link", { name: "Sign in" }).first().click();
+  await page.waitForURL("**/sign-in");
+  await page.goBack(); // client navigation back to "/"
+  await page.waitForTimeout(800);
+
+  expect(problems).toEqual([]);
+});

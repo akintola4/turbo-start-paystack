@@ -68,7 +68,7 @@ export function Hero({ prices }: { prices: PriceTable }) {
     tiles.current[next]?.focus();
   };
 
-  // One intro per session (the inline script in <Landing> decides and hides
+  // One intro per session (the intro gate in the root layout decides and hides
   // the parts first, so the server HTML is the final state for everyone else).
   useGSAP(
     () => {
@@ -76,7 +76,7 @@ export function Hero({ prices }: { prices: PriceTable }) {
       // Decide once per mount. Strict Mode runs this effect twice; the first
       // run removes the gate class, so the second must not re-read it.
       if (playIntro.current === null) {
-        playIntro.current = html.classList.contains("landing-intro");
+        playIntro.current = html.getAttribute("data-intro") === "play";
       }
       if (!playIntro.current) {
         return;
@@ -84,12 +84,12 @@ export function Hero({ prices }: { prices: PriceTable }) {
       const mm = gsap.matchMedia();
       mm.add(MOTION_QUERIES, (ctx) => {
         if (!ctx.conditions?.motion) {
-          html.classList.remove("landing-intro");
+          html.removeAttribute("data-intro");
           return;
         }
         // Reveal first, so `from()` tweens back to the real resting values;
         // its start state renders in this same frame, before any paint.
-        html.classList.remove("landing-intro");
+        html.removeAttribute("data-intro");
         const split = SplitText.create("[data-hero-title]", {
           type: "lines",
           mask: "lines",
