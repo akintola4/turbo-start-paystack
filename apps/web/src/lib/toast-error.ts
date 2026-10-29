@@ -1,4 +1,4 @@
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 /** One error toast for a failed auth-client call: its message, or ours. */
 export function toastFailure(

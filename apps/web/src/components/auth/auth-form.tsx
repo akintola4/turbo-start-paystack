@@ -8,7 +8,7 @@ import { CircleAlertIcon, MailCheckIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { authClient } from "@/lib/auth-client";
 import { type AuthFormError, authFormError } from "@/lib/auth-errors";

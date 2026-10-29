@@ -7,7 +7,7 @@ import { MailCheckIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { FormAlert, inlineLinkClass } from "@/components/auth/auth-form";
 import { authClient } from "@/lib/auth-client";

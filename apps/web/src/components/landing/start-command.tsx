@@ -3,7 +3,7 @@
 import { cn } from "@workspace/tailwind-config/utils";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { INSTALL_COMMAND, INSTALL_STEPS } from "@/lib/landing";
 

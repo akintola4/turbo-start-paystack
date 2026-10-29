@@ -7,7 +7,7 @@ import { cn } from "@workspace/tailwind-config/utils";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { authClient } from "@/lib/auth-client";
 
