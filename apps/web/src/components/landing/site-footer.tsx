@@ -6,13 +6,11 @@ import {
   type Currency,
 } from "@workspace/billing/money";
 import { cn } from "@workspace/tailwind-config/utils";
-import { ArrowUpRightIcon, CheckIcon, CopyIcon } from "lucide-react";
-import { useRef } from "react";
+import { ArrowUpRightIcon } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { useLanding } from "@/components/landing/currency-context";
 import { PaystackStatus } from "@/components/landing/paystack-status";
-import { nextRadioIndex } from "@/components/landing/radio";
-import { CopyLabel, useCopyCommand } from "@/components/landing/start-command";
 import { Segmented } from "@/components/landing/segmented";
 import {
   THEME_OPTIONS,
@@ -20,9 +18,7 @@ import {
 } from "@/components/landing/theme-choice";
 import { Panel } from "@/components/primitives";
 import { gsap, MOTION_QUERIES, useGSAP } from "@/lib/gsap";
-import { currencyMeta } from "@/lib/landing";
-
-const REPO = "https://github.com/akintola4/turbo-start-paystack";
+import { fileUrl, REPO } from "@/lib/landing";
 
 export type BuildInfo = { version: string; updated: string | null };
 
@@ -42,13 +38,14 @@ const GLYPH_SIZE: Record<Currency, string> = {
 
 type FooterLink = { label: string; href: string; external?: boolean };
 
+/** Every project link on the page lives here, once. */
 const COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: "Starter",
     links: [
-      { label: "Pricing", href: "#pricing" },
-      { label: "Webhooks", href: "#webhooks" },
-      { label: "Changelog", href: `${REPO}/commits/main`, external: true },
+      { label: "How billing works", href: "#webhooks" },
+      { label: "Features", href: "#features" },
+      { label: "Pricing page", href: "#pricing" },
     ],
   },
   {
@@ -57,12 +54,12 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
       { label: "README", href: `${REPO}#readme`, external: true },
       {
         label: "Paystack setup",
-        href: `${REPO}/blob/main/docs/paystack-setup.md`,
+        href: fileUrl("docs/paystack-setup.md"),
         external: true,
       },
       {
         label: "Contributing",
-        href: `${REPO}/blob/main/CONTRIBUTING.md`,
+        href: fileUrl("CONTRIBUTING.md"),
         external: true,
       },
     ],
@@ -71,110 +68,55 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
     title: "Project",
     links: [
       { label: "GitHub", href: REPO, external: true },
-      {
-        label: "MIT licence",
-        href: `${REPO}/blob/main/LICENSE`,
-        external: true,
-      },
-      {
-        label: "Security",
-        href: `${REPO}/blob/main/SECURITY.md`,
-        external: true,
-      },
+      { label: "Changelog", href: `${REPO}/commits/main`, external: true },
+      { label: "Security", href: fileUrl("SECURITY.md"), external: true },
     ],
   },
 ];
-
-const metaLink =
-  "rounded-chip underline-offset-4 transition-colors duration-(--dur-fast) hover:text-panel-foreground hover:underline";
 
 /** Column headings and the first line of each column share one cap line. */
 const HEADING =
   "font-semibold text-[13px] text-panel-muted [text-box:trim-both_cap_alphabetic]";
 
-function FooterCommand() {
-  const { copied, copy } = useCopyCommand();
-  return (
-    <div className="flex max-w-[30rem] items-center gap-2 rounded-control bg-panel-tile py-1.5 pr-1.5 pl-3.5">
-      <code
-        className="min-w-0 flex-1 select-all font-mono text-[13px] leading-5"
-        data-footer-command
-      >
-        <span className="whitespace-nowrap">npx degit</span>{" "}
-        <span className="whitespace-nowrap">akintola4/</span>
-        <wbr />
-        <span className="whitespace-nowrap">turbo-start-paystack</span>{" "}
-        <span className="whitespace-nowrap text-panel-muted">my-saas</span>
-      </code>
-      <button
-        aria-label={copied ? "Copied" : "Copy the install command"}
-        className="pressable pressable-sm relative grid size-9 shrink-0 place-items-center rounded-chip before:absolute before:-inset-1 hover:bg-panel-line"
-        onClick={copy}
-        type="button"
-      >
-        <span className="grid place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
-          <CopyLabel icon={CopyIcon} shown={!copied} text="" />
-          <CopyLabel icon={CheckIcon} shown={copied} text="" />
-        </span>
-      </button>
-    </div>
-  );
-}
+const link =
+  "pressable pressable-lg inline-flex items-center gap-1 rounded-chip py-1.5 text-[15px] underline-offset-4 transition-colors duration-(--dur-fast) hover:underline active:text-panel-muted";
 
-function PricesIn() {
-  const { currency, setCurrency } = useLanding();
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
-  const index = CURRENCIES.indexOf(currency);
-  return (
-    <div className="grid justify-items-start gap-3">
-      <h3 className={HEADING} id="footer-prices">
-        Prices in
-      </h3>
-      <div
-        aria-labelledby="footer-prices"
-        className="flex gap-1.5"
-        onKeyDown={(e) => {
-          const next = nextRadioIndex(e, index, CURRENCIES.length);
-          const code = next === null ? undefined : CURRENCIES[next];
-          if (next !== null && code) {
-            setCurrency(code);
-            refs.current[next]?.focus();
-          }
-        }}
-        role="radiogroup"
-      >
-        {CURRENCIES.map((code, i) => {
-          const meta = currencyMeta(code);
-          const on = code === currency;
-          return (
-            // biome-ignore lint/a11y/useSemanticElements: ARIA radio group with roving focus.
-            <button
-              aria-checked={on}
-              aria-label={`${meta.word} (${code})`}
-              className={cn(
-                "pressable pressable-sm grid size-11 select-none place-items-center rounded-control font-bold",
-                meta.glyph === "KSh" ? "text-xs" : "text-[17px]",
-                on
-                  ? "bg-highlight text-highlight-foreground"
-                  : "bg-panel-tile text-panel-foreground hover:bg-panel-line"
-              )}
-              data-currency={code}
-              key={code}
-              onClick={() => setCurrency(code)}
-              ref={(el) => {
-                refs.current[i] = el;
-              }}
-              role="radio"
-              tabIndex={on ? 0 : -1}
-              type="button"
-            >
-              {meta.glyph}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
+/**
+ * Sets the wordmark's font size so it runs exactly from the content edge
+ * (the first letter's ink) to the right edge (the tile). Everything inside
+ * is in ems, so one measurement at any size gives the width per em. The CSS
+ * value in globals.css is the server-side first guess.
+ */
+function useFillWidth(
+  container: React.RefObject<HTMLDivElement | null>,
+  text: React.RefObject<HTMLParagraphElement | null>
+) {
+  useEffect(() => {
+    const box = container.current;
+    const p = text.current;
+    const tile = p?.querySelector<HTMLElement>(".footer-wordmark-tile");
+    if (!(box && p && tile)) {
+      return;
+    }
+    const fit = () => {
+      p.style.fontSize = "";
+      const size = Number.parseFloat(getComputedStyle(p).fontSize);
+      // From the box's left edge (the first letter's ink, thanks to the
+      // wordmark's negative margin) to the tile's right edge, per em.
+      const width =
+        (tile.getBoundingClientRect().right -
+          box.getBoundingClientRect().left) /
+        size;
+      if (width > 0) {
+        p.style.fontSize = `${box.clientWidth / width}px`;
+      }
+    };
+    fit();
+    document.fonts.ready.then(fit).catch(() => {});
+    const ro = new ResizeObserver(fit);
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, [container, text]);
 }
 
 function ThemeSwitch() {
@@ -197,14 +139,16 @@ function ThemeSwitch() {
 }
 
 /**
- * The site footer, as in the Money in motion concept: the install command,
- * three link columns, and the page's currency and theme controls; then live
- * Paystack status and build info; then a wordmark that fills the panel, its
- * sunflower tile showing the currency chosen anywhere on the page.
+ * The site footer: the page's links (each exactly once), its one theme
+ * control, live Paystack status and build info; then a wordmark that fills
+ * the panel, its sunflower tile showing the currency chosen on the wall.
  */
 export function SiteFooter({ build }: { build: BuildInfo }) {
   const { currency } = useLanding();
   const root = useRef<HTMLDivElement>(null);
+  const wordmark = useRef<HTMLDivElement>(null);
+  const words = useRef<HTMLParagraphElement>(null);
+  useFillWidth(wordmark, words);
 
   // The words and the tile rise out of the clip edge, 1:1 with the scroll,
   // over the last stretch of the page. Reduced motion shows them in place.
@@ -239,18 +183,12 @@ export function SiteFooter({ build }: { build: BuildInfo }) {
   return (
     <footer className="landing-bleed mt-3 mb-[max(var(--edge),env(safe-area-inset-bottom))]">
       <Panel as="div" className="px-0 pt-8 pb-0 sm:px-0 sm:pt-10 sm:pb-0">
-        <div className="@container landing-inner" ref={root}>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto] xl:grid-cols-[minmax(0,2.8fr)_repeat(3,minmax(0,1fr))_auto] xl:gap-x-8">
-            <div className="col-span-2 grid content-start justify-items-start gap-5 md:col-span-3 lg:col-span-4 xl:col-span-1">
-              <p className="max-w-[18ch] text-balance font-semibold text-[22px] leading-[1.2] tracking-[-0.02em] [text-box:trim-both_cap_alphabetic]">
-                Start from billing that already works.
-              </p>
-              <FooterCommand />
-            </div>
+        <div className="landing-inner" ref={root}>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4 xl:gap-x-8">
             {COLUMNS.map((col) => (
               <nav
                 aria-labelledby={`footer-${col.title.toLowerCase()}`}
-                className="grid content-start gap-3"
+                className="grid content-start justify-items-start gap-3"
                 key={col.title}
               >
                 <h3
@@ -259,15 +197,12 @@ export function SiteFooter({ build }: { build: BuildInfo }) {
                 >
                   {col.title}
                 </h3>
-                <ul className="grid gap-0.5">
-                  {col.links.map((link) => (
-                    <li key={link.label}>
-                      <a
-                        className="inline-flex items-center gap-1 rounded-chip py-1.5 text-[15px] transition-colors duration-(--dur-fast) hover:text-highlight"
-                        href={link.href}
-                      >
-                        {link.label}
-                        {link.external ? (
+                <ul className="grid justify-items-start gap-0.5">
+                  {col.links.map((l) => (
+                    <li key={l.label}>
+                      <a className={link} href={l.href}>
+                        {l.label}
+                        {l.external ? (
                           <ArrowUpRightIcon
                             aria-hidden
                             className="size-3.5 text-panel-muted"
@@ -279,18 +214,13 @@ export function SiteFooter({ build }: { build: BuildInfo }) {
                 </ul>
               </nav>
             ))}
-            <div className="col-span-2 grid content-start justify-items-start gap-6 md:col-span-3 lg:col-span-1">
-              <PricesIn />
-              <ThemeSwitch />
-            </div>
+            <ThemeSwitch />
           </div>
 
           <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 border-panel-line border-t pt-5 text-[13px] text-panel-muted lg:justify-between">
-            <PaystackStatus />
+            <PaystackStatus className="max-w-[min(100%,30rem)]" />
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <a className={metaLink} href={`${REPO}/commits/main`}>
-                Version {build.version}
-              </a>
+              <span>Version {build.version}</span>
               {/* Each separator travels with the item after it, so a wrap
                   never leaves a dot hanging at the end of a line. */}
               {build.updated ? (
@@ -301,7 +231,10 @@ export function SiteFooter({ build }: { build: BuildInfo }) {
               ) : null}
               <span className="inline-flex items-center gap-2 whitespace-nowrap">
                 <span aria-hidden>·</span>
-                <a className={metaLink} href={`${REPO}/blob/main/LICENSE`}>
+                <a
+                  className="pressable pressable-sm rounded-chip underline-offset-4 transition-colors duration-(--dur-fast) hover:text-panel-foreground hover:underline"
+                  href={fileUrl("LICENSE")}
+                >
                   MIT licence
                 </a>
               </span>
@@ -309,15 +242,14 @@ export function SiteFooter({ build }: { build: BuildInfo }) {
             <p>Not affiliated with Paystack.</p>
           </div>
 
-          {/* The wordmark. Its font size is the container width divided by
-              its measured width in ems (text 4.674 + gap 0.1 + tile 0.71,
-              plus a hair of slack), so it fills the panel and never spills. */}
+          {/* The wordmark: sized by useFillWidth to run edge to edge. */}
           <div
             aria-hidden
-            className="mt-[clamp(20px,4cqw,48px)] overflow-hidden"
+            className="@container mt-[clamp(20px,3vw,48px)] overflow-hidden"
             data-wordmark
+            ref={wordmark}
           >
-            <p className="footer-wordmark">
+            <p className="footer-wordmark" ref={words}>
               <span className="inline-block" data-wordmark-part>
                 turbo
               </span>{" "}
@@ -335,7 +267,9 @@ export function SiteFooter({ build }: { build: BuildInfo }) {
                     key={code}
                     style={{ fontSize: GLYPH_SIZE[code] }}
                   >
-                    <span>{CURRENCY_SYMBOL[code].trim()}</span>
+                    <span className="currency-glyph" data-glyph={code}>
+                      {CURRENCY_SYMBOL[code].trim()}
+                    </span>
                   </span>
                 ))}
               </span>

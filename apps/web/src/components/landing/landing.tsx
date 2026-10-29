@@ -1,31 +1,33 @@
 import { CURRENCIES, catalog } from "@workspace/billing";
 import type { Currency } from "@workspace/billing/money";
-import { buttonVariants } from "@workspace/ui/components/button";
-import { GitForkIcon } from "lucide-react";
 
 import { LandingProvider } from "@/components/landing/currency-context";
+import { opticalEdge } from "@/components/landing/display";
+import { CodeOutcome } from "@/components/landing/features/code-outcome";
 import { Hero } from "@/components/landing/hero";
 import { Pricing } from "@/components/landing/pricing";
 import { ReceiptSection } from "@/components/landing/receipt-section";
 import { type BuildInfo, SiteFooter } from "@/components/landing/site-footer";
-import { StartCommand } from "@/components/landing/start-command";
 import type { PlanInfo, PriceTable } from "@/components/landing/types";
-import { FeaturesCode } from "@/components/landing/features/code-outcome";
 import { WebhookSplit } from "@/components/landing/webhooks/split";
 import { formatUpdated } from "@/lib/landing";
 
-const REPO = "https://github.com/akintola4/turbo-start-paystack";
+type PaidPlan = "starter" | "pro";
+type CatalogInterval = "monthly" | "annually";
+
+/** A catalog price in subunits. A missing one is a catalog bug: the build
+ *  fails here rather than showing a paid plan as free. */
+function amount(key: PaidPlan, code: Currency, interval: CatalogInterval) {
+  const price = catalog
+    .find((p) => p.key === key)
+    ?.prices.find((p) => p.currency === code && p.interval === interval);
+  if (!price) {
+    throw new Error(`catalog has no ${interval} ${key} price in ${code}`);
+  }
+  return price.amountSubunit;
+}
 
 function priceTable(): PriceTable {
-  const amount = (
-    key: "starter" | "pro",
-    code: string,
-    interval: "monthly" | "annually"
-  ) =>
-    catalog
-      .find((p) => p.key === key)
-      ?.prices.find((p) => p.currency === code && p.interval === interval)
-      ?.amountSubunit ?? 0;
   return Object.fromEntries(
     CURRENCIES.map((code) => [
       code,
@@ -57,6 +59,14 @@ const BUILD: BuildInfo = {
   updated: formatUpdated(process.env.NEXT_PUBLIC_LAST_UPDATED),
 };
 
+const WEBHOOKS_TITLE = "Only signed events change a plan.";
+const FEATURES_TITLE = "The Paystack billing you’d otherwise write yourself.";
+
+/**
+ * The landing, in story order: the hook (hero), two proofs (webhooks, then
+ * the features), the pricing page the starter ships with, and the close
+ * (nothing to pay, one command). The footer holds every link.
+ */
 export function Landing({ initialCurrency }: { initialCurrency: Currency }) {
   const prices = priceTable();
   return (
@@ -72,15 +82,16 @@ export function Landing({ initialCurrency }: { initialCurrency: Currency }) {
       >
         <section
           aria-labelledby="webhooks-title"
-          className="landing-section grid scroll-mt-8 gap-8 sm:gap-10"
+          className="landing-section grid scroll-mt-8 gap-10"
           id="webhooks"
         >
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)] lg:items-end lg:gap-16">
+          <div className="landing-head">
             <h2
-              className="max-w-[18ch] text-balance font-semibold text-[clamp(36px,4.6vw,64px)] leading-[0.98] tracking-[-0.045em]"
+              className="display-l max-w-[18ch]"
               id="webhooks-title"
+              style={opticalEdge(WEBHOOKS_TITLE)}
             >
-              Only signed events change a plan.
+              {WEBHOOKS_TITLE}
             </h2>
             <p className="text-pretty text-muted-foreground">
               Paystack signs every event it sends. The starter checks the
@@ -89,60 +100,33 @@ export function Landing({ initialCurrency }: { initialCurrency: Currency }) {
               pays.
             </p>
           </div>
-          <WebhookSplit />
+          <WebhookSplit prices={prices} />
+        </section>
+
+        <section
+          aria-labelledby="features-title"
+          className="landing-section grid scroll-mt-8 gap-10"
+          id="features"
+        >
+          <div className="landing-head">
+            <h2
+              className="display-l max-w-[18ch]"
+              id="features-title"
+              style={opticalEdge(FEATURES_TITLE)}
+            >
+              {FEATURES_TITLE}
+            </h2>
+            <p className="text-pretty text-muted-foreground">
+              Paystack leaves proration, plan swaps and event ordering to you.
+              Here is the code that handles them, from the repo, next to what it
+              does.
+            </p>
+          </div>
+          <CodeOutcome />
         </section>
 
         <Pricing plans={PLANS} prices={prices} />
 
-        <section
-          aria-labelledby="features-title"
-          className="landing-section grid gap-10"
-        >
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-end">
-            <h2
-              className="max-w-[16ch] text-balance font-semibold text-[clamp(36px,5vw,72px)] leading-[0.96] tracking-[-0.045em]"
-              id="features-title"
-            >
-              The billing you’d otherwise write yourself.
-            </h2>
-            <p className="text-pretty text-muted-foreground">
-              Real code from the repo, next to what it does.
-            </p>
-          </div>
-          <FeaturesCode />
-        </section>
-
-        <section
-          aria-labelledby="start-title"
-          className="landing-section grid scroll-mt-8 gap-6 sm:gap-8"
-          id="start"
-        >
-          <h2
-            className="text-balance font-semibold text-[clamp(40px,6vw,96px)] leading-[0.94] tracking-[-0.05em]"
-            id="start-title"
-          >
-            One command to start.
-          </h2>
-          <StartCommand />
-          <div className="flex flex-wrap gap-2.5">
-            <a className={buttonVariants({ size: "lg" })} href={REPO}>
-              <GitForkIcon aria-hidden />
-              Open on GitHub
-            </a>
-            <a
-              className={buttonVariants({ size: "lg", variant: "outline" })}
-              href={`${REPO}#readme`}
-            >
-              Read the docs
-            </a>
-          </div>
-          <p className="text-muted-foreground text-sm">
-            Then <code className="font-mono">pnpm install</code>, copy{" "}
-            <code className="font-mono">apps/web/.env.example</code>, and run{" "}
-            <code className="font-mono">pnpm dev:web</code>. Node 22, pnpm 11
-            and Postgres.
-          </p>
-        </section>
         <ReceiptSection version={BUILD.version} />
       </main>
       <SiteFooter build={BUILD} />
