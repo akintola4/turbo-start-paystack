@@ -185,22 +185,30 @@ function PaymentsTile({ data }: { data: DashboardData }) {
         ) : null}
       </div>
       {data.recentInvoices.length ? (
-        <ul>
+        <ul className="-mx-2">
           {data.recentInvoices.map((inv) => (
             <li
-              className="grid min-h-12 grid-cols-[1fr_auto] items-center gap-x-4 border-border border-t py-2 first:border-t-0 sm:grid-cols-[6.5rem_1fr_8rem_6rem]"
+              className="relative grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-border border-t px-2 py-2.5 transition-colors duration-(--dur-fast) first:border-t-0 hover:bg-surface-2 sm:grid-cols-[6.5rem_minmax(0,1fr)_8rem_6rem]"
               key={inv.id}
             >
-              <span className="text-muted-foreground text-sm tabular-nums">
+              <span className="text-muted-foreground text-sm tabular-nums max-sm:col-start-1 max-sm:row-start-2">
                 {formatDate(inv.date, "short")}
               </span>
-              <span className="hidden truncate text-sm sm:block">
+              <Link
+                className="truncate font-medium text-sm outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:outline-ring focus-visible:after:-outline-offset-2 max-sm:col-start-1 max-sm:row-start-1"
+                href={inv.href}
+              >
                 {inv.description}
-              </span>
-              <span className="text-right">
+              </Link>
+              <span
+                className={cn(
+                  "text-right max-sm:col-start-2 max-sm:row-start-1",
+                  inv.status === "void" && "text-muted-foreground line-through"
+                )}
+              >
                 <Amount label={inv.amountLabel} />
               </span>
-              <span className="hidden justify-self-end sm:inline-flex">
+              <span className="inline-flex justify-self-end max-sm:col-start-2 max-sm:row-start-2">
                 <InvoiceBadge status={inv.status} />
               </span>
             </li>
