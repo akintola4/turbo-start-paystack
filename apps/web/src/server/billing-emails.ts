@@ -34,6 +34,7 @@ function sendOne(mailer: Mailer, n: BillingNotification, r: Recipient) {
         amountSubunit: n.amountSubunit,
         currency: n.currency,
         reference: n.reference,
+        invoiceId: n.invoiceId,
         paidAt: n.paidAt,
         periodStart: n.periodStart,
         periodEnd: n.periodEnd,

@@ -41,6 +41,14 @@ export type MailerOptions = {
 const routes = {
   acceptInvite: (id: string) => ["accept-invite", id],
   billing: (slug: string) => ["app", slug, "settings", "billing"],
+  invoice: (slug: string, invoiceId: string) => [
+    "app",
+    slug,
+    "settings",
+    "billing",
+    "invoices",
+    invoiceId,
+  ],
 };
 
 type Recipient = {
@@ -121,7 +129,11 @@ export function createMailer(options: MailerOptions) {
         acceptUrl: appLink(appUrl, routes.acceptInvite(input.invitationId)),
       }),
 
-    paymentReceipt: async (input: BillingInput<PaymentReceiptProps>) =>
+    paymentReceipt: async (
+      input: BillingInput<Omit<PaymentReceiptProps, "invoiceUrl">> & {
+        invoiceId: string;
+      }
+    ) =>
       send("payment-receipt", input, {
         organizationName: input.organizationName,
         planName: input.planName,
@@ -133,6 +145,10 @@ export function createMailer(options: MailerOptions) {
         periodStart: input.periodStart,
         periodEnd: input.periodEnd,
         billingUrl: billingUrl(input.organizationSlug),
+        invoiceUrl: appLink(
+          appUrl,
+          routes.invoice(input.organizationSlug, input.invoiceId)
+        ),
       }),
 
     paymentFailed: async (

@@ -21,6 +21,8 @@ export type PaymentReceiptProps = {
   periodStart?: Date | null;
   periodEnd?: Date | null;
   billingUrl: string;
+  /** The invoice for this payment, viewable and downloadable as a PDF. */
+  invoiceUrl: string;
 };
 
 export const paymentReceiptSubject = (p: PaymentReceiptProps) =>
@@ -76,7 +78,7 @@ export function paymentReceiptContent(
       ],
     ],
     details: { title: "Receipt", rows },
-    cta: { label: "View billing", href: props.billingUrl },
+    cta: { label: "View invoice", href: props.invoiceUrl },
     after: [
       [
         "Paystack sends its own receipt to the card holder. Quote the reference if you contact us about this payment.",
@@ -102,4 +104,6 @@ PaymentReceipt.PreviewProps = {
   periodStart: new Date("2026-10-12T09:12:00Z"),
   periodEnd: new Date("2026-11-12T09:12:00Z"),
   billingUrl: "https://app.example.com/app/kola/settings/billing",
+  invoiceUrl:
+    "https://app.example.com/app/kola/settings/billing/invoices/0b6c6a8e-3f1d-4c55-9a51-7d2e1f0c4b9a",
 } satisfies PaymentReceiptProps;
