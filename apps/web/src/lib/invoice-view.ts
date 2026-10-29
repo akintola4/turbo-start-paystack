@@ -3,7 +3,10 @@ import type {
   InvoiceDocumentStatus,
   InvoiceParty,
 } from "@workspace/billing";
+import { formatPeriod } from "@workspace/billing/dates";
 import { formatMoney } from "@workspace/billing/money";
+
+import { formatDate, initials } from "@/lib/format";
 
 /**
  * The invoice as display strings. The web view and the PDF render this one
@@ -12,7 +15,7 @@ import { formatMoney } from "@workspace/billing/money";
 export type InvoiceView = {
   /** "Invoice", "Refunded charge", "Card check"… */
   title: string;
-  /** The seller's two-letter mark: "Turbo Start Ltd" → "TS". */
+  /** The seller's initials, as on org monograms: "Turbo Start" → "TS". */
   mark: string;
   number: string | null;
   status: InvoiceDocumentStatus;
@@ -33,6 +36,8 @@ export type InvoiceView = {
   totals: { label: string; value: string; strong?: boolean }[];
   reference: string | null;
   paystackInvoiceCode: string | null;
+  /** Footer line beside the reference; says "paid" only when it was. */
+  referenceNote: string;
   currency: string;
 };
 
@@ -42,16 +47,8 @@ const longDate = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
   timeZone: "UTC",
 });
-const shortDate = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  timeZone: "UTC",
-});
 
 export const formatLongDate = (iso: string) => longDate.format(new Date(iso));
-const formatShortDate = (iso: string) =>
-  shortDate.format(new Date(iso)).replace("Sept", "Sep");
 
 const STATUS_LABEL: Record<InvoiceDocumentStatus, string> = {
   paid: "Paid",
@@ -115,7 +112,7 @@ function totals(doc: InvoiceDocument) {
         { label: "Charged", value: money(t.totalSubunit) },
         {
           label: doc.refundedAt
-            ? `Refunded ${formatShortDate(doc.refundedAt)}`
+            ? `Refunded ${formatDate(doc.refundedAt)}`
             : "Refunded",
           value: money(-t.refundedSubunit),
         },
@@ -135,15 +132,17 @@ function totals(doc: InvoiceDocument) {
 export function invoiceView(doc: InvoiceDocument): InvoiceView {
   const meta: InvoiceView["meta"] = [];
   if (doc.issuedAt && doc.number) {
-    meta.push({ label: "Issued", value: formatShortDate(doc.issuedAt) });
+    meta.push({ label: "Issued", value: formatDate(doc.issuedAt) });
   }
   if (doc.periodStart && doc.periodEnd) {
     meta.push({
       label: "Period",
-      value: `${formatShortDate(doc.periodStart)} – ${formatShortDate(doc.periodEnd)}`,
+      value: formatPeriod(new Date(doc.periodStart), new Date(doc.periodEnd)),
     });
   }
-  if (doc.payment) {
+  // A failed or pending charge never took money from the card.
+  const charged = doc.status === "paid" || doc.status === "refunded";
+  if (doc.payment && charged) {
     const brand = doc.payment.brand
       ? doc.payment.brand.charAt(0).toUpperCase() + doc.payment.brand.slice(1)
       : "Card";
@@ -154,13 +153,7 @@ export function invoiceView(doc: InvoiceDocument): InvoiceView {
   }
   return {
     title: doc.title,
-    mark:
-      doc.seller.name
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0]?.toUpperCase())
-        .join("") || "·",
+    mark: initials(doc.seller.name),
     number: doc.number,
     status: doc.status,
     statusLabel: STATUS_LABEL[doc.status],
@@ -182,6 +175,9 @@ export function invoiceView(doc: InvoiceDocument): InvoiceView {
     totals: totals(doc),
     reference: doc.reference,
     paystackInvoiceCode: doc.paystackInvoiceCode,
+    referenceNote: charged
+      ? "Paid by card through Paystack. Quote the reference if you contact us about this payment."
+      : "Quote the reference if you contact us about this payment.",
     currency: doc.currency,
   };
 }

@@ -77,8 +77,15 @@ export const ROLE_META: Record<string, { label: string; description: string }> =
 
 export const roleLabel = (role: string) => ROLE_META[role]?.label ?? role;
 
+/** Legal suffixes that never make an initial: "Turbo Start Ltd" → "TS". */
+const LEGAL_SUFFIX = /^(ltd|limited|llc|inc|plc|gmbh|pty|co)\.?$/i;
+
+/** First and last initial: "Ada Okafor" → "AO", "Kola Logistics Ltd" → "KL". */
 export function initials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
+  while (parts.length > 1 && LEGAL_SUFFIX.test(parts.at(-1) ?? "")) {
+    parts.pop();
+  }
   const first = parts[0]?.[0] ?? "?";
   const last = parts.length > 1 ? (parts.at(-1)?.[0] ?? "") : "";
   return (first + last).toUpperCase();

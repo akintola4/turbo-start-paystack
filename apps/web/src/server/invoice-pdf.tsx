@@ -384,10 +384,7 @@ export function InvoicePdf({ view }: { view: InvoiceView }) {
                 <Text style={s.mono}>{view.paystackInvoiceCode}</Text>
               </View>
             ) : null}
-            <Text style={s.note}>
-              Paid by card through Paystack. Quote the reference if you contact
-              us about this payment.
-            </Text>
+            <Text style={s.note}>{view.referenceNote}</Text>
           </View>
         ) : null}
 
