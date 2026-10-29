@@ -506,6 +506,35 @@ number-flow-react::part(symbol) {
 }
 
 /*
+ * Auth side panel. The art lives in a size container (the panel minus its
+ * padding), and every length is a share of min(width, height),
+ * so the grid can never outgrow the panel on wide-short or tall-narrow
+ * screens, and the glyphs keep one ratio to their tiles at every size.
+ */
+.auth-art {
+  container: auth-art / size;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+.auth-mosaic {
+  --w: min(80cqw, 80cqh, 720px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: calc(var(--w) * 0.04);
+  width: var(--w);
+  aspect-ratio: 1;
+}
+.auth-mosaic > * {
+  aspect-ratio: 1;
+  border-radius: min(var(--radius-tile), calc(var(--w) * 0.06));
+  font-size: calc(var(--w) * 0.092);
+}
+.auth-mosaic > [data-glyph="KSh"] {
+  font-size: calc(var(--w) * 0.092 * 0.78);
+}
+
+/*
  * Printing (the invoice page): A4, no app chrome, and light paper even when
  * the app is in dark mode. The forest panel keeps its own colours (it is the
  * same island in both themes) and is printed with them.

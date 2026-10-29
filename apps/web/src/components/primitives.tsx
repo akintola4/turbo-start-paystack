@@ -61,7 +61,7 @@ export function Wordmark({
   return (
     <Link
       className={cn(
-        "inline-flex items-center gap-2.5 rounded-chip font-display font-semibold text-[17px] tracking-tight",
+        "inline-flex min-h-11 items-center gap-2.5 rounded-chip font-display font-semibold text-[17px] tracking-tight",
         className
       )}
       href={href}
