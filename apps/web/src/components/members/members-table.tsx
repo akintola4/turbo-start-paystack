@@ -136,7 +136,6 @@ export function MembersTable({
                   density === "compact" ? "size-6 text-[10px]" : "size-8"
                 }
                 name={m.name}
-                seed={m.email}
                 shape={monogramShape}
                 tone={monogramTone}
               />

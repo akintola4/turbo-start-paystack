@@ -54,7 +54,6 @@ export function OrgSwitcherMenu({
               <Monogram
                 className="size-6 text-[10px]"
                 name={org.name}
-                seed={org.slug}
                 tone={monogramTone}
               />
               <span className="min-w-0 flex-1 truncate">{org.name}</span>

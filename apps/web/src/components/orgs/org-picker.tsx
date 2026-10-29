@@ -20,12 +20,7 @@ export function OrgPicker({ data }: { data: OrgPickerData }) {
             className="-mr-2 gap-2 pr-3 pl-1.5"
             variant="ghost"
           >
-            <Monogram
-              className="size-8"
-              name={data.user.name}
-              seed={data.user.email}
-              shape="circle"
-            />
+            <Monogram className="size-8" name={data.user.name} shape="circle" />
             <span className="hidden text-sm sm:inline">{first}</span>
           </Button>
         </UserMenu>

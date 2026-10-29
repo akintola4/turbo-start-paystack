@@ -212,11 +212,14 @@ export type AcceptInviteData = {
   signedInAs: string | null;
   invite: {
     orgName: string;
-    /** Seeds the org monogram so its colour matches the rest of the app. */
-    orgSlug: string;
     role: string;
     inviter: string | null;
-    email: string;
+    /** The invited address, masked: "t***@kola.test". */
+    forEmail: string;
+    /** Signed in, but as someone other than the invited address. */
+    otherAccount: boolean;
   } | null;
+  /** Why the link can't be used, when it can't. */
+  unusable: "expired" | "accepted" | "revoked" | "unknown" | null;
   hrefs: { signUp: string; signIn: string };
 };

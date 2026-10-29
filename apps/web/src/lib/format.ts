@@ -123,3 +123,9 @@ export function splitMoney(label: string) {
     suffix: match[4] ?? "",
   };
 }
+
+/** "tunde@kola.test" → "t***@kola.test": enough to recognise, not to harvest. */
+export function maskEmail(email: string) {
+  const [local = "", domain = ""] = email.split("@");
+  return `${local.slice(0, 1)}***@${domain}`;
+}

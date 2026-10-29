@@ -35,12 +35,7 @@ export function MemberCards({
     <ul className="grid divide-y">
       {members.map((m) => (
         <PresenceItem id={m.id} key={m.id}>
-          <Monogram
-            className="size-10"
-            name={m.name}
-            seed={m.email}
-            shape="circle"
-          />
+          <Monogram className="size-10" name={m.name} shape="circle" />
           <div className="grid min-w-0 flex-1 gap-0.5">
             <span className="truncate font-medium text-sm">
               {m.name}
