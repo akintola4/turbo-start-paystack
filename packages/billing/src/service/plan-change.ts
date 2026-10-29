@@ -272,6 +272,7 @@ export async function changePlan(
             .set({ status: "failed" })
             .where(eq(schema.paymentIntent.id, reference));
           await upsertInvoice(tx, {
+            source: "charge",
             organizationId: sub.organizationId,
             subscriptionId: sub.id,
             reference,
@@ -283,6 +284,7 @@ export async function changePlan(
           return { failed: error };
         }
         await upsertInvoice(tx, {
+          source: "charge",
           organizationId: sub.organizationId,
           subscriptionId: sub.id,
           reference,

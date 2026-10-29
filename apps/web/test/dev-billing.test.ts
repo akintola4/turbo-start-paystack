@@ -433,6 +433,15 @@ describe("simulated lifecycle drives state through webhooks", () => {
     const invoices = await ctx.billing.listInvoices(orgId);
     expect(invoices.some((i) => i.status === "failed")).toBe(false);
     expect(invoices.filter((i) => i.status === "paid")).toHaveLength(3);
+    // The recovered renewal is paid on its simulated due date, labelled,
+    // and sorted with the others (the bug: wall-clock date, no label).
+    const renewals = invoices.filter((i) => i.paystackInvoiceCode);
+    for (const inv of renewals) {
+      expect(inv.paidAt).toEqual(inv.periodStart);
+      expect(inv.description).toBe("Renewal");
+    }
+    const shown = invoices.map((i) => (i.paidAt ?? i.createdAt).getTime());
+    expect(shown).toEqual([...shown].sort((a, b) => b - a));
   });
 
   it("refuses to recover what is not past due", async () => {

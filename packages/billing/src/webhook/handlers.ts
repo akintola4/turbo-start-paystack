@@ -248,6 +248,7 @@ async function onInvoice(
           : "pending";
 
   await upsertInvoice(tx, {
+    source: "invoice",
     organizationId: sub.organizationId,
     subscriptionId: sub.id,
     invoiceCode: data.invoice_code,

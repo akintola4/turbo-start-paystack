@@ -147,6 +147,7 @@ async function activateFromCheckout(
     });
   }
   await upsertInvoice(tx, {
+    source: "charge",
     organizationId: intent.organizationId,
     subscriptionId,
     reference: data.reference,
@@ -256,6 +257,7 @@ async function startTrialFromCharge(
     .where(eq(schema.subscription.id, subscriptionId));
   await refund();
   await upsertInvoice(tx, {
+    source: "charge",
     organizationId: intent.organizationId,
     subscriptionId,
     reference: data.reference,
@@ -292,6 +294,7 @@ async function finalizeUpgradeFromCharge(
   const sub = await liveSubscription(tx, intent.organizationId, { lock: true });
   const paidAt = data.paid_at ? new Date(data.paid_at) : deps.now();
   await upsertInvoice(tx, {
+    source: "charge",
     organizationId: intent.organizationId,
     subscriptionId: sub?.id ?? null,
     reference: data.reference,
@@ -413,6 +416,7 @@ async function applyRenewalCharge(
         )
       );
     await upsertInvoice(tx, {
+      source: "charge",
       organizationId: only.organizationId,
       subscriptionId: only.id,
       reference: data.reference,

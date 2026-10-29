@@ -11,6 +11,7 @@ import {
   catalog,
   getPlan,
   getPlanPrice,
+  invoiceDate,
   planPriceId,
 } from "@workspace/billing";
 import { schema } from "@workspace/db";
@@ -103,7 +104,7 @@ function summarize(
 function invoiceRow(invoice: Invoice): InvoiceRow {
   return {
     id: invoice.id,
-    date: (invoice.paidAt ?? invoice.createdAt).toISOString(),
+    date: invoiceDate(invoice).toISOString(),
     // The status badge already says "Refunded".
     description: (invoice.description ?? "Subscription").replace(
       /\s*\(refunded\)$/i,

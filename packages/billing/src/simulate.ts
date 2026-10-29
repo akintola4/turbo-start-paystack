@@ -167,6 +167,7 @@ export function createWebhookSimulator(options: {
       periodStart: c.due.toISOString(),
       periodEnd: c.periodEnd.toISOString(),
       reference,
+      paidAt: c.due.toISOString(),
     });
     // A recovered payment settles the failed invoice; send that first so
     // the charge lands on the same invoice row instead of a new one.

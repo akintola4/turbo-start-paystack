@@ -1,6 +1,6 @@
 import { schema } from "@workspace/db";
 import { Logger } from "@workspace/logger";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
 import { getEntitlement } from "../entitlements";
 import { BillingError } from "../errors";
@@ -19,6 +19,18 @@ import {
   getManageCardLink,
   resumeSubscription,
 } from "./plan-change";
+
+/** The date an invoice is listed under: paid date, else the period it is
+ *  for, else when we first heard of it. */
+export const invoiceDateSql = sql<Date>`coalesce(${schema.invoice.paidAt}, ${schema.invoice.periodStart}, ${schema.invoice.createdAt})`;
+
+export function invoiceDate(invoice: {
+  paidAt: Date | null;
+  periodStart: Date | null;
+  createdAt: Date;
+}): Date {
+  return invoice.paidAt ?? invoice.periodStart ?? invoice.createdAt;
+}
 
 export type CreateBillingServiceOptions = Omit<BillingDeps, "now" | "logger"> &
   Partial<Pick<BillingDeps, "now" | "logger">>;
@@ -87,7 +99,10 @@ export function createBillingService(options: CreateBillingServiceOptions) {
         .select()
         .from(schema.invoice)
         .where(eq(schema.invoice.organizationId, organizationId))
-        .orderBy(desc(schema.invoice.createdAt))
+        // Newest first by the date the row shows (see `invoiceDate`), not
+        // by insert time: a failed attempt inserts its row long before the
+        // payment that settles it.
+        .orderBy(desc(invoiceDateSql), desc(schema.invoice.id))
         .limit(50),
 
     changePlan: (input: {
