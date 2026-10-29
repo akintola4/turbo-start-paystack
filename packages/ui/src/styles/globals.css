@@ -122,6 +122,9 @@
   --dur-press: 120ms;
   --dur-fast: 150ms;
   --dur-base: 200ms;
+  /* Menus, selects, popovers, tooltips: in from the trigger, out quieter. */
+  --dur-menu: 180ms;
+  --dur-menu-exit: 120ms;
   /* Sliding indicators: segmented thumbs, tab indicators. */
   --dur-thumb: 260ms;
   --dur-number: 240ms;
@@ -425,7 +428,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --radius-sm: 8px;
-  --radius-md: 10px;
+  --radius-md: var(--radius-control);
   --radius-lg: var(--radius);
   --radius-xl: 16px;
   /* One depth cue per surface: cards get a 1px ring, floating layers a shadow. */

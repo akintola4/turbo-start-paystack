@@ -54,7 +54,7 @@ export function NewOrgDialog({
         <SheetContent showCloseButton={false} side="bottom">
           <div className="grid gap-5 px-5 pt-6">
             <SheetHeader className="gap-2 p-0">
-              <SheetTitle className="font-semibold text-xl">{TITLE}</SheetTitle>
+              <SheetTitle>{TITLE}</SheetTitle>
               <SheetDescription className="text-[15px]">
                 {DESCRIPTION}
               </SheetDescription>

@@ -37,7 +37,7 @@ import { cn } from "@workspace/tailwind-config/utils";
 import { MoreHorizontalIcon, UserMinusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactElement, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import type { MemberRow, Role } from "@/lib/view-models";
 import { Confirm } from "@/components/confirm";
@@ -196,7 +196,7 @@ export function InviteDialog({
         <SheetContent showCloseButton={false} side="bottom">
           <form className="grid gap-5 px-5 pt-6" onSubmit={onSubmit}>
             <SheetHeader className="gap-2 p-0">
-              <SheetTitle className="font-semibold text-xl">{title}</SheetTitle>
+              <SheetTitle>{title}</SheetTitle>
               <SheetDescription className="text-[15px]">
                 {description}
               </SheetDescription>

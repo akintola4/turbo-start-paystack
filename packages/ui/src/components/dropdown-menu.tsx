@@ -41,7 +41,7 @@ function DropdownMenuContent({
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
           className={cn(
-            "z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-card bg-popover p-1 text-popover-foreground shadow-float outline-none data-closed:overflow-hidden transition-[opacity,scale] duration-[180ms] ease-out data-starting-style:scale-[0.97] data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-[120ms] motion-reduce:transition-none",
+            "z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-card bg-popover p-1 text-popover-foreground shadow-float outline-none data-closed:overflow-hidden transition-[opacity,scale] duration-(--dur-menu) ease-(--motion-ease-out) data-starting-style:scale-[0.97] data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-(--dur-menu-exit) motion-reduce:transition-none",
             className
           )}
           {...props}
@@ -138,7 +138,7 @@ function DropdownMenuSubContent({
     <DropdownMenuContent
       data-slot="dropdown-menu-sub-content"
       className={cn(
-        "w-auto min-w-[96px] rounded-card bg-popover p-1 text-popover-foreground shadow-float transition-[opacity,scale] duration-[180ms] ease-out data-starting-style:scale-[0.97] data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-[120ms] motion-reduce:transition-none",
+        "w-auto min-w-[96px] rounded-card bg-popover p-1 text-popover-foreground shadow-float transition-[opacity,scale] duration-(--dur-menu) ease-(--motion-ease-out) data-starting-style:scale-[0.97] data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-(--dur-menu-exit) motion-reduce:transition-none",
         className
       )}
       align={align}
