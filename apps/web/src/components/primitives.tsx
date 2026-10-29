@@ -8,7 +8,6 @@ import {
   CircleSlashIcon,
   CircleXIcon,
   ClockIcon,
-  CreditCardIcon,
   HourglassIcon,
   LoaderIcon,
   type LucideIcon,
@@ -407,9 +406,11 @@ export function CardNumber({
 }) {
   return (
     <span
-      className={cn("inline-flex items-center gap-2 tabular-nums", className)}
+      className={cn(
+        "inline-flex flex-wrap items-center gap-x-2 tabular-nums",
+        className
+      )}
     >
-      <CreditCardIcon aria-hidden className="size-4 shrink-0 opacity-70" />
       <span className="capitalize">{brand ?? "Card"}</span>
       <span aria-hidden className="inline-flex items-center gap-[3px]">
         {[0, 1, 2, 3].map((i) => (

@@ -3,10 +3,16 @@
 import { cn } from "@workspace/tailwind-config/utils";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
-import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/tabs";
 import {
   CalendarRangeIcon,
   CheckIcon,
+  ChevronDownIcon,
   CopyIcon,
   ExternalLinkIcon,
   FastForwardIcon,
@@ -22,8 +28,9 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
+import { toastKindFor } from "@/lib/dev-log";
 import type { SubscriptionStatus } from "@/lib/view-models";
 
 type Action =
@@ -159,6 +166,8 @@ function StatusChip({ entry }: { entry: LogEntry }) {
   );
 }
 
+const OPEN_KEY = "tsp-dev-panel-open";
+
 function EventLog({ runs }: { runs: Run[] }) {
   if (runs.length === 0) {
     return (
@@ -169,7 +178,7 @@ function EventLog({ runs }: { runs: Run[] }) {
     );
   }
   return (
-    <ol className="grid gap-4">
+    <ol aria-live="polite" className="grid gap-4">
       {runs.map((run) => (
         <li className="grid gap-1.5" key={run.id}>
           <p className="flex items-baseline gap-2 text-sm">
@@ -310,6 +319,20 @@ export function DevBillingPanel({
   const [emails, setEmails] = useState<Email[] | null>(null);
   const [tab, setTab] = useState<"events" | "emails">("events");
   const [steps, setSteps] = useState<StepState[] | null>(null);
+  const [open, setOpen] = useState(false);
+
+  // Remembered per browser; a missing or blocked storage just starts closed.
+  useEffect(() => {
+    try {
+      setOpen(localStorage.getItem(OPEN_KEY) === "1");
+    } catch {}
+  }, []);
+  function rememberOpen(next: boolean) {
+    setOpen(next);
+    try {
+      localStorage.setItem(OPEN_KEY, next ? "1" : "0");
+    } catch {}
+  }
 
   const loadEmails = useCallback(async () => {
     const res = await fetch(`/api/dev/orgs/${orgId}/outbox`, {
@@ -365,7 +388,7 @@ export function DevBillingPanel({
       .reverse()
       .find((e) => !e.event.startsWith("reconcile"));
     const word = result.body.status ? STATUS_WORD[result.body.status] : null;
-    toast.success(label, {
+    toast[toastKindFor(result.run.entries.map((e) => e.tone))](label, {
       description: [last?.outcome, word && `now ${word.toLowerCase()}`]
         .filter(Boolean)
         .join(" · "),
@@ -415,14 +438,15 @@ export function DevBillingPanel({
   }
 
   return (
-    <section
-      aria-labelledby="dev-tools-title"
-      className="grid gap-5 rounded-tile border-2 border-input/50 border-dashed p-5 sm:p-6"
+    <details
+      className="group/dev rounded-tile border-2 border-input/50 border-dashed"
       data-dev-tools
+      onToggle={(event) => rememberOpen(event.currentTarget.open)}
+      open={open}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 p-5 sm:p-6 [&::-webkit-details-marker]:hidden">
         <div className="flex items-start gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-control bg-highlight text-highlight-foreground">
+          <span className="grid size-9 shrink-0 place-items-center rounded-control bg-surface-3 text-muted-foreground">
             <FlaskConicalIcon aria-hidden className="size-4.5" />
           </span>
           <div className="grid gap-1">
@@ -438,105 +462,122 @@ export function DevBillingPanel({
             </p>
           </div>
         </div>
-        <Badge className="font-mono" variant="outline">
-          Dev tools · local mock only
-        </Badge>
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {ACTIONS.map(({ action, label, hint, icon: Icon }) => {
-          const reason = disabledReason(action, status);
-          return (
-            <Button
-              aria-busy={busy === action || undefined}
-              className="h-auto min-h-14 justify-start gap-3 whitespace-normal px-3 py-2.5 text-left"
-              disabled={busy !== null || reason !== null}
-              key={action}
-              onClick={() => runOne(action)}
-              title={reason ?? undefined}
-              variant="outline"
-            >
-              {busy === action ? (
-                <Loader2Icon aria-hidden className="animate-spin" />
-              ) : (
-                <Icon aria-hidden />
-              )}
-              <span className="grid gap-0.5">
-                <span className="text-sm leading-tight">{label}</span>
-                <span className="font-normal text-muted-foreground text-xs leading-tight">
-                  {reason ?? hint}
-                </span>
-              </span>
-            </Button>
-          );
-        })}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-card bg-surface-2 p-3">
-        <Button
-          aria-busy={busy === "month" || undefined}
-          disabled={busy !== null || disabledReason("renew", status) !== null}
-          onClick={runMonth}
-          size="sm"
-        >
-          {busy === "month" ? (
-            <Loader2Icon aria-hidden className="animate-spin" />
-          ) : (
-            <CalendarRangeIcon aria-hidden />
-          )}
-          Simulate a month
-        </Button>
-        {steps ? (
-          <MonthSteps steps={steps} />
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            Renewal → failed renewal → recovery, one step at a time.
+        <span className="flex items-center gap-2">
+          <Badge className="font-mono" variant="outline">
+            Dev tools · local mock only
+          </Badge>
+          <ChevronDownIcon
+            aria-hidden
+            className="size-4 text-muted-foreground transition-transform duration-(--dur-fast) group-open/dev:rotate-180 motion-reduce:transition-none"
+          />
+        </span>
+      </summary>
+      <div className="grid gap-5 px-5 pb-5 sm:px-6 sm:pb-6">
+        {status === null ? (
+          <p className="rounded-card bg-surface-2 p-3 text-muted-foreground text-sm">
+            Start a plan above to simulate renewals, failures and recovery.
           </p>
-        )}
-      </div>
-
-      <Tabs
-        className="gap-3"
-        onValueChange={(value) => setTab(value as "events" | "emails")}
-        value={tab}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <TabsList>
-            <TabsTrigger value="events">
-              Events
-              {runs.length ? (
-                <span className="font-mono text-xs tabular-nums">
-                  {runs.reduce((n, r) => n + r.entries.length, 0)}
-                </span>
-              ) : null}
-            </TabsTrigger>
-            <TabsTrigger value="emails">
-              <MailIcon aria-hidden />
-              Emails
-              {emails?.length ? (
-                <span className="font-mono text-xs tabular-nums">
-                  {emails.length}
-                </span>
-              ) : null}
-            </TabsTrigger>
-          </TabsList>
-          {tab === "emails" ? (
-            <Button
-              aria-label="Refresh emails"
-              onClick={() => loadEmails()}
-              size="icon-sm"
-              variant="ghost"
-            >
-              <RefreshCwIcon aria-hidden />
-            </Button>
-          ) : null}
-        </div>
-        {tab === "events" ? (
-          <EventLog runs={runs} />
         ) : (
-          <Outbox emails={emails} orgId={orgId} />
+          <>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {ACTIONS.map(({ action, label, hint, icon: Icon }) => {
+                const reason = disabledReason(action, status);
+                return (
+                  <Button
+                    aria-busy={busy === action || undefined}
+                    className="h-auto min-h-14 justify-start gap-3 whitespace-normal px-3 py-2.5 text-left"
+                    disabled={busy !== null || reason !== null}
+                    key={action}
+                    onClick={() => runOne(action)}
+                    variant="outline"
+                  >
+                    {busy === action ? (
+                      <Loader2Icon aria-hidden className="animate-spin" />
+                    ) : (
+                      <Icon aria-hidden />
+                    )}
+                    <span className="grid gap-0.5">
+                      <span className="text-sm leading-tight">{label}</span>
+                      <span className="font-normal text-muted-foreground text-xs leading-tight">
+                        {reason ?? hint}
+                      </span>
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-card bg-surface-2 p-3">
+              <Button
+                aria-busy={busy === "month" || undefined}
+                disabled={
+                  busy !== null || disabledReason("renew", status) !== null
+                }
+                onClick={runMonth}
+                size="sm"
+              >
+                {busy === "month" ? (
+                  <Loader2Icon aria-hidden className="animate-spin" />
+                ) : (
+                  <CalendarRangeIcon aria-hidden />
+                )}
+                Simulate a month
+              </Button>
+              {steps ? (
+                <MonthSteps steps={steps} />
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  Renewal → failed renewal → recovery, one step at a time.
+                </p>
+              )}
+            </div>
+          </>
         )}
-      </Tabs>
-    </section>
+
+        <Tabs
+          className="gap-3"
+          onValueChange={(value) => setTab(value as "events" | "emails")}
+          value={tab}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <TabsList>
+              <TabsTrigger value="events">
+                Events
+                {runs.length ? (
+                  <span className="font-mono text-xs tabular-nums">
+                    {runs.reduce((n, r) => n + r.entries.length, 0)}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+              <TabsTrigger value="emails">
+                <MailIcon aria-hidden />
+                Emails
+                {emails?.length ? (
+                  <span className="font-mono text-xs tabular-nums">
+                    {emails.length}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            </TabsList>
+            {tab === "emails" ? (
+              <Button
+                aria-label="Refresh emails"
+                onClick={() => loadEmails()}
+                size="icon-sm"
+                variant="ghost"
+              >
+                <RefreshCwIcon aria-hidden />
+              </Button>
+            ) : null}
+          </div>
+          <TabsContent value="events">
+            <EventLog runs={runs} />
+          </TabsContent>
+          <TabsContent value="emails">
+            <Outbox emails={emails} orgId={orgId} />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </details>
   );
 }

@@ -76,6 +76,11 @@ export function intervalLabel(
   return style === "short" ? "mo" : "month";
 }
 
+/** "monthly" / "yearly", for "Pro, monthly billing" and scheduled changes. */
+export function intervalAdverb(interval: string) {
+  return interval === "annually" ? "yearly" : "monthly";
+}
+
 /** Splits "₦30,000.00" into symbol / whole / decimals for typographic money. */
 export function splitMoney(label: string) {
   const match = label.match(/^([^\d]*)([\d,]+)(\.\d+)?(.*)$/);

@@ -3,7 +3,7 @@
 import { Button } from "@workspace/ui/components/button";
 import { useRouter } from "next/navigation";
 import { type ComponentProps, type ReactNode, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { Confirm } from "@/components/confirm";
 
@@ -50,8 +50,14 @@ async function openCheckout(checkout: CheckoutLike, publicKey?: string) {
         onSuccess: () => window.location.assign(callback),
       });
       return;
-    } catch {
-      // Fall through to the hosted page.
+    } catch (error) {
+      // The inline script didn't load (blocked or offline): the hosted page
+      // completes the same transaction.
+      // biome-ignore lint/suspicious/noConsole: the only trace that the popup fell back.
+      console.warn(
+        "Paystack inline checkout unavailable; using the hosted page",
+        error
+      );
     }
   }
   window.location.assign(checkout.authorizationUrl);
@@ -60,8 +66,11 @@ async function openCheckout(checkout: CheckoutLike, publicKey?: string) {
 const SUCCESS: Partial<Record<BillingActionName, string>> = {
   "change-plan": "Plan updated",
   cancel: "Subscription will end at the end of this period",
-  resume: "Subscription resumed",
+  resume: "Plan resumed",
 };
+
+/** A toast action that reverses the one just taken (cancel → resume). */
+export type BillingUndo = { label: string; action: BillingActionName };
 
 export function useBillingAction({
   orgId,
@@ -69,12 +78,14 @@ export function useBillingAction({
   planPriceId,
   publicKey,
   successMessage,
+  undo,
 }: {
   orgId: string;
   action: BillingActionName;
   planPriceId?: string;
   publicKey?: string;
   successMessage?: string;
+  undo?: BillingUndo;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -95,7 +106,22 @@ export function useBillingAction({
         window.location.assign(data.url);
         return;
       }
-      toast.success(successMessage ?? SUCCESS[action] ?? "Done");
+      toast.success(successMessage ?? SUCCESS[action] ?? "Done", {
+        action: undo
+          ? {
+              label: undo.label,
+              onClick: async () => {
+                try {
+                  await call(orgId, undo.action);
+                  toast.success(SUCCESS[undo.action] ?? "Done");
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Couldn't undo");
+                }
+                router.refresh();
+              },
+            }
+          : undefined,
+      });
       router.refresh();
       setPending(false);
     } catch (e) {
@@ -126,6 +152,7 @@ export function BillingAction({
   publicKey,
   confirm,
   successMessage,
+  undo,
   children,
   disabled,
   ...buttonProps
@@ -136,6 +163,7 @@ export function BillingAction({
   publicKey?: string;
   confirm?: BillingConfirm;
   successMessage?: string;
+  undo?: BillingUndo;
   children: ReactNode;
 } & Omit<ComponentProps<typeof Button>, "onClick" | "children">) {
   const { run, pending } = useBillingAction({
@@ -144,6 +172,7 @@ export function BillingAction({
     planPriceId,
     publicKey,
     successMessage,
+    undo,
   });
   const [open, setOpen] = useState(false);
 

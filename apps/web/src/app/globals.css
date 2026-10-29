@@ -505,6 +505,11 @@ number-flow-react::part(symbol) {
   }
 }
 
+/* The past-due "Update card" bar (phones): toasts start above it. */
+:root:has([data-sticky-action-bar]) {
+  --toast-offset: 68px;
+}
+
 /*
  * Auth side panel. The art lives in a size container (the panel minus its
  * padding), and every length is a share of min(width, height),
