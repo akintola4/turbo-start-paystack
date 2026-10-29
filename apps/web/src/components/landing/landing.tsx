@@ -1,184 +1,217 @@
 import { CURRENCIES, catalog } from "@workspace/billing";
 import { buttonVariants } from "@workspace/ui/components/button";
-import Link from "next/link";
+import { ArrowUpRightIcon, GitForkIcon } from "lucide-react";
 
-import { formatMoney } from "@/lib/money";
-
+import { LandingProvider } from "@/components/landing/currency-context";
+import { Hero } from "@/components/landing/hero";
+import { Pricing } from "@/components/landing/pricing";
 import {
-  CurrencyShowcase,
-  type CurrencyTable,
-} from "@/components/landing/currency-picker";
-import {
-  GLYPHS,
-  Money,
-  Panel,
-  StatusBadge,
-  Wordmark,
-} from "@/components/primitives";
+  type BuildInfo,
+  ReceiptFooter,
+} from "@/components/landing/receipt-footer";
+import { StartCommand } from "@/components/landing/start-command";
+import type { PlanInfo, PriceTable } from "@/components/landing/types";
+import { WebhookDemo } from "@/components/landing/webhook-demo";
+import { formatUpdated } from "@/lib/landing";
 
-function currencyTable(): CurrencyTable {
-  return CURRENCIES.map((code) => {
-    const meta = GLYPHS.find((g) => g.code === code);
-    return {
+const REPO = "https://github.com/akintola4/turbo-start-paystack";
+
+function priceTable(): PriceTable {
+  const amount = (
+    key: "starter" | "pro",
+    code: string,
+    interval: "monthly" | "annually"
+  ) =>
+    catalog
+      .find((p) => p.key === key)
+      ?.prices.find((p) => p.currency === code && p.interval === interval)
+      ?.amountSubunit ?? 0;
+  return Object.fromEntries(
+    CURRENCIES.map((code) => [
       code,
-      glyph: meta?.glyph ?? code,
-      name: meta?.name ?? code,
-      plans: catalog.map((plan) => {
-        const monthly = plan.prices.find(
-          (p) => p.currency === code && p.interval === "monthly"
-        );
-        return {
-          key: plan.key,
-          name: plan.name,
-          description: plan.description,
-          monthly: formatMoney(monthly?.amountSubunit ?? 0, code),
-          trialDays: plan.trialDays,
-          features: [...plan.features],
-        };
-      }),
-    };
-  });
+      {
+        starter: {
+          monthly: amount("starter", code, "monthly"),
+          annually: amount("starter", code, "annually"),
+        },
+        pro: {
+          monthly: amount("pro", code, "monthly"),
+          annually: amount("pro", code, "annually"),
+        },
+      },
+    ])
+  ) as PriceTable;
 }
 
-/** What you get, as a short list next to the real panel it produces. */
-const PARTS = [
-  [
-    "Organizations and roles",
-    "Owner, admin, billing, member and viewer. Invitations only work for the address they were sent to and expire after 7 days.",
-  ],
-  [
-    "Checkout on Paystack",
-    "Hosted page or inline popup. The server creates the transaction; the browser only gets an access code.",
-  ],
-  [
-    "Trials, upgrades and downgrades",
-    "Card-up-front 14-day trials, prorated upgrades now, downgrades at the end of the period.",
-  ],
-  [
-    "State from verified webhooks",
-    "Signed, deduplicated and processed in order per customer. Nothing the browser sends changes a plan.",
-  ],
-  [
-    "Failed renewals",
-    "Seven days of grace, a banner with one fix, and an email with Paystack's card link.",
-  ],
-  [
-    "Five currencies",
-    "Naira, cedis, rand, shillings and dollars, stored as integer subunits.",
-  ],
-] as const;
+const PLANS: PlanInfo[] = catalog.map((p) => ({
+  key: p.key,
+  name: p.name,
+  description: p.description,
+  trialDays: p.trialDays,
+  features: [...p.features],
+}));
+
+/** Version and last-commit date, injected by next.config.ts at build time. */
+const BUILD: BuildInfo = {
+  version: process.env.NEXT_PUBLIC_APP_VERSION || "0.1.0",
+  updated: formatUpdated(process.env.NEXT_PUBLIC_LAST_UPDATED),
+};
+
+const FEATURES = [
+  {
+    title: "Organizations and roles",
+    body: "Owner, admin, billing, member and viewer. An invitation only works for the address it was sent to, and it expires after 7 days.",
+    path: "packages/auth/src/server.ts",
+  },
+  {
+    title: "Checkout on Paystack",
+    body: "Hosted page or inline popup. Your server creates the transaction; the browser only ever gets an access code.",
+    path: "packages/billing/src/service/checkout.ts",
+  },
+  {
+    title: "Trials, upgrades and downgrades",
+    body: "14-day trials with the card saved up front. Upgrades charge the prorated difference now; downgrades wait for the end of the period.",
+    path: "packages/billing/src/proration.ts",
+  },
+  {
+    title: "Failed renewals",
+    body: "Seven days of grace, one banner with one fix, and an email with Paystack’s card update link.",
+    path: "packages/billing/src/reconcile.ts",
+  },
+  {
+    title: "Five currencies, stored as integers",
+    body: "Naira, cedis, rand, shillings and dollars in subunits. billing:sync turns the catalog into 20 Paystack plans.",
+    path: "packages/billing/src/catalog.ts",
+  },
+  {
+    title: "Receipts and reminders",
+    body: "React Email templates for receipts, trial endings and failed payments, with a local preview.",
+    path: "packages/email/src/templates",
+  },
+];
+
+/** Plays the hero intro once per session, never under reduced motion. */
+const INTRO_GATE = `(function(){try{if(matchMedia('(prefers-reduced-motion: reduce)').matches||sessionStorage.getItem('tsp-intro'))return;sessionStorage.setItem('tsp-intro','1');var h=document.documentElement;h.classList.add('landing-intro');setTimeout(function(){h.classList.remove('landing-intro')},2500)}catch(e){}})()`;
 
 export function Landing() {
-  const table = currencyTable();
+  const prices = priceTable();
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="mx-auto flex w-full max-w-[1120px] items-center justify-between gap-4 px-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-5 sm:px-8">
-        <Wordmark />
-        <nav aria-label="Account" className="flex items-center gap-2">
-          <Link
-            className={buttonVariants({ variant: "ghost" })}
-            href="/sign-in"
-          >
-            Sign in
-          </Link>
-          <Link
-            className={buttonVariants({ className: "max-sm:hidden" })}
-            href="/sign-up"
-          >
-            Create account
-          </Link>
-        </nav>
-      </header>
+    <LandingProvider>
+      {/* A static inline intro gate: it must run before the hero paints. */}
+      <script dangerouslySetInnerHTML={{ __html: INTRO_GATE }} />
+      {/* Padding, not the hero's margin: a top margin would collapse
+          through <body> and shift the page once hydration settles. */}
+      <div className="pt-2 sm:pt-3">
+        <Hero prices={prices} />
+      </div>
       <main
-        className="mx-auto grid w-full max-w-[1120px] gap-12 px-4 pt-8 pb-24 sm:gap-16 sm:px-8 sm:pt-14 md:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] md:gap-x-12 lg:grid-cols-[minmax(0,1fr)_26rem]"
+        className="grid grid-cols-[minmax(0,1fr)] gap-24 pt-24 sm:gap-32 sm:pt-32"
         id="content"
       >
-        <section className="grid animate-rise content-center gap-8">
-          <h1 className="text-balance font-semibold text-[40px] leading-[1.05] tracking-[-0.03em] sm:text-[60px]">
-            Bill teams across Africa in their own money.
-          </h1>
-          <p className="max-w-[34rem] text-pretty text-lg text-muted-foreground">
-            An open-source Next.js starter with organizations, roles and
-            Paystack subscriptions in naira, cedis, rand, shillings and dollars.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Link className={buttonVariants({ size: "lg" })} href="/sign-up">
-              Start a workspace
-            </Link>
-            <a
-              className={buttonVariants({ variant: "outline", size: "lg" })}
-              href="https://github.com/akintola4/turbo-start-paystack"
+        <section
+          aria-labelledby="webhooks-title"
+          className="mx-auto grid w-full max-w-[1312px] scroll-mt-8 gap-10 px-4 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16"
+          id="webhooks"
+        >
+          <div className="grid min-w-0 content-start gap-6">
+            <h2
+              className="text-balance font-semibold text-[clamp(36px,4.4vw,64px)] leading-[0.96] tracking-[-0.045em]"
+              id="webhooks-title"
             >
-              Read the code
+              Only signed events change a plan.
+            </h2>
+            <p className="max-w-[34rem] text-pretty text-lg text-muted-foreground">
+              Paystack signs every event it sends. The starter checks that
+              signature, stores each event once and applies them in order per
+              customer. The browser can start a checkout, but it can’t change
+              what anyone pays. Send a few events and see.
+            </p>
+            <div className="max-w-full overflow-x-auto rounded-card bg-secondary p-4 font-mono text-[13px] leading-relaxed">
+              <p className="text-muted-foreground">
+                {"// packages/billing/src/webhook/verify.ts"}
+              </p>
+              <p className="whitespace-pre">
+                {
+                  'createHmac("sha512", secretKey)\n  .update(rawBody, "utf8")\n  .digest("hex") === signature'
+                }
+              </p>
+            </div>
+          </div>
+          <WebhookDemo />
+        </section>
+
+        <Pricing plans={PLANS} prices={prices} />
+
+        <section
+          aria-labelledby="features-title"
+          className="mx-auto grid w-full max-w-[1312px] gap-10 px-4 sm:px-8"
+        >
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-end">
+            <h2
+              className="max-w-[16ch] text-balance font-semibold text-[clamp(36px,5vw,72px)] leading-[0.96] tracking-[-0.045em]"
+              id="features-title"
+            >
+              The billing you’d otherwise write yourself.
+            </h2>
+            <p className="text-pretty text-muted-foreground">
+              Each part lives in a file you can read before you trust it.
+            </p>
+          </div>
+          <ul className="border-foreground border-t">
+            {FEATURES.map((f) => (
+              <li
+                className="grid gap-2 border-border border-b py-5 md:grid-cols-[minmax(0,4fr)_minmax(0,5fr)_minmax(0,4fr)] md:items-baseline md:gap-6"
+                key={f.title}
+              >
+                <h3 className="font-semibold text-[clamp(19px,1.8vw,24px)] leading-tight tracking-[-0.02em]">
+                  {f.title}
+                </h3>
+                <p className="text-pretty text-muted-foreground">{f.body}</p>
+                <a
+                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 justify-self-start rounded-chip font-mono text-[13px] text-link underline-offset-4 hover:underline md:justify-self-end"
+                  href={`${REPO}/blob/main/${f.path}`}
+                >
+                  <span className="truncate">{f.path}</span>
+                  <ArrowUpRightIcon aria-hidden className="size-3.5 shrink-0" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section
+          aria-labelledby="start-title"
+          className="mx-auto grid w-full max-w-[1312px] scroll-mt-8 gap-6 px-4 sm:gap-8 sm:px-8"
+          id="start"
+        >
+          <h2
+            className="text-balance font-semibold text-[clamp(40px,6vw,96px)] leading-[0.94] tracking-[-0.05em]"
+            id="start-title"
+          >
+            One command to start.
+          </h2>
+          <StartCommand />
+          <div className="flex flex-wrap gap-2.5">
+            <a className={buttonVariants({ size: "lg" })} href={REPO}>
+              <GitForkIcon aria-hidden />
+              Open on GitHub
+            </a>
+            <a
+              className={buttonVariants({ size: "lg", variant: "outline" })}
+              href={`${REPO}#readme`}
+            >
+              Read the docs
             </a>
           </div>
-        </section>
-        <CurrencyShowcase table={table} />
-        <section
-          aria-labelledby="parts-title"
-          className="grid gap-8 md:col-span-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start"
-        >
-          <div className="grid gap-6">
-            <h2
-              className="max-w-[22ch] font-semibold text-[28px] leading-tight tracking-[-0.02em]"
-              id="parts-title"
-            >
-              The billing parts you would otherwise write yourself
-            </h2>
-            <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-              {PARTS.map(([title, body]) => (
-                <div
-                  className="grid gap-1 border-border border-t pt-4"
-                  key={title}
-                >
-                  <dt className="font-semibold">{title}</dt>
-                  <dd className="text-muted-foreground text-sm">{body}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-          <figure className="grid gap-3">
-            <Panel as="div" className="grid gap-6">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-xl">Pro plan</span>
-                <StatusBadge status="active" />
-              </div>
-              <Money
-                label={formatMoney(3_000_000, "NGN")}
-                per="month"
-                size="xl"
-              />
-              <dl className="grid gap-2 rounded-card bg-panel-tile p-4 text-sm">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-panel-muted">Next charge</dt>
-                  <dd className="font-semibold tabular-nums">
-                    {formatMoney(3_000_000, "NGN")} on 12 Nov
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-panel-muted">Seats</dt>
-                  <dd className="font-semibold tabular-nums">6 of 50</dd>
-                </div>
-              </dl>
-            </Panel>
-            <figcaption className="text-muted-foreground text-sm">
-              The billing panel your customers get: plan, status, next charge
-              and seats, written only by verified Paystack webhooks.
-            </figcaption>
-          </figure>
+          <p className="text-muted-foreground text-sm">
+            Then <code className="font-mono">pnpm install</code>, copy{" "}
+            <code className="font-mono">apps/web/.env.example</code>, and run{" "}
+            <code className="font-mono">pnpm dev:web</code>. Node 22, pnpm 11
+            and Postgres.
+          </p>
         </section>
       </main>
-      <footer className="border-border border-t">
-        <div className="mx-auto flex max-w-[1120px] flex-col gap-2 px-4 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] text-muted-foreground text-sm sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <p>Open source under the MIT license.</p>
-          <a
-            className="rounded-chip text-link underline-offset-4 hover:underline"
-            href="https://github.com/akintola4/turbo-start-paystack"
-          >
-            github.com/akintola4/turbo-start-paystack
-          </a>
-        </div>
-      </footer>
-    </div>
+      <ReceiptFooter build={BUILD} />
+    </LandingProvider>
   );
 }

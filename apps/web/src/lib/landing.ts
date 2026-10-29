@@ -1,0 +1,128 @@
+import type { Currency } from "@workspace/billing/money";
+
+/** Pure helpers for the landing page, kept here so they can be unit tested. */
+
+export type CurrencyMeta = {
+  code: Currency;
+  /** Tile glyph. GH₵ shortens to ₵ on tiles only; amounts use GH₵. */
+  glyph: string;
+  /** Plural, lower case, for running copy: "priced in cedis". */
+  word: string;
+};
+
+export const CURRENCY_META: readonly CurrencyMeta[] = [
+  { code: "NGN", glyph: "₦", word: "naira" },
+  { code: "GHS", glyph: "₵", word: "cedis" },
+  { code: "ZAR", glyph: "R", word: "rand" },
+  { code: "KES", glyph: "KSh", word: "shillings" },
+  { code: "USD", glyph: "$", word: "dollars" },
+];
+
+export function currencyMeta(code: Currency): CurrencyMeta {
+  return (
+    CURRENCY_META.find((c) => c.code === code) ??
+    (CURRENCY_META[0] as CurrencyMeta)
+  );
+}
+
+/**
+ * The hero wall: 16 tiles on desktop (8 x 2), the first 12 on phones (4 x 3).
+ * Every currency appears at least twice in both layouts and no two neighbours
+ * repeat, so a ripple always has somewhere to travel.
+ */
+export const WALL: readonly Currency[] = [
+  "NGN",
+  "GHS",
+  "ZAR",
+  "KES",
+  "USD",
+  "NGN",
+  "ZAR",
+  "GHS",
+  "USD",
+  "KES",
+  "NGN",
+  "USD",
+  "GHS",
+  "ZAR",
+  "NGN",
+  "KES",
+];
+
+/** Delay before tile `index` changes colour, rippling out from `origin`. */
+export function rippleDelay(
+  index: number,
+  origin: number,
+  columns: number,
+  stepMs = 28
+): number {
+  const dx = (index % columns) - (origin % columns);
+  const dy = Math.floor(index / columns) - Math.floor(origin / columns);
+  return Math.round(Math.hypot(dx, dy) * stepMs);
+}
+
+/**
+ * Bar widths for the receipt's barcode, derived from a string (the version)
+ * so it is stable between renders and changes when the version does.
+ * Returns alternating [bar, gap] widths in px, 1 to 4 each.
+ */
+export function barcode(seed: string, length = 40): number[] {
+  let h = 2166136261;
+  const out: number[] = [];
+  for (let i = 0; i < length; i++) {
+    const ch = seed.charCodeAt(i % Math.max(1, seed.length)) || 0;
+    h = Math.imul(h ^ (ch + i), 16777619) >>> 0;
+    out.push(1 + (h % 4));
+  }
+  return out;
+}
+
+export type ProviderStatus = "normal" | "degraded" | "outage" | "maintenance";
+
+/**
+ * Paystack's status page (status.paystack.com/api/v2/summary.json) reports
+ * `page.status` as UP, HASISSUES, UNDERMAINTENANCE, or impact words such as
+ * ONEMAJOROUTAGE / MINOROUTAGE. Anything unrecognised returns null, and the
+ * footer then shows a neutral link instead of guessing.
+ */
+export function parseProviderStatus(raw: unknown): ProviderStatus | null {
+  if (typeof raw !== "string") {
+    return null;
+  }
+  const s = raw.toUpperCase();
+  if (s === "UP" || s === "OPERATIONAL" || s === "ALLUP") {
+    return "normal";
+  }
+  if (s.includes("MAINTENANCE")) {
+    return "maintenance";
+  }
+  if (s.includes("MAJOR")) {
+    return "outage";
+  }
+  if (
+    s.includes("MINOR") ||
+    s.includes("ISSUES") ||
+    s.includes("DEGRADED") ||
+    s.includes("PARTIAL")
+  ) {
+    return "degraded";
+  }
+  return null;
+}
+
+/** "29 Oct 2026" from an ISO date, or null when there is no usable date. */
+export function formatUpdated(iso: string | undefined): string | null {
+  if (!iso) {
+    return null;
+  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return null;
+  }
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(d);
+}
