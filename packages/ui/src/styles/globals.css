@@ -122,6 +122,8 @@
   --dur-press: 120ms;
   --dur-fast: 150ms;
   --dur-base: 200ms;
+  /* Sliding indicators: segmented thumbs, tab indicators. */
+  --dur-thumb: 260ms;
   --dur-number: 240ms;
   --dur-modal: 240ms;
   --dur-modal-exit: 170ms;
@@ -377,6 +379,7 @@
  * so keyboard presses look the same. Reduced motion dims instead of scaling.
  *   pressable       buttons, CTAs, segments (0.97)
  *   pressable-sm    chips and tiles (0.96)
+ *   pressable-lg    wide targets: tabs, rows (0.98)
  *   pressable-card  large clickable cards (colour only, no scale)
  */
 @utility pressable {
@@ -409,6 +412,9 @@
 }
 @utility pressable-sm {
   --press-scale: 0.96;
+}
+@utility pressable-lg {
+  --press-scale: 0.98;
 }
 @utility pressable-card {
   --press-scale: 1;

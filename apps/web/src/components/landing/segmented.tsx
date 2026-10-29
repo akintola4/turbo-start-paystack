@@ -12,6 +12,8 @@ export type SegmentOption<T extends string> = {
   icon?: LucideIcon;
   /** Micro-motion the icon plays when this option becomes selected. */
   iconMotion?: "spin" | "tilt" | "pop";
+  /** A quiet aside after the label, e.g. "2 months free". */
+  note?: string;
 };
 
 const TONES = {
@@ -79,6 +81,9 @@ export function Segmented<T extends string>({
     last.current = value;
   }
   const index = options.findIndex((o) => o.value === value);
+  /** The icon's arrival motion, only after a real change. */
+  const arrival = (o: SegmentOption<T>) =>
+    changes.current > 0 && o.iconMotion ? ICON_MOTION[o.iconMotion] : null;
   const pick = (i: number) => {
     const o = options[i];
     const el = refs.current[i];
@@ -110,7 +115,7 @@ export function Segmented<T extends string>({
       <span
         aria-hidden
         className={cn(
-          "absolute inset-y-1 left-1 rounded-chip transition-[translate,opacity] duration-[260ms] ease-(--motion-ease-spring) motion-reduce:transition-none",
+          "absolute inset-y-1 left-1 rounded-chip transition-[translate,opacity] duration-(--dur-thumb) ease-(--motion-ease-spring) motion-reduce:transition-none",
           t.thumb,
           index < 0 && "opacity-0"
         )}
@@ -144,17 +149,16 @@ export function Segmented<T extends string>({
             {Icon ? (
               <Icon
                 aria-hidden
-                className={cn(
-                  "size-3.5 shrink-0",
-                  on &&
-                    changes.current > 0 &&
-                    o.iconMotion &&
-                    ICON_MOTION[o.iconMotion]
-                )}
+                className={cn("size-3.5 shrink-0", on && arrival(o))}
                 key={on ? `on-${changes.current}` : "off"}
               />
             ) : null}
             {o.label}
+            {o.note ? (
+              <span className="font-medium text-[11px] opacity-80">
+                {o.note}
+              </span>
+            ) : null}
           </button>
         );
       })}

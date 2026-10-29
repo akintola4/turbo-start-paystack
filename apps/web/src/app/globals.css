@@ -171,12 +171,6 @@ number-flow-react::part(symbol) {
   min-width: 16px;
   border-bottom: 1.5px dotted var(--receipt-rule);
   translate: 0 -0.28em;
-  transition: border-color var(--dur-fast) ease;
-}
-@media (hover: hover) and (pointer: fine) {
-  .receipt-line:hover .receipt-leader {
-    border-bottom-color: var(--receipt-ink);
-  }
 }
 
 /* A slow ring around the provider status dot. */
@@ -196,20 +190,21 @@ number-flow-react::part(symbol) {
 }
 
 /*
- * Footer wordmark. Width in ems was measured in Geist 700 at -0.06em
- * tracking: "turbo start" 4.674 + gap 0.1 + tile 0.71 = 5.484; dividing the
- * container width by 5.52 fills it with a little slack and never overflows.
+ * Footer wordmark. Its width in ems, measured in Geist 700 at -0.06em
+ * tracking, is about 5.44 from the first letter's ink to the tile's edge;
+ * this is the server-side guess, and useFillWidth (site-footer.tsx) then
+ * sets the exact size so it runs edge to edge.
  */
 .footer-wordmark {
-  font-size: calc(100cqw / 5.52);
+  font-size: calc(100cqw / 5.44);
   font-weight: 700;
   letter-spacing: -0.06em;
   line-height: 0.86;
   white-space: nowrap;
   color: var(--panel-foreground);
   user-select: none;
-  /* Optical alignment: pull the "t" side bearing back to the content edge. */
-  margin-inline-start: -0.04em;
+  /* Optical alignment: pull the "t" side bearing (0.041em) to the edge. */
+  margin-inline-start: -0.041em;
 }
 /* A cap-height square sitting on the baseline (no in-flow content, so its
    baseline is its bottom edge). */
@@ -236,11 +231,6 @@ number-flow-react::part(symbol) {
   transition:
     opacity 240ms var(--motion-ease-out),
     transform 420ms var(--motion-ease-out);
-}
-/* Trim to cap height so the symbol centres on its ink, not its line box. */
-.footer-wordmark-glyph > span {
-  display: block;
-  text-box: trim-both cap alphabetic;
 }
 .footer-wordmark-glyph.is-on {
   opacity: 1;
@@ -314,6 +304,16 @@ number-flow-react::part(symbol) {
   max-width: calc(var(--content-max) + 2 * (var(--edge) + var(--gut)));
   padding-inline: calc(var(--edge) + var(--gut));
 }
+/* The intro row of a section: heading, and one measure of copy beside it. */
+@utility landing-head {
+  display: grid;
+  gap: 16px;
+  @media (width >= 64rem) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+    align-items: end;
+    column-gap: 64px;
+  }
+}
 /* A full-bleed panel. */
 @utility landing-bleed {
   margin-inline: var(--edge);
@@ -324,4 +324,84 @@ number-flow-react::part(symbol) {
   margin-inline: auto;
   max-width: calc(var(--content-max) + 2 * var(--gut));
   padding-inline: var(--gut);
+}
+
+/*
+ * Display type: two steps. The hero headline, and every section heading.
+ * Headings take an optical left edge from opticalEdge() (display.ts), so
+ * the ink of the first letter, not its side bearing, sits on the edge.
+ */
+@utility display-xl {
+  font-size: clamp(48px, 8.6vw, 148px);
+  font-weight: 600;
+  line-height: 0.9;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+@utility display-l {
+  font-size: clamp(36px, 5vw, 72px);
+  font-weight: 600;
+  line-height: 0.96;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+/*
+ * Currency tile glyphs: trimmed to cap height so the symbol centres on its
+ * ink. The ₦ comes from the Inter subset, whose ink sits 0.025em higher than
+ * Geist capitals after the trim; this moves it back onto the centre line.
+ */
+.currency-glyph {
+  display: block;
+  line-height: 1;
+  text-box: trim-both cap alphabetic;
+}
+.currency-glyph[data-glyph="NGN"] {
+  translate: 0 0.025em;
+}
+
+/*
+ * Wall tiles keep the press scale from `pressable` but name their own colour
+ * transition, so the ripple delay (--ripple, set per tile) applies to the
+ * colours only and the press never waits.
+ */
+.wall-tile {
+  transition:
+    scale var(--dur-press-out) var(--motion-ease-spring),
+    background-color var(--dur-fast) ease var(--ripple, 0ms),
+    color var(--dur-fast) ease var(--ripple, 0ms);
+}
+.wall-tile:active,
+.wall-tile[data-pressed] {
+  transition:
+    scale var(--dur-press-in) var(--motion-ease-out),
+    background-color var(--dur-fast) ease var(--ripple, 0ms),
+    color var(--dur-fast) ease var(--ripple, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wall-tile,
+  .wall-tile:active,
+  .wall-tile[data-pressed] {
+    transition: opacity var(--dur-fast) ease;
+  }
+}
+
+/*
+ * Code surface: dark in both themes. In light it is the near-black neutral;
+ * in dark it steps below the page (#0e1311) so the slab keeps its shape.
+ * Token colours are fixed for this surface: all pass 4.5:1 on both values.
+ */
+:root {
+  --code-bg: var(--neutral-950);
+  --code-ring: var(--neutral-800);
+  --code-text: var(--neutral-100);
+  --code-gutter: var(--neutral-500);
+  --code-comment: var(--neutral-400);
+  --code-string: var(--forest-300);
+  --code-keyword: var(--sunflower-300);
+  --code-number: oklch(0.8 0.08 245);
+}
+.dark {
+  --code-bg: oklch(0.145 0.008 165);
+  --code-ring: oklch(0.3 0.012 163);
 }
