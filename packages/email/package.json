@@ -12,7 +12,8 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "check-types": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "send-test": "tsx --env-file-if-exists=../../apps/web/.env scripts/send-test.ts"
   },
   "dependencies": {
     "@react-email/render": "catalog:",

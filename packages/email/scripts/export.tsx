@@ -41,13 +41,9 @@ const variants: {
   },
 ];
 
-export async function exportAll(outDir: string) {
-  await mkdir(outDir, { recursive: true });
-  const theme = createTheme({
-    supportUrl: "mailto:support@turbostart.ng",
-    assetsUrl: SAMPLE_ASSETS_URL,
-  });
-  const jobs = [
+/** Every template with its sample props, plus the extra states above. */
+export function sampleJobs() {
+  return [
     ...(Object.keys(templates) as TemplateName[]).map((name) => ({
       name,
       slug: name as string,
@@ -58,6 +54,15 @@ export async function exportAll(outDir: string) {
       props: { ...templates[v.name].Component.PreviewProps, ...v.props },
     })),
   ];
+}
+
+export async function exportAll(outDir: string) {
+  await mkdir(outDir, { recursive: true });
+  const theme = createTheme({
+    supportUrl: "mailto:support@turbostart.ng",
+    assetsUrl: SAMPLE_ASSETS_URL,
+  });
+  const jobs = sampleJobs();
   const slugs: string[] = [];
   for (const job of jobs) {
     const email = await renderEmail(job.name, job.props as never, theme);

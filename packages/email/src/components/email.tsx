@@ -188,7 +188,25 @@ function Panel({
                 />,
                 content.hero ? (
                   <PanelHero hero={content.hero} key="hero" theme={theme} />
-                ) : null,
+                ) : (
+                  // No figure to lead with (a dispute, an expiring card):
+                  // the headline takes the hero's place so the panel says
+                  // what happened instead of showing only a chip and a button.
+                  <h1
+                    className="f-h1"
+                    key="headline"
+                    style={{
+                      color: theme.panel.text,
+                      fontSize: "32px",
+                      fontWeight: 600,
+                      letterSpacing: "-0.025em",
+                      lineHeight: "38px",
+                      margin: 0,
+                    }}
+                  >
+                    {content.headline}
+                  </h1>
+                ),
                 tiles.length > 0 ? (
                   <Tiles key="tiles" rows={tiles} theme={theme} />
                 ) : null,

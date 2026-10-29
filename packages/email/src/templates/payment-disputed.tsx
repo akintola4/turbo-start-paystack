@@ -20,18 +20,22 @@ export function paymentDisputedContent(
   return {
     billing: true,
     preview:
-      "The card holder's bank opened a chargeback on one of your payments.",
+      "Your bank disputed a payment. Your plan stays active while it's reviewed.",
     status: { tone: "danger", label: "Disputed", icon: "circle-x" },
     title: "Payment dispute",
-    headline: "A payment was disputed",
+    headline: "Your bank disputed a payment",
     body: [
       [
-        "The bank behind the card for ",
+        "The bank that issued the card for ",
         strong(props.organizationName),
-        " opened a dispute (a chargeback) on the payment below. Paystack emails the details and the deadline to respond.",
+        " has disputed (charged back) the payment below. ",
+        strong("Your plan stays active while it's reviewed."),
       ],
       [
-        "If nobody on your team meant to dispute it, contact the bank or our support team and quote the reference.",
+        "If you meant to dispute it, you don't need to do anything else here. Your bank will keep you updated.",
+      ],
+      [
+        "If you didn't, ask your bank to withdraw the dispute, then contact our support team with the reference below so we can help. If you think the card was used without permission, tell your bank that too.",
       ],
     ],
     details: {

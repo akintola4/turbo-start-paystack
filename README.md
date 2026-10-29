@@ -238,9 +238,19 @@ pnpm email:preview                                         # http://localhost:30
 pnpm --filter @workspace/email export /tmp/out             # every template as .html and .txt
 pnpm --filter @workspace/email screenshots /tmp/shots      # light/dark, desktop/phone, client checks
 pnpm --filter @workspace/email icons                       # regenerate the status icons
+pnpm --filter @workspace/email send-test --to you@example.com   # every template to a real inbox
 ```
 
 The preview uses the sample props at the bottom of each template file.
+
+`send-test` sends every template with its sample data through Resend, so you
+can check it in Gmail, Outlook and Apple Mail in light and dark mode. It reads
+`RESEND_API_KEY` and `EMAIL_FROM` from `apps/web/.env`. Without a verified
+domain, Resend only delivers from `onboarding@resend.dev` to the address your
+Resend account uses. Add `--only payment-receipt,payment-failed` to send a few.
+Icons and fonts load from `EMAIL_TEST_ASSETS_URL` (or `--assets-url`), which
+must be a public URL such as a preview deploy's `/email`; without it the icons
+show their alt text and the fallback fonts are used.
 
 <p>
   <img alt="Payment receipt email, light mode" src="docs/images/email-receipt-light.png" width="380">
