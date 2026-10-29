@@ -252,8 +252,11 @@ export function Money({
   return (
     <AnimatedNumber
       className={cn(
-        "money font-money font-semibold leading-none tracking-[-0.02em]",
+        "money font-money font-semibold tracking-[-0.02em]",
         sizes[size],
+        // After the size: tailwind-merge drops a line-height that comes
+        // before a text-* size, and the box then grew to 1.5× the text.
+        "leading-none",
         className
       )}
       format={{
