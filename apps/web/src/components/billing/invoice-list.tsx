@@ -1,7 +1,6 @@
 import { buttonVariants } from "@workspace/ui/components/button";
 import { cn } from "@workspace/tailwind-config/utils";
 import {
-  ChevronLeftIcon,
   ChevronRightIcon,
   DownloadIcon,
   ReceiptTextIcon,
@@ -10,49 +9,53 @@ import {
 import Link from "next/link";
 
 import { BillingAction } from "@/components/billing/billing-action";
+import { InvoicePager } from "@/components/billing/invoice-pager";
 import { Amount, InvoiceBadge, Tile } from "@/components/primitives";
 import { formatDate } from "@/lib/format";
+import { spokenMoney } from "@/lib/money";
 import type { BillingData, InvoiceRow } from "@/lib/view-models";
 
 /** Date · invoice · amount · status · actions. Shared by header and rows so
- *  the columns line up to the pixel. */
+ *  the columns line up to the pixel. Switched on the list's own width (48rem),
+ *  not the viewport's, so the invoice column never collapses beside a sidebar. */
 const COLUMNS =
-  "sm:grid-cols-[7.5rem_minmax(0,1fr)_8.5rem_7rem_5.75rem] sm:gap-x-4";
+  "@3xl:grid-cols-[7.5rem_minmax(0,1fr)_8.5rem_7rem_5.75rem] @3xl:gap-x-4";
 
+/**
+ * The whole row opens the invoice (a stretched link). In a narrow list it is two
+ * lines (invoice and amount, then date and status) with the row action
+ * beside them, so Retry and Download never disappear.
+ */
 function Row({ inv, data }: { inv: InvoiceRow; data: BillingData }) {
   const label = inv.number ?? inv.description;
   return (
     <li
       className={cn(
-        "group relative grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-border border-t px-5 py-3 transition-colors duration-(--dur-fast) first:border-t-0 hover:bg-surface-2 sm:px-6",
+        "group relative grid min-h-14 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-1 border-border border-t py-3 pr-3 pl-5 transition-colors duration-(--dur-fast) first:border-t-0 hover:bg-surface-2 @3xl:px-6",
         COLUMNS
       )}
     >
-      <span className="whitespace-nowrap text-muted-foreground text-sm tabular-nums max-sm:order-3">
+      <span className="whitespace-nowrap text-muted-foreground text-sm tabular-nums @max-3xl:col-start-1 @max-3xl:row-start-2">
         {/* Paid rows show the paid date; unpaid ones the date they fell due. */}
         {inv.status === "failed" || inv.status === "pending" ? "Due " : null}
         {formatDate(inv.date)}
       </span>
-      <span className="grid min-w-0 gap-0.5 max-sm:order-1">
+      <span className="grid min-w-0 gap-0.5 @max-3xl:col-start-1 @max-3xl:row-start-1">
         <Link
-          className="truncate font-medium outline-none after:absolute after:inset-0 after:rounded-[inherit] focus-visible:after:outline-2 focus-visible:after:outline-ring focus-visible:after:-outline-offset-2"
+          className="truncate font-medium outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:outline-ring focus-visible:after:-outline-offset-2 group-last:after:rounded-b-tile"
           href={inv.href}
         >
           {inv.description}
           <span className="sr-only">
-            , {inv.amountLabel}, {formatDate(inv.date)}
+            , {spokenMoney(inv.amountLabel)}, {formatDate(inv.date)}
           </span>
         </Link>
         {inv.number || inv.period ? (
-          <span className="flex flex-wrap gap-x-1.5 text-muted-foreground text-sm sm:block sm:truncate">
+          <span className="truncate text-muted-foreground text-sm @max-3xl:hidden">
             {inv.number ? (
               <span className="tabular-nums">{inv.number}</span>
             ) : null}
-            {inv.number && inv.period ? (
-              <span aria-hidden className="max-sm:hidden">
-                {" · "}
-              </span>
-            ) : null}
+            {inv.number && inv.period ? <span aria-hidden>{" · "}</span> : null}
             {inv.period ? (
               <span className="whitespace-nowrap">{inv.period}</span>
             ) : null}
@@ -61,21 +64,23 @@ function Row({ inv, data }: { inv: InvoiceRow; data: BillingData }) {
       </span>
       <span
         className={cn(
-          "text-right max-sm:order-2",
+          "text-right @max-3xl:col-start-2 @max-3xl:row-start-1",
           inv.status === "void" && "text-muted-foreground line-through"
         )}
       >
         <Amount label={inv.amountLabel} />
       </span>
-      <span className="flex max-sm:order-4 max-sm:justify-end">
+      <span className="flex @max-3xl:col-start-2 @max-3xl:row-start-2 @max-3xl:justify-end">
         <InvoiceBadge status={inv.status} />
       </span>
-      {/* Above the row's stretched link, so each control keeps its own click. */}
-      <span className="relative z-10 hidden items-center justify-end gap-1 sm:flex">
+      <span className="flex items-center justify-end gap-1 @max-3xl:col-start-3 @max-3xl:row-span-2 @max-3xl:row-start-1">
+        {/* Only the control sits above the stretched link; "View" stays
+            under it, so a click there opens the invoice. */}
         {inv.status === "failed" && data.canManage ? (
           <BillingAction
             action="manage-card"
             aria-label="Retry with another card"
+            className="z-10"
             orgId={data.org.id}
             size="icon-sm"
             variant="ghost"
@@ -85,7 +90,11 @@ function Row({ inv, data }: { inv: InvoiceRow; data: BillingData }) {
         ) : (
           <a
             aria-label={`Download ${label} as PDF`}
-            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+            className={buttonVariants({
+              variant: "ghost",
+              size: "icon-sm",
+              className: "z-10",
+            })}
             download
             href={inv.pdfHref}
           >
@@ -94,53 +103,13 @@ function Row({ inv, data }: { inv: InvoiceRow; data: BillingData }) {
         )}
         <span
           aria-hidden
-          className="flex h-9 items-center gap-0.5 pr-1 pl-1.5 font-medium text-muted-foreground text-sm transition-colors duration-(--dur-fast) group-hover:text-foreground"
+          className="pointer-events-none flex h-9 items-center gap-0.5 pr-1 pl-1.5 font-medium text-muted-foreground text-sm transition-colors duration-(--dur-fast) group-hover:text-foreground @max-3xl:hidden"
         >
           View
           <ChevronRightIcon className="size-4" />
         </span>
       </span>
     </li>
-  );
-}
-
-function Pagination({ page }: { page: BillingData["invoicePage"] }) {
-  if (page.pageCount <= 1) {
-    return null;
-  }
-  const control = (href: string | null, label: string, next: boolean) => {
-    const Icon = next ? ChevronRightIcon : ChevronLeftIcon;
-    const content = (
-      <>
-        {next ? null : <Icon aria-hidden />}
-        {label}
-        {next ? <Icon aria-hidden /> : null}
-      </>
-    );
-    const className = buttonVariants({ variant: "outline", size: "sm" });
-    return href ? (
-      <Link className={className} href={href} rel={next ? "next" : "prev"}>
-        {content}
-      </Link>
-    ) : (
-      <span aria-disabled className={cn(className, "opacity-50")}>
-        {content}
-      </span>
-    );
-  };
-  return (
-    <nav
-      aria-label="Invoice pages"
-      className="flex flex-wrap items-center justify-between gap-3 px-1"
-    >
-      <p className="text-muted-foreground text-sm tabular-nums">
-        {page.from}–{page.to} of {page.total}
-      </p>
-      <div className="flex gap-2">
-        {control(page.prevHref, "Newer", false)}
-        {control(page.nextHref, "Older", true)}
-      </div>
-    </nav>
   );
 }
 
@@ -155,7 +124,7 @@ function CardChecks({ data }: { data: BillingData }) {
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 font-medium text-muted-foreground text-sm transition-colors duration-(--dur-fast) hover:text-foreground [&::-webkit-details-marker]:hidden">
         <ChevronRightIcon
           aria-hidden
-          className="size-4 transition-transform duration-(--dur-fast) group-open/checks:rotate-90"
+          className="size-4 transition-transform duration-(--dur-fast) group-open/checks:rotate-90 motion-reduce:transition-none"
         />
         Card checks ({data.cardChecks.length})
       </summary>
@@ -181,7 +150,7 @@ function CardChecks({ data }: { data: BillingData }) {
                 {check.refundedAt ? `on ${formatDate(check.refundedAt)}` : null}
               </span>
               <Link
-                className="inline-flex min-h-9 items-center font-medium text-link underline-offset-4 hover:underline"
+                className="inline-flex min-h-11 items-center font-medium text-link underline-offset-4 hover:underline"
                 href={check.href}
               >
                 View receipt
@@ -218,15 +187,15 @@ export function InvoiceList({ data }: { data: BillingData }) {
           </div>
         </Tile>
       ) : (
-        <Tile className="overflow-hidden p-0 sm:p-0">
+        <Tile className="overflow-hidden @container p-0 transition-opacity duration-(--dur-fast) sm:p-0 [section:has([data-pending])>&]:opacity-60">
           <div
             aria-hidden
             className={cn(
-              "hidden border-border border-b px-6 py-2.5 font-medium text-[12px] text-subtle-foreground uppercase tracking-[0.06em] sm:grid",
+              "hidden border-border border-b px-6 py-2.5 font-medium text-[12px] text-muted-foreground uppercase tracking-[0.06em] @3xl:grid",
               COLUMNS
             )}
           >
-            <span>Paid on</span>
+            <span>Date</span>
             <span>Invoice</span>
             <span className="text-right">Amount</span>
             <span>Status</span>
@@ -239,7 +208,7 @@ export function InvoiceList({ data }: { data: BillingData }) {
           </ul>
         </Tile>
       )}
-      <Pagination page={data.invoicePage} />
+      <InvoicePager page={data.invoicePage} />
       <CardChecks data={data} />
     </section>
   );

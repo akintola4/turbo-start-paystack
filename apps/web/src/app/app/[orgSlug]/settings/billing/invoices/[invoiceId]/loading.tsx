@@ -10,7 +10,7 @@ export default function Loading() {
     >
       <span className="sr-only">Loading invoice</span>
       <div className="flex items-center justify-between gap-3">
-        <Skeleton className="h-11 w-24 rounded-control" />
+        <Skeleton className="-ml-2 h-11 w-24 rounded-control" />
         <div className="flex gap-2">
           <Skeleton className="h-11 w-24 rounded-control" />
           <Skeleton className="h-11 w-40 rounded-control" />
@@ -19,9 +19,9 @@ export default function Loading() {
       <div className="grid gap-8 rounded-tile bg-card p-5 shadow-tile sm:gap-10 sm:p-10">
         <div className="flex items-center justify-between">
           <Skeleton className="h-9 w-48 rounded-chip" />
-          <Skeleton className="h-10 w-40 rounded-lg" />
+          <Skeleton className="h-10 w-40 rounded-chip" />
         </div>
-        <Skeleton className="h-64 rounded-panel" />
+        <Skeleton className="h-[440px] rounded-card sm:h-[362px] lg:h-[316px]" />
         <div className="grid gap-6 sm:grid-cols-2">
           <Skeleton className="h-28 rounded-card" />
           <Skeleton className="h-28 rounded-card" />
