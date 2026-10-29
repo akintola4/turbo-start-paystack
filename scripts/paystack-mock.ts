@@ -3,11 +3,26 @@
 // Paystack keys. Point the app at it with PAYSTACK_API_URL=http://localhost:4010
 // Its hosted "checkout" page fires signed charge.success / subscription.create
 // webhooks at the app, like Paystack would. Development only.
+//
+// POST /__dev/simulate (Bearer PAYSTACK_SECRET_KEY) plays renewals, failed
+// renewals, recoveries, duplicates and forged webhooks for one subscription:
+// the app's "Simulate billing" panel calls it. GET /__dev/info identifies
+// this mock (and which app it sends webhooks to) to `pnpm setup`.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { signPaystackPayload } from "@workspace/billing";
 import { createFakePaystack } from "@workspace/billing/fake";
 import { chargeSuccess, subscriptionCreate } from "@workspace/billing/fixtures";
+import {
+  createWebhookSimulator,
+  SIMULATE_ACTIONS,
+  type SimulateAction,
+  SimulateError,
+} from "@workspace/billing/simulate";
 
 const PORT = Number(process.env.PAYSTACK_MOCK_PORT ?? 4010);
 const ORIGIN = `http://localhost:${PORT}`;
@@ -27,20 +42,47 @@ if (existsSync(STATE_FILE)) {
 }
 const save = () => writeFileSync(STATE_FILE, JSON.stringify(fake.snapshot()));
 
-async function sendWebhook(payload: unknown) {
-  const body = JSON.stringify(payload);
-  const res = await fetch(WEBHOOK_URL, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-paystack-signature": signPaystackPayload(body, SECRET),
-    },
-    body,
-  });
+async function deliver(body: string, signature: string | null) {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
+  if (signature) {
+    headers["x-paystack-signature"] = signature;
+  }
+  const res = await fetch(WEBHOOK_URL, { method: "POST", headers, body });
+  const response = await res.json().catch(() => null);
   console.log(
-    `webhook ${(payload as { event: string }).event} → ${res.status}`
+    `webhook ${(JSON.parse(body) as { event: string }).event} → ${res.status}`
   );
+  return { status: res.status, response };
 }
+
+const simulator = createWebhookSimulator({
+  fake,
+  secretKey: SECRET,
+  deliver,
+});
+
+async function sendWebhook(payload: unknown, subscriptionCode?: string) {
+  const body = JSON.stringify(payload);
+  await deliver(body, signPaystackPayload(body, SECRET));
+  if (subscriptionCode) {
+    simulator.remember(subscriptionCode, body);
+  }
+}
+
+async function readBody(req: IncomingMessage) {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(chunk as Buffer);
+  }
+  return chunks.length ? Buffer.concat(chunks).toString() : undefined;
+}
+
+const sendJson = (res: ServerResponse, status: number, body: unknown) =>
+  res
+    .writeHead(status, { "content-type": "application/json" })
+    .end(JSON.stringify(body));
 
 function findByAccessCode(accessCode: string) {
   return [...fake.transactions.values()].find(
@@ -86,7 +128,8 @@ const server = createServer(async (req, res) => {
             amount: transaction.amount,
             customer,
             nextPaymentDate: subscription.next_payment_date,
-          })
+          }),
+          subscription.subscription_code
         );
       }
       const callback = new URL(
@@ -108,12 +151,53 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  // Everything else is the Paystack API.
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    chunks.push(chunk as Buffer);
+  if (url.pathname === "/__dev/info") {
+    sendJson(res, 200, {
+      mock: "paystack",
+      port: PORT,
+      webhookUrl: WEBHOOK_URL,
+    });
+    return;
   }
-  const body = chunks.length ? Buffer.concat(chunks).toString() : undefined;
+
+  const body = await readBody(req);
+
+  if (url.pathname === "/__dev/simulate" && req.method === "POST") {
+    if (req.headers.authorization !== `Bearer ${SECRET}`) {
+      sendJson(res, 401, { error: "unauthorized" });
+      return;
+    }
+    const input = JSON.parse(body ?? "{}") as {
+      action?: string;
+      subscriptionCode?: string;
+    };
+    if (
+      !(
+        input.subscriptionCode &&
+        (SIMULATE_ACTIONS as readonly string[]).includes(input.action ?? "")
+      )
+    ) {
+      sendJson(res, 400, { error: "invalid_body" });
+      return;
+    }
+    try {
+      const deliveries = await simulator.run(
+        input.action as SimulateAction,
+        input.subscriptionCode
+      );
+      save();
+      sendJson(res, 200, { deliveries });
+    } catch (error) {
+      if (error instanceof SimulateError) {
+        sendJson(res, 409, { error: error.code, message: error.message });
+        return;
+      }
+      sendJson(res, 502, { error: "delivery_failed", message: String(error) });
+    }
+    return;
+  }
+
+  // Everything else is the Paystack API.
   const response = await fake.handle(
     new Request(url, {
       method: req.method,
