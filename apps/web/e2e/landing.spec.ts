@@ -144,3 +144,64 @@ test("the landing logs no console errors or warnings", async ({ page }) => {
 
   expect(problems).toEqual([]);
 });
+
+test("footer and receipt controls stay in sync and are remembered", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const receipt = page.locator("section[aria-labelledby=receipt-title]");
+  await page.locator("footer [data-theme-choice=dark]").click();
+  await expect(receipt.getByRole("radio", { name: "Dark" })).toHaveAttribute(
+    "aria-checked",
+    "true"
+  );
+  await page.locator("footer [role=radio][data-currency=ZAR]").click();
+  await expect(page.locator("[data-amount-due] .sr-only")).toHaveText("R0.00");
+  await receipt.locator("[role=radio][data-currency=GHS]").click();
+  await expect(
+    page.locator("footer [role=radio][data-currency=GHS]")
+  ).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator(".footer-wordmark-glyph.is-on")).toHaveAttribute(
+    "data-currency",
+    "GHS"
+  );
+
+  await page.reload();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(
+    page.locator("#pricing [role=radio][data-currency=GHS]")
+  ).toHaveAttribute("aria-checked", "true");
+});
+
+test("the wordmark tile holds every symbol at every width", async ({
+  page,
+}) => {
+  for (const width of [300, 375, 768, 1024, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    // At the very bottom the wordmark has finished rising.
+    await page.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight)
+    );
+    for (const code of ["NGN", "GHS", "ZAR", "KES", "USD"]) {
+      await page.locator(`footer [role=radio][data-currency=${code}]`).click();
+      await page.waitForTimeout(500); // the symbol's slide-in settles
+      const fit = await page.evaluate(() => {
+        const wrap = document.querySelector("[data-wordmark]") as HTMLElement;
+        const tile = wrap.querySelector(".footer-wordmark-tile") as HTMLElement;
+        const glyph = tile.querySelector(".is-on > span") as HTMLElement;
+        const w = wrap.getBoundingClientRect();
+        const t = tile.getBoundingClientRect();
+        const g = glyph.getBoundingClientRect();
+        return (
+          t.right <= w.right &&
+          g.left >= t.left &&
+          g.right <= t.right &&
+          g.top >= t.top &&
+          g.bottom <= t.bottom
+        );
+      });
+      expect(fit, `${code} at ${width}px`).toBe(true);
+    }
+  }
+});

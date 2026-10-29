@@ -14,11 +14,11 @@ export const START_COMMAND = "npx degit akintola4/turbo-start-paystack my-saas";
  * rather than being cut off. The Copy button stays on the bar's centre line,
  * and its label swaps in a reserved box, so "Copied" never moves anything.
  */
-export function StartCommand() {
+/** Copies the install command; `copied` is true for 1.6s afterwards. */
+export function useCopyCommand() {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
-
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(START_COMMAND);
@@ -30,9 +30,14 @@ export function StartCommand() {
       toast.error("Couldn't copy. Select the command and copy it instead.");
     }
   };
+  return { copied, copy };
+}
+
+export function StartCommand() {
+  const { copied, copy } = useCopyCommand();
 
   return (
-    <div className="@container flex items-center gap-3 rounded-tile bg-[#0e1311] p-3 pl-5 text-[#e8efeb] shadow-[0_0_0_1px_#252e29] sm:gap-4 sm:p-4 sm:pl-7">
+    <div className="@container flex items-center gap-3 rounded-tile bg-[var(--neutral-950)] p-3 pl-5 text-[var(--neutral-100)] shadow-[0_0_0_1px_var(--neutral-800)] sm:gap-4 sm:p-4 sm:pl-7">
       <code
         className="min-w-0 flex-1 select-all font-mono text-[clamp(13px,calc((100cqw-170px)/30.5),40px)] leading-[1.35] tracking-normal"
         data-command
@@ -44,7 +49,9 @@ export function StartCommand() {
         <span className="whitespace-nowrap">akintola4/</span>
         <wbr />
         <span className="whitespace-nowrap">turbo-start-paystack</span>{" "}
-        <span className="whitespace-nowrap text-[#a2aea8]">my-saas</span>
+        <span className="whitespace-nowrap text-[var(--neutral-400)]">
+          my-saas
+        </span>
       </code>
       <button
         aria-label={copied ? "Copied" : "Copy the install command"}

@@ -20,12 +20,22 @@ type LandingState = {
 
 const LandingContext = createContext<LandingState | null>(null);
 
+/** Cookie that remembers the visitor's currency; read by the page on the
+ *  server so the first paint is already in that currency. */
+export const CURRENCY_COOKIE = "tsp-currency";
+
 /**
- * One currency for the whole landing: the hero wall, the pricing switch and
- * the receipt footer all read and write it, so they never disagree.
+ * One currency for the whole landing: the hero wall, pricing, the receipt
+ * and the footer all read and write it, so they never disagree.
  */
-export function LandingProvider({ children }: { children: ReactNode }) {
-  const [currency, setCurrencyState] = useState<Currency>("NGN");
+export function LandingProvider({
+  children,
+  initialCurrency = "NGN",
+}: {
+  children: ReactNode;
+  initialCurrency?: Currency;
+}) {
+  const [currency, setCurrencyState] = useState<Currency>(initialCurrency);
   const [origin, setOrigin] = useState<CurrencyOrigin>({ source: "other" });
   const [interval, setInterval] = useState<Interval>("monthly");
   const setCurrency = (
@@ -34,6 +44,8 @@ export function LandingProvider({ children }: { children: ReactNode }) {
   ) => {
     setOrigin(from);
     setCurrencyState(code);
+    // biome-ignore lint/suspicious/noDocumentCookie: a plain preference cookie; the Cookie Store API is not in Safari.
+    document.cookie = `${CURRENCY_COOKIE}=${code}; path=/; max-age=31536000; samesite=lax`;
   };
   return (
     <LandingContext.Provider

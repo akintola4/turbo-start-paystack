@@ -4,13 +4,12 @@ import NumberFlow from "@number-flow/react";
 import { CURRENCIES } from "@workspace/billing/money";
 import { cn } from "@workspace/tailwind-config/utils";
 import { ArrowUpRightIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
-import { useTheme } from "next-themes";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 
 import { NUMBER_TIMING } from "@/components/animated-number";
 import { useLanding } from "@/components/landing/currency-context";
-import { PaystackStatus } from "@/components/landing/paystack-status";
 import { nextRadioIndex } from "@/components/landing/radio";
+import { THEMES, useThemeChoice } from "@/components/landing/theme-choice";
 import { Mark, Panel } from "@/components/primitives";
 import { gsap, MOTION_QUERIES, refreshAfterFonts, useGSAP } from "@/lib/gsap";
 import { barcode, currencyMeta } from "@/lib/landing";
@@ -36,13 +35,7 @@ const LINE_ITEMS = [
   { label: "Licence", to: "MIT", href: `${REPO}/blob/main/LICENSE` },
 ];
 
-const THEMES = [
-  { value: "light", label: "Light", icon: SunIcon },
-  { value: "dark", label: "Dark", icon: MoonIcon },
-  { value: "system", label: "System", icon: MonitorIcon },
-] as const;
-
-export type BuildInfo = { version: string; updated: string | null };
+const THEME_ICON = { light: SunIcon, dark: MoonIcon, system: MonitorIcon };
 
 function AmountDue() {
   const { currency, setCurrency } = useLanding();
@@ -115,10 +108,7 @@ function AmountDue() {
 }
 
 function PaperTheme() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const current = mounted ? (theme ?? "system") : null;
+  const { current, setTheme } = useThemeChoice();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const index = Math.max(
     0,
@@ -142,6 +132,7 @@ function PaperTheme() {
       >
         {THEMES.map((t, i) => {
           const on = t.value === current;
+          const Icon = THEME_ICON[t.value];
           return (
             // biome-ignore lint/a11y/useSemanticElements: ARIA radio group with roving focus.
             <button
@@ -161,7 +152,7 @@ function PaperTheme() {
               tabIndex={(current === null ? i === 2 : on) ? 0 : -1}
               type="button"
             >
-              <t.icon aria-hidden className="size-3.5" />
+              <Icon aria-hidden className="size-3.5" />
               {t.label}
             </button>
           );
@@ -172,14 +163,14 @@ function PaperTheme() {
 }
 
 /**
- * The site footer: a receipt that feeds out of a slot in the forest panel as
- * you scroll to it (1:1 with the scrollbar, final state under reduced
- * motion and in the server HTML). Links are its line items; the amount due
- * is zero in every currency.
+ * The closing section: a receipt that feeds out of a slot in the forest
+ * panel as you scroll to it (1:1 with the scrollbar, final state under
+ * reduced motion and in the server HTML). The project links are its line
+ * items; the amount due is zero in every currency.
  */
-export function ReceiptFooter({ build }: { build: BuildInfo }) {
+export function ReceiptSection({ version }: { version: string }) {
   const root = useRef<HTMLDivElement>(null);
-  const bars = barcode(`turbo-start-paystack@${build.version}`);
+  const bars = barcode(`turbo-start-paystack@${version}`);
 
   useGSAP(
     () => {
@@ -210,10 +201,13 @@ export function ReceiptFooter({ build }: { build: BuildInfo }) {
   );
 
   return (
-    <footer className="mx-2 mt-16 mb-[max(0.5rem,env(safe-area-inset-bottom))] sm:mx-3 sm:mt-24 sm:mb-3">
+    <section
+      aria-labelledby="receipt-title"
+      className="mx-auto w-full max-w-[1440px] px-2 sm:px-3"
+    >
       <Panel
         as="div"
-        className="mx-auto max-w-[1440px] overflow-hidden px-4 pt-6 pb-5 sm:px-8 sm:pt-8 sm:pb-6"
+        className="overflow-hidden px-4 pt-6 pb-3 sm:px-8 sm:pt-8 sm:pb-5"
       >
         <div ref={root}>
           <div data-receipt-feeder>
@@ -231,9 +225,12 @@ export function ReceiptFooter({ build }: { build: BuildInfo }) {
             <div className="mx-auto -mt-[5px] max-w-[37.5rem] overflow-hidden px-0 pb-4 sm:px-0">
               <div className="receipt-paper relative" data-receipt-paper>
                 <div className="flex items-start justify-between gap-3">
-                  <p className="font-semibold text-lg tracking-[-0.01em]">
+                  <h2
+                    className="font-semibold text-lg tracking-[-0.01em]"
+                    id="receipt-title"
+                  >
                     Receipt for cloning
-                  </p>
+                  </h2>
                   <p className="text-right text-[13px] text-[var(--receipt-muted)]">
                     1 × SaaS starter
                     <br />
@@ -241,7 +238,7 @@ export function ReceiptFooter({ build }: { build: BuildInfo }) {
                   </p>
                 </div>
                 <hr className="receipt-rule" />
-                <nav aria-label="Footer">
+                <nav aria-label="Project">
                   <ul className="grid">
                     {LINE_ITEMS.map((item) => (
                       <li key={item.label}>
@@ -281,34 +278,8 @@ export function ReceiptFooter({ build }: { build: BuildInfo }) {
               </div>
             </div>
           </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 border-panel-line border-t pt-5 text-[13px] text-panel-muted lg:justify-between">
-            <PaystackStatus />
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <a
-                className="rounded-chip underline-offset-4 transition-colors duration-(--dur-fast) hover:text-panel-foreground hover:underline"
-                href={`${REPO}/commits/main`}
-              >
-                Version {build.version}
-              </a>
-              {build.updated ? (
-                <>
-                  <span aria-hidden>·</span>
-                  <span>Updated {build.updated}</span>
-                </>
-              ) : null}
-              <span aria-hidden>·</span>
-              <a
-                className="rounded-chip underline-offset-4 transition-colors duration-(--dur-fast) hover:text-panel-foreground hover:underline"
-                href={`${REPO}/blob/main/LICENSE`}
-              >
-                MIT licence
-              </a>
-            </p>
-            <p>Not affiliated with Paystack.</p>
-          </div>
         </div>
       </Panel>
-    </footer>
+    </section>
   );
 }
