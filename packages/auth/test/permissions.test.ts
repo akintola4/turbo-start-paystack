@@ -2,6 +2,7 @@ import { schema } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { AuthError, isAuthError } from "../src/errors";
 import { roleHasPermission } from "../src/roles";
 import { addMember, createOrg, setupAuth, signUp } from "./helpers";
 
@@ -147,5 +148,21 @@ describe("role changes", () => {
         },
       })
     ).rejects.toMatchObject({ statusCode: 403 });
+  });
+});
+
+describe("isAuthError", () => {
+  it("recognises an AuthError from another copy of the module", () => {
+    class ForeignAuthError extends Error {
+      readonly status = 403;
+      constructor() {
+        super("Missing permission billing:view");
+        this.name = "AuthError";
+      }
+    }
+    expect(isAuthError(new AuthError(403, "no"))).toBe(true);
+    expect(isAuthError(new ForeignAuthError())).toBe(true);
+    expect(isAuthError(new Error("boom"))).toBe(false);
+    expect(isAuthError({ name: "AuthError", status: 403 })).toBe(false);
   });
 });
