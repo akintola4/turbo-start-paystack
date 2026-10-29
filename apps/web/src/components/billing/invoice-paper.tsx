@@ -8,6 +8,7 @@ import {
   Tile,
 } from "@/components/primitives";
 import type { InvoiceView } from "@/lib/invoice-view";
+import { spokenMoney } from "@/lib/money";
 
 /** The document's status as the list's badge status. */
 const BADGE_STATUS = {
@@ -29,7 +30,7 @@ function Party({
   return (
     <section aria-labelledby={id} className="grid content-start gap-1">
       <h2
-        className="font-medium text-[12px] text-subtle-foreground uppercase tracking-[0.06em]"
+        className="font-medium text-[12px] text-muted-foreground uppercase tracking-[0.06em]"
         id={id}
       >
         {label}
@@ -73,12 +74,15 @@ export function InvoicePaper({ view }: { view: InvoiceView }) {
           </span>
         </div>
         <div className="grid shrink-0 gap-0.5 sm:justify-items-end sm:text-right">
-          <span className="text-muted-foreground text-sm" id="invoice-title">
+          <h1
+            className="font-normal text-muted-foreground text-sm"
+            id="invoice-title"
+          >
             {view.title}
             {view.number ? (
               <span className="sr-only"> {view.number}</span>
             ) : null}
-          </span>
+          </h1>
           {view.number ? (
             <span
               aria-hidden
@@ -90,7 +94,8 @@ export function InvoicePaper({ view }: { view: InvoiceView }) {
         </div>
       </header>
 
-      <Panel className="invoice-panel grid gap-6" as="section">
+      {/* Inside a 24px tile, so the panel steps down to 16 rather than 32. */}
+      <Panel as="section" className="grid gap-6 rounded-card">
         <InvoiceBadge className="w-fit" status={BADGE_STATUS[view.status]} />
         <div className="grid gap-3">
           {view.struck ? (
@@ -98,8 +103,10 @@ export function InvoicePaper({ view }: { view: InvoiceView }) {
               className="font-money font-semibold text-[40px] text-panel-muted leading-none tracking-[-0.02em] line-through decoration-2 sm:text-[56px]"
               data-money
             >
-              <span className="sr-only">Refunded: </span>
-              {view.heroAmount}
+              <span aria-hidden>{view.heroAmount}</span>
+              <span className="sr-only">
+                Refunded: {spokenMoney(view.amount)}
+              </span>
             </span>
           ) : (
             <Money label={view.amount} size="xl" />
@@ -141,13 +148,13 @@ export function InvoicePaper({ view }: { view: InvoiceView }) {
           <thead>
             <tr className="border-border border-b">
               <th
-                className="pb-2.5 font-medium text-[12px] text-subtle-foreground uppercase tracking-[0.06em]"
+                className="pb-2.5 font-medium text-[12px] text-muted-foreground uppercase tracking-[0.06em]"
                 scope="col"
               >
                 Description
               </th>
               <th
-                className="whitespace-nowrap pb-2.5 text-right font-medium text-[12px] text-subtle-foreground uppercase tracking-[0.06em]"
+                className="whitespace-nowrap pb-2.5 text-right font-medium text-[12px] text-muted-foreground uppercase tracking-[0.06em]"
                 scope="col"
               >
                 Amount ({view.currency})
@@ -217,10 +224,7 @@ export function InvoicePaper({ view }: { view: InvoiceView }) {
               </span>
             </p>
           ) : null}
-          <p className="text-muted-foreground">
-            Paid by card through Paystack. Quote the reference if you contact us
-            about this payment.
-          </p>
+          <p className="text-muted-foreground">{view.referenceNote}</p>
         </footer>
       ) : null}
     </Tile>

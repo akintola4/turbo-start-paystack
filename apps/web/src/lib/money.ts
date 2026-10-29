@@ -4,6 +4,8 @@ import {
   formatMoney as sharedFormatMoney,
 } from "@workspace/billing/money";
 
+import { splitMoney } from "@/lib/format";
+
 /**
  * The money formatter for the screen. The shared one (also used by the
  * emails) puts U+202F, a narrow no-break space, after KSh. Geist has no
@@ -25,4 +27,29 @@ export function formatMoney(
   ...args: Parameters<typeof sharedFormatMoney>
 ): string {
   return sharedFormatMoney(...args).replace(NARROW_NBSP, NBSP);
+}
+
+const SPOKEN: Record<string, string> = {
+  "₦": "naira",
+  "GH₵": "cedis",
+  R: "rand",
+  KSh: "shillings",
+  $: "dollars",
+};
+
+/**
+ * What a screen reader should say for a formatted amount: "₦30,000.00" →
+ * "30,000 naira", "−₦50.00" → "minus 50 naira". "N with two bars" isn't
+ * spoken reliably, so every amount carries this as its accessible text.
+ * The symbol is matched without its trailing space (KSh takes U+00A0 on
+ * screen and U+202F in emails).
+ */
+export function spokenMoney(label: string, per?: string) {
+  const negative = label.startsWith("\u2212");
+  const { symbol, whole, decimals } = splitMoney(
+    negative ? label.slice(1) : label
+  );
+  const cents = decimals && decimals !== ".00" ? decimals : "";
+  const unit = SPOKEN[symbol.trim()] ?? symbol.trim();
+  return `${negative ? "minus " : ""}${whole}${cents} ${unit}${per ? ` per ${per}` : ""}`;
 }

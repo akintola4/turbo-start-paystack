@@ -544,8 +544,10 @@ number-flow-react::part(symbol) {
     padding: 0;
     border-radius: 0;
   }
-  .invoice-panel,
-  .invoice-panel * {
+  /* Every fill on the invoice prints: the panel, the seller's mark on
+     its forest chip, and the reference well. */
+  .invoice-paper,
+  .invoice-paper * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
