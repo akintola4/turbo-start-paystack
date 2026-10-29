@@ -1,13 +1,39 @@
 import "./globals.css";
 
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
 import type { ReactNode } from "react";
 
 import { Providers } from "@/components/providers";
+
+/**
+ * Geist and Geist Mono, from the `geist` package's variable files. Next's
+ * automatic fallback is off: it is a single Arial face sized for weight 400,
+ * which Chrome then fakes bold for headings, so text re-wrapped when Geist
+ * arrived. The metric-matched fallbacks ("Geist Fallback", one face per
+ * weight band, and "Geist Mono Fallback") live with the font stacks in
+ * packages/ui globals.css.
+ */
+const geistSans = localFont({
+  src: "../../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2",
+  variable: "--font-geist-sans",
+  weight: "100 900",
+  display: "swap",
+  preload: true,
+  adjustFontFallback: false,
+  fallback: [],
+});
+
+const geistMono = localFont({
+  src: "../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2",
+  variable: "--font-geist-mono",
+  weight: "100 900",
+  display: "swap",
+  preload: true,
+  adjustFontFallback: false,
+  fallback: [],
+});
 
 /**
  * Geist has no ₦ or ₵. This 1.6 KB subset of Inter (SIL OFL) supplies only
@@ -59,7 +85,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
-      className={`${GeistSans.variable} ${GeistMono.variable} ${currencySymbols.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable} ${currencySymbols.variable}`}
       lang="en"
       suppressHydrationWarning
     >
