@@ -11,15 +11,17 @@ import {
   useState,
 } from "react";
 
-import { FEATURES, fileUrl } from "@/components/landing/features/data";
+import { FEATURES, type Feature } from "@/components/landing/features/data";
 import { DEMOS } from "@/components/landing/features/demos";
 import { nextRadioIndex } from "@/components/landing/radio";
+import { fileUrl } from "@/lib/landing";
 
 const TOKEN =
-  /(\/\/.*$)|("(?:[^"\\]|\\.)*")|\b(const|await|async|function|return|if|throw|new|export)\b|\b(\d[\d_]*)\b/g;
+  /(\/\/.*$)|("(?:[^"\\]|\\.)*")|\b(const|let|await|async|function|return|if|throw|new|export|try|catch|for|of)\b|\b(\d[\d_]*)\b/g;
 
 /** Tiny highlighter for the excerpts: comments, strings, keywords, numbers.
- *  The code panel is dark in both themes, so one set of colours reads in both. */
+ *  The code surface is dark in both themes, so its colours are fixed
+ *  (`--code-*` in globals.css), not the theme's semantic tokens. */
 function highlight(line: string): ReactNode[] {
   const out: ReactNode[] = [];
   let last = 0;
@@ -30,14 +32,14 @@ function highlight(line: string): ReactNode[] {
     }
     const [text, comment, string, keyword] = m;
     const cls = comment
-      ? "text-[var(--neutral-400)]"
+      ? "text-(--code-comment)"
       : string
-        ? "text-[var(--forest-300)]"
+        ? "text-(--code-string)"
         : keyword
-          ? "text-[var(--sunflower-300)]"
-          : "text-[var(--info)]";
+          ? "text-(--code-keyword)"
+          : "text-(--code-number)";
     out.push(
-      <span className={cls} key={i}>
+      <span className={cls} data-token key={i}>
         {text}
       </span>
     );
@@ -49,6 +51,14 @@ function highlight(line: string): ReactNode[] {
   return out;
 }
 
+function featureAt(index: number): Feature {
+  const feature = FEATURES[index];
+  if (!feature) {
+    throw new Error(`No feature at index ${index}`);
+  }
+  return feature;
+}
+
 type Box = { x: number; y: number; w: number; h: number };
 
 /** Header bar shared by the code and the demo, so both start on one line. */
@@ -58,17 +68,19 @@ const BAR = "flex h-12 items-center justify-between gap-3 border-b px-5";
  * "Code + outcome": one tab per feature, captioned with its file. Each tab
  * pairs a real excerpt from that file with the thing it produces, working.
  * One indicator slides to the active tab (transform only); on phones the
- * tabs scroll sideways inside a padded scroller, so borders and the press
- * scale are never clipped.
+ * tabs scroll sideways inside a padded scroller, so the indicator and the
+ * press scale are never clipped.
  */
-export function FeaturesCode() {
+export function CodeOutcome() {
   const [index, setIndex] = useState(0);
   const [box, setBox] = useState<Box | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLDivElement>(null);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
-  const feature = FEATURES[index] ?? FEATURES[0];
+  const feature = featureAt(index);
 
-  // Measure the active tab for the indicator (paint only, never layout).
+  // Measure the active tab for the indicator, again whenever the row resizes
+  // (viewport, late font swap). Paint only, never layout.
   useLayoutEffect(() => {
     const measure = () => {
       const t = tabs.current[index];
@@ -82,8 +94,11 @@ export function FeaturesCode() {
       }
     };
     measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    const ro = new ResizeObserver(measure);
+    if (list.current) {
+      ro.observe(list.current);
+    }
+    return () => ro.disconnect();
   }, [index]);
 
   // Keep the active tab in view when the row scrolls (phones).
@@ -100,9 +115,6 @@ export function FeaturesCode() {
     sc.scrollTo({ left: t.offsetLeft, behavior: reduce ? "auto" : "smooth" });
   }, [index]);
 
-  if (!feature) {
-    return null;
-  }
   const Demo = DEMOS[feature.id];
   const lines = feature.code.split("\n");
 
@@ -122,12 +134,13 @@ export function FeaturesCode() {
               tabs.current[next]?.focus({ preventScroll: true });
             }
           }}
+          ref={list}
           role="tablist"
         >
           <span
             aria-hidden
             className={cn(
-              "pointer-events-none absolute top-0 left-0 rounded-card border border-[var(--input)] bg-card transition-[translate] duration-[260ms] ease-(--motion-ease-spring) motion-reduce:transition-none",
+              "pointer-events-none absolute top-0 left-0 rounded-card bg-card shadow-[0_0_0_1px_var(--input)] transition-[translate] duration-(--dur-thumb) ease-(--motion-ease-spring) motion-reduce:transition-none",
               !box && "opacity-0"
             )}
             data-tab-indicator
@@ -148,10 +161,9 @@ export function FeaturesCode() {
                 aria-controls="feature-panel"
                 aria-selected={on}
                 className={cn(
-                  "pressable pressable-sm relative grid w-[11rem] shrink-0 snap-start content-start gap-1 rounded-card border border-border px-4 py-3 text-left lg:w-auto",
+                  "pressable pressable-lg relative grid w-[11rem] shrink-0 snap-start grid-rows-[1fr_auto] gap-1 rounded-card px-4 py-3 text-left lg:w-auto",
                   // Until the indicator is measured, the active tab paints its own fill.
-                  on && !box && "border-[var(--input)] bg-card",
-                  on && box && "border-transparent",
+                  on && !box && "bg-card shadow-[0_0_0_1px_var(--input)]",
                   !on && "hover:bg-secondary"
                 )}
                 data-tab={f.id}
@@ -167,13 +179,16 @@ export function FeaturesCode() {
               >
                 <span
                   className={cn(
-                    "line-clamp-2 font-semibold text-[15px] leading-snug",
+                    "line-clamp-2 font-semibold text-[15px] leading-snug transition-colors duration-(--dur-fast)",
                     on ? "text-foreground" : "text-muted-foreground"
                   )}
                 >
                   {f.title}
                 </span>
-                <span className="truncate font-mono text-muted-foreground text-xs">
+                <span
+                  className="truncate font-mono text-muted-foreground text-xs"
+                  data-tab-file
+                >
                   {f.path.split("/").at(-1)}
                 </span>
               </button>
@@ -184,17 +199,20 @@ export function FeaturesCode() {
 
       <div
         aria-labelledby={`feature-tab-${feature.id}`}
-        className="grid items-stretch gap-3 lg:grid-cols-2 lg:gap-4"
+        className="grid gap-3 lg:grid-cols-[minmax(0,7fr)_minmax(0,6fr)] lg:gap-4"
         id="feature-panel"
         role="tabpanel"
       >
-        <figure className="grid min-h-[20rem] grid-rows-[auto_1fr] overflow-hidden rounded-tile bg-[var(--neutral-950)] text-[var(--neutral-100)] shadow-[0_0_0_1px_var(--neutral-800)]">
-          <figcaption className={cn(BAR, "border-[var(--neutral-800)]")}>
-            <span className="min-w-0 truncate font-mono text-[var(--neutral-400)] text-xs">
+        <figure
+          className="grid grid-rows-[auto_1fr] overflow-hidden rounded-tile bg-(--code-bg) text-(--code-text) shadow-[0_0_0_1px_var(--code-ring)]"
+          data-code
+        >
+          <figcaption className={cn(BAR, "border-(--code-ring)")}>
+            <span className="min-w-0 truncate font-mono text-(--code-comment) text-xs">
               {feature.path}
             </span>
             <a
-              className="pressable pressable-sm inline-flex shrink-0 items-center gap-1 rounded-chip font-medium text-[var(--neutral-400)] text-xs hover:text-[var(--neutral-100)]"
+              className="pressable pressable-sm relative inline-flex shrink-0 items-center gap-1 rounded-chip font-medium text-(--code-comment) text-xs before:absolute before:-inset-x-2 before:-inset-y-3 hover:text-(--code-text)"
               href={fileUrl(feature.path)}
             >
               Read the file
@@ -210,7 +228,7 @@ export function FeaturesCode() {
                 <Fragment key={`${feature.id}-${i}`}>
                   <span
                     aria-hidden
-                    className="select-none text-[var(--neutral-600)]"
+                    className="select-none text-(--code-gutter)"
                   >
                     {i + 1}
                   </span>
@@ -222,7 +240,7 @@ export function FeaturesCode() {
         </figure>
         <section
           aria-label={`${feature.title}, working`}
-          className="grid min-h-[20rem] grid-rows-[auto_1fr] overflow-hidden rounded-tile bg-card shadow-tile"
+          className="grid grid-rows-[auto_1fr] overflow-hidden rounded-tile bg-card shadow-tile"
         >
           <div className={cn(BAR, "border-border")}>
             <h3 className="truncate font-semibold text-[15px]">

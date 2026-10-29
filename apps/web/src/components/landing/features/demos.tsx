@@ -1,36 +1,40 @@
 "use client";
 
 import { catalog } from "@workspace/billing/catalog";
-import {
-  CURRENCIES,
-  CURRENCY_SYMBOL,
-  type Currency,
-} from "@workspace/billing/money";
+import { CURRENCY_SYMBOL, type Currency } from "@workspace/billing/money";
 import { cn } from "@workspace/tailwind-config/utils";
 import {
   CheckIcon,
   CircleCheckIcon,
+  CircleDashedIcon,
+  CircleXIcon,
   EyeOffIcon,
   LockIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
 import { useLanding } from "@/components/landing/currency-context";
 import { nextRadioIndex } from "@/components/landing/radio";
 import { type SegmentOption, Segmented } from "@/components/landing/segmented";
 import { StatusBadge } from "@/components/primitives";
-import { currencyMeta } from "@/lib/landing";
 import { formatMoney } from "@/lib/money";
 
 /* ------------------------------------------------------------- helpers */
 
-const priceOf = (key: "starter" | "pro", currency: Currency) =>
-  catalog
+/** A monthly catalog price; a missing one is a catalog bug, so it throws. */
+function priceOf(key: "starter" | "pro", currency: Currency): number {
+  const amount = catalog
     .find((p) => p.key === key)
-    ?.prices.find((p) => p.currency === currency && p.interval === "monthly")
-    ?.amountSubunit ?? 0;
+    ?.prices.find(
+      (p) => p.currency === currency && p.interval === "monthly"
+    )?.amountSubunit;
+  if (amount === undefined) {
+    throw new Error(`No monthly ${key} price in ${currency}`);
+  }
+  return amount;
+}
 
 /** An amount that rolls with NumberFlow and reads as plain text. */
 function Rolling({
@@ -146,6 +150,7 @@ const PEOPLE: { initials: string; name: string; role: Role | "you" }[] = [
 ];
 
 export function RolesDemo() {
+  const { currency } = useLanding();
   const [role, setRole] = useState<Role>("admin");
   const noBilling = role === "member" || role === "viewer";
   const canManageBilling = role === "owner" || role === "billing";
@@ -266,7 +271,10 @@ export function RolesDemo() {
                 <StatusBadge status="active" />
               </div>
               <p className="font-semibold text-2xl tabular-nums tracking-[-0.02em]">
-                ₦30,000
+                {formatMoney(priceOf("pro", currency), currency).replace(
+                  /\.00$/,
+                  ""
+                )}
                 <span className="font-normal text-muted-foreground text-sm">
                   {" "}
                   / month
@@ -291,79 +299,6 @@ export function RolesDemo() {
               </span>
             </>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------ checkout */
-
-export function CheckoutDemo() {
-  const { currency } = useLanding();
-  const [open, setOpen] = useState(false);
-  const amount = priceOf("pro", currency);
-  return (
-    <div
-      className="relative"
-      onPointerLeave={(e) => {
-        if (e.pointerType === "mouse") {
-          setOpen(false);
-        }
-      }}
-    >
-      <button
-        aria-expanded={open}
-        className="pressable flex h-11 w-full items-center justify-between gap-3 rounded-control bg-primary px-4 font-semibold text-[15px] text-primary-foreground hover:bg-primary-hover"
-        onClick={() => setOpen((o) => !o)}
-        onPointerEnter={(e) => {
-          if (e.pointerType === "mouse") {
-            setOpen(true);
-          }
-        }}
-        type="button"
-      >
-        Upgrade to Pro
-        <span className="tabular-nums">{formatMoney(amount, currency)}</span>
-      </button>
-      {/* Resting state: what the server decided. The popup opens over it. */}
-      <dl className="mt-3 grid gap-1.5 text-sm">
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">Plan</dt>
-          <dd>Pro, monthly</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">Currency</dt>
-          <dd>{currency}, locked at first checkout</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">Amount set by</dt>
-          <dd>your server</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">Browser receives</dt>
-          <dd className="font-mono text-[13px]">access_code</dd>
-        </div>
-      </dl>
-      <div
-        aria-hidden={!open}
-        className={cn(
-          "absolute inset-x-0 top-[3.25rem] z-10 origin-top rounded-card bg-popover p-4 text-popover-foreground shadow-[0_0_0_1px_var(--border),0_8px_24px_-8px_oklch(0.2_0.03_160/0.25)] transition-[opacity,scale] duration-(--dur-base) ease-(--ease-out)",
-          open
-            ? "scale-100 opacity-100"
-            : "pointer-events-none scale-[0.96] opacity-0"
-        )}
-        data-checkout-popup
-      >
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="font-semibold">Kola Logistics</span>
-          <span className="text-muted-foreground text-xs">Test mode</span>
-        </div>
-        <p className="mt-2 font-semibold text-xl tabular-nums">
-          Pay {formatMoney(amount, currency)}
-        </p>
-        <div className="mt-3 rounded-control px-3 py-2.5 font-mono text-[13px] shadow-[inset_0_0_0_1px_var(--input)]">
-          4084 0840 8408 4081
         </div>
       </div>
     </div>
@@ -432,6 +367,26 @@ type GraceState =
   | { kind: "paid" }
   | { kind: "ended" };
 
+const GRACE_STATUS = {
+  due: "past_due",
+  paid: "active",
+  ended: "canceled",
+} as const;
+
+const GRACE_MESSAGE = {
+  paid: "Card updated and charged. Pro is active.",
+  ended: "Grace ended. Kola Logistics is on Free.",
+} as const;
+
+function dayTone(passed: boolean, kind: GraceState["kind"]) {
+  if (passed) {
+    return "bg-warning-bg text-warning";
+  }
+  return kind === "paid"
+    ? "bg-success-bg text-success"
+    : "bg-secondary text-muted-foreground";
+}
+
 export function GraceDemo() {
   const [state, setState] = useState<GraceState>({ kind: "due", days: 7 });
   const nextDay = () =>
@@ -451,11 +406,7 @@ export function GraceDemo() {
           <li
             className={cn(
               "grid h-9 place-items-center rounded-chip font-semibold text-xs tabular-nums transition-colors duration-(--dur-base)",
-              d < elapsed
-                ? "bg-warning-bg text-warning"
-                : state.kind === "paid"
-                  ? "bg-success-bg text-success"
-                  : "bg-secondary text-muted-foreground"
+              dayTone(d < elapsed, state.kind)
             )}
             key={d}
           >
@@ -485,23 +436,13 @@ export function GraceDemo() {
               <AnimatedNumber className="font-semibold" value={state.days} />{" "}
               {state.days === 1 ? "day" : "days"} to keep Pro.
             </>
-          ) : state.kind === "paid" ? (
-            "Card updated and charged. Pro is active."
           ) : (
-            "Grace ended. Kola Logistics is on Free."
+            GRACE_MESSAGE[state.kind]
           )}
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <StatusBadge
-          status={
-            state.kind === "due"
-              ? "past_due"
-              : state.kind === "paid"
-                ? "active"
-                : "canceled"
-          }
-        />
+        <StatusBadge status={GRACE_STATUS[state.kind]} />
         <div className="flex gap-1.5">
           {state.kind === "due" ? (
             <>
@@ -535,73 +476,173 @@ export function GraceDemo() {
   );
 }
 
-/* --------------------------------------------------------------- money */
+/* --------------------------------------------------------------- swaps */
 
-const VIEWS: readonly SegmentOption<"shown" | "stored">[] = [
-  { value: "shown", label: "Shown" },
-  { value: "stored", label: "Stored" },
-];
+type StepState = "waiting" | "done" | "failed" | "skipped";
 
-const SUBUNIT: Record<Currency, string> = {
-  NGN: "kobo",
-  GHS: "pesewas",
-  ZAR: "cents",
-  KES: "cents",
-  USD: "cents",
+const STEP_ICON = {
+  waiting: CircleDashedIcon,
+  done: CircleCheckIcon,
+  failed: CircleXIcon,
+  skipped: CircleDashedIcon,
+} as const;
+
+const STEP_TONE: Record<StepState, string> = {
+  waiting: "text-muted-foreground",
+  done: "text-success",
+  failed: "text-destructive",
+  skipped: "text-muted-foreground",
 };
 
-export function MoneyDemo() {
-  const { currency, setCurrency } = useLanding();
-  const [view, setView] = useState<"shown" | "stored">("shown");
-  const amount = priceOf("pro", currency);
+function Steps({ steps }: { steps: { label: string; state: StepState }[] }) {
   return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Choice
-          label="Currency"
-          onChange={(c) => setCurrency(c)}
-          options={CURRENCIES}
-          render={(c, on) => (
+    <ol className="grid gap-1.5 rounded-card bg-secondary p-4 text-sm">
+      {steps.map((step, i) => {
+        const Icon = STEP_ICON[step.state];
+        return (
+          <li className="flex items-center gap-2.5" key={step.label}>
+            <Icon
+              aria-hidden
+              className={cn("size-4 shrink-0", STEP_TONE[step.state])}
+            />
             <span
               className={cn(
-                chip(on),
-                "w-9 justify-center px-0",
-                c === "KES" && "text-[11px]"
+                "min-w-0",
+                step.state === "skipped" && "text-muted-foreground line-through"
               )}
             >
-              {currencyMeta(c).glyph}
+              {i + 1}. {step.label}
+            </span>
+            <span className="sr-only">({step.state})</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+const PAYSTACK: readonly SegmentOption<"answers" | "fails">[] = [
+  { value: "answers", label: "Paystack answers" },
+  { value: "fails", label: "Paystack fails" },
+];
+
+const SWAP_STEP_MS = 450;
+
+export function SwapDemo() {
+  const [paystack, setPaystack] = useState<"answers" | "fails">("answers");
+  const [progress, setProgress] = useState(0);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const fails = paystack === "fails";
+
+  const run = () => {
+    clearTimeout(timer.current);
+    setProgress(1);
+    timer.current = setTimeout(() => setProgress(2), SWAP_STEP_MS);
+  };
+  const choose = (value: "answers" | "fails") => {
+    clearTimeout(timer.current);
+    setPaystack(value);
+    setProgress(0);
+  };
+
+  const first: StepState = progress < 1 ? "waiting" : fails ? "failed" : "done";
+  const second: StepState =
+    progress < 2 ? "waiting" : fails ? "skipped" : "done";
+  const result =
+    progress < 2
+      ? null
+      : fails
+        ? "Still on Starter. The proration charge was refunded."
+        : "On Pro now. The billing date did not move.";
+
+  return (
+    <div className="grid gap-3">
+      <Segmented
+        className="w-full sm:w-[19rem]"
+        label="Paystack's answer"
+        onChange={choose}
+        options={PAYSTACK}
+        value={paystack}
+      />
+      <Steps
+        steps={[
+          { label: "Create the Pro subscription on Paystack", state: first },
+          { label: "Retire the Starter subscription", state: second },
+        ]}
+      />
+      <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
+        <p aria-live="polite" className="min-w-0 text-sm">
+          {result ?? (
+            <span className="text-muted-foreground">
+              Starter to Pro, mid-period.
             </span>
           )}
-          value={currency}
-        />
-        <Segmented
-          className="w-[10.5rem]"
-          label="View"
-          onChange={setView}
-          options={VIEWS}
-          value={view}
-        />
-      </div>
-      <div className="grid min-h-[4.5rem] content-center rounded-card bg-secondary px-4 py-3">
-        {view === "shown" ? (
-          <Rolling
-            amount={amount}
-            className="text-[28px] tracking-[-0.02em]"
-            currency={currency}
-          />
-        ) : (
-          <AnimatedNumber
-            className="font-mono font-semibold text-[28px] tracking-[-0.02em]"
-            format={{ useGrouping: false }}
-            suffix={` ${SUBUNIT[currency]}`}
-            value={amount}
-          />
-        )}
-        <p className="mt-1 font-mono text-muted-foreground text-xs">
-          {view === "shown"
-            ? `formatMoney(${amount}, "${currency}")`
-            : "stored as an integer, never a float"}
         </p>
+        <button
+          className={cn("pressable pressable-sm", chip(false))}
+          onClick={run}
+          type="button"
+        >
+          {progress === 0 ? "Switch to Pro" : "Run again"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------ ordering */
+
+const ORDERS: readonly SegmentOption<"sent" | "shuffled">[] = [
+  { value: "sent", label: "As sent" },
+  { value: "shuffled", label: "Out of order" },
+];
+
+/** The events a Starter-to-Pro swap produces, in the order Paystack sent them. */
+const SWAP_EVENTS = [
+  { event: "subscription.create", ref: "Pro", outcome: "Pro is active" },
+  { event: "charge.success", ref: "Pro", outcome: "Payment stored once" },
+  {
+    event: "subscription.disable",
+    ref: "Starter",
+    outcome: "Retired in the swap, ignored",
+  },
+] as const;
+
+export function OrderingDemo() {
+  const [order, setOrder] = useState<"sent" | "shuffled">("shuffled");
+  const events =
+    order === "sent"
+      ? SWAP_EVENTS
+      : [SWAP_EVENTS[2], SWAP_EVENTS[0], SWAP_EVENTS[1]];
+  return (
+    <div className="grid gap-3">
+      <Segmented
+        className="w-full sm:w-[16rem]"
+        label="Delivery order"
+        onChange={setOrder}
+        options={ORDERS}
+        value={order}
+      />
+      <ol
+        aria-live="polite"
+        className="grid gap-1.5 rounded-card bg-secondary p-4 text-sm"
+      >
+        {events.map((e) => (
+          <li
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"
+            key={e.event}
+          >
+            <code className="truncate font-mono text-[13px]">
+              {e.event} <span className="text-muted-foreground">({e.ref})</span>
+            </code>
+            <span className="text-muted-foreground text-xs">{e.outcome}</span>
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span className="text-muted-foreground">Either order ends on</span>
+        <StatusBadge label="Pro, active" status="active" />
       </div>
     </div>
   );
@@ -612,25 +653,26 @@ export function MoneyDemo() {
 const MOCK_EVENTS = ["charge.success", "subscription.create", "invoice.create"];
 
 export function MockDemo() {
-  const [lines, setLines] = useState<{ id: number; text: string }[]>([
-    { id: 1, text: "webhook subscription.create → 200" },
+  const [lines, setLines] = useState<{ id: number; event: string }[]>([
+    { id: 1, event: "subscription.create" },
   ]);
   const next = useRef(2);
   const send = () => {
-    const event = MOCK_EVENTS[(next.current - 1) % MOCK_EVENTS.length];
     const id = next.current++;
-    setLines((l) => [...l, { id, text: `webhook ${event} → 200` }].slice(-3));
+    const event =
+      MOCK_EVENTS[(id - 1) % MOCK_EVENTS.length] ?? "charge.success";
+    setLines((l) => [...l, { id, event }].slice(-3));
   };
   return (
     <div className="grid gap-3">
       <div
         aria-live="polite"
-        className="grid content-start gap-0.5 rounded-card bg-[var(--neutral-950)] p-3.5 font-mono text-[12.5px] text-[var(--neutral-100)] leading-5"
+        className="grid content-start gap-0.5 rounded-card bg-(--code-bg) p-3.5 font-mono text-(--code-text) text-[12.5px] leading-5"
       >
         <p>
           <span className="text-highlight">$</span> pnpm paystack:mock
         </p>
-        <p className="truncate text-[var(--neutral-400)]">
+        <p className="truncate text-(--code-comment)">
           Mock Paystack on http://localhost:4010
         </p>
         {/* Three fixed slots so new lines never change the height. */}
@@ -646,8 +688,8 @@ export function MockDemo() {
             >
               {line ? (
                 <>
-                  {line.text.replace(" → 200", "")}{" "}
-                  <span className="text-[var(--forest-300)]">→ 200</span>
+                  webhook {line.event}{" "}
+                  <span className="text-(--code-string)">→ 200</span>
                 </>
               ) : null}
             </p>
@@ -658,7 +700,7 @@ export function MockDemo() {
         className={cn(
           "pressable pressable-sm",
           chip(false),
-          "justify-self-start font-mono"
+          "justify-self-start"
         )}
         onClick={send}
         type="button"
@@ -670,10 +712,10 @@ export function MockDemo() {
 }
 
 export const DEMOS = {
-  roles: RolesDemo,
-  checkout: CheckoutDemo,
   proration: ProrationDemo,
+  swaps: SwapDemo,
+  ordering: OrderingDemo,
   grace: GraceDemo,
-  money: MoneyDemo,
+  roles: RolesDemo,
   mock: MockDemo,
 } as const;
