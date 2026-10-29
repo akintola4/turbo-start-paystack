@@ -211,7 +211,7 @@ export function Panel({
 }: {
   children: ReactNode;
   className?: string;
-  as?: "section" | "div" | "aside";
+  as?: "section" | "div" | "aside" | "article";
 } & HTMLAttributes<HTMLElement>) {
   return (
     <As

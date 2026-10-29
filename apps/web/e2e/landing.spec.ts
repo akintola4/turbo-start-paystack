@@ -150,7 +150,7 @@ test("footer and receipt controls stay in sync and are remembered", async ({
 }) => {
   await page.goto("/");
   const receipt = page.locator("section[aria-labelledby=receipt-title]");
-  await page.locator("footer [data-theme-choice=dark]").click();
+  await page.locator("footer [data-segment=dark]").click();
   await expect(receipt.getByRole("radio", { name: "Dark" })).toHaveAttribute(
     "aria-checked",
     "true"
@@ -204,4 +204,62 @@ test("the wordmark tile holds every symbol at every width", async ({
       expect(fit, `${code} at ${width}px`).toBe(true);
     }
   }
+});
+
+test("every control on the landing has press feedback", async ({ page }) => {
+  for (const q of ["", "?features=b", "?features=c"]) {
+    await page.goto(`/${q}`);
+    const missing = await page.evaluate(() => {
+      const controls = document.querySelectorAll<HTMLElement>(
+        'button, a[role=button], [data-slot=button], [role=radio], [role=tab], a[class*="bg-"]'
+      );
+      return [...controls]
+        .filter((el) => !el.closest("[data-sonner-toaster], nextjs-portal"))
+        .filter(
+          (el) => ![...el.classList].some((c) => c.startsWith("pressable"))
+        )
+        .map(
+          (el) =>
+            `${el.tagName} "${(el.textContent ?? "").trim().slice(0, 30)}"`
+        );
+    });
+    expect(missing, `controls without press feedback on /${q}`).toEqual([]);
+  }
+});
+
+test("the copy button's label is centred in both states", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  const button = page.locator("[data-copy]");
+  await button.scrollIntoViewIfNeeded();
+  const probe = (label: string) =>
+    button.evaluate((btn, text) => {
+      const group = btn.querySelector(
+        `[data-copy-label="${text}"]`
+      ) as HTMLElement;
+      const b = btn.getBoundingClientRect();
+      const g = group.getBoundingClientRect();
+      const icon = group.querySelector("svg")?.getBoundingClientRect();
+      const word = group.querySelector("span")?.getBoundingClientRect();
+      return {
+        padDiff: Math.abs(g.left - b.left - (b.right - g.right)),
+        iconOffset:
+          icon && word
+            ? Math.abs(
+                (icon.top + icon.bottom) / 2 - (word.top + word.bottom) / 2
+              )
+            : 0,
+      };
+    }, label);
+  const copy = await probe("Copy");
+  expect(copy.padDiff).toBeLessThanOrEqual(1);
+  expect(copy.iconOffset).toBeLessThanOrEqual(0.5);
+  await button.click();
+  await page.waitForTimeout(300);
+  const copied = await probe("Copied");
+  expect(copied.padDiff).toBeLessThanOrEqual(1);
+  expect(copied.iconOffset).toBeLessThanOrEqual(0.5);
 });

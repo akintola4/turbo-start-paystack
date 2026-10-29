@@ -12,12 +12,13 @@ import {
   useLanding,
 } from "@/components/landing/currency-context";
 import { nextRadioIndex } from "@/components/landing/radio";
+import { type SegmentOption, Segmented } from "@/components/landing/segmented";
 import type { PlanInfo, PriceTable } from "@/components/landing/types";
 import { Money, Panel } from "@/components/primitives";
 import { formatMoney } from "@/lib/money";
 import { currencyMeta } from "@/lib/landing";
 
-const INTERVALS: { value: Interval; label: string }[] = [
+const INTERVALS: SegmentOption<Interval>[] = [
   { value: "monthly", label: "Monthly" },
   { value: "annually", label: "Annually" },
 ];
@@ -67,7 +68,7 @@ function CurrencySwitch() {
             aria-checked={on}
             aria-label={`${meta.word} (${code})`}
             className={cn(
-              "relative grid aspect-square touch-manipulation select-none place-content-center gap-0.5 rounded-card font-bold transition-[background-color,color,scale] duration-(--dur-fast) ease-out active:scale-[0.96]",
+              "pressable pressable-sm relative grid aspect-square select-none place-content-center gap-0.5 rounded-card font-bold",
               on
                 ? "text-highlight-foreground"
                 : "text-panel-foreground hover:bg-panel-line"
@@ -109,51 +110,16 @@ function CurrencySwitch() {
 
 function IntervalSwitch() {
   const { interval, setInterval } = useLanding();
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
-  const index = INTERVALS.findIndex((i) => i.value === interval);
   return (
-    <div
-      aria-label="Billing interval"
-      className="relative grid h-12 w-full grid-cols-2 rounded-control bg-panel-tile p-1 sm:w-auto"
-      onKeyDown={(e) => {
-        const next = nextRadioIndex(e, index, INTERVALS.length);
-        const value = next === null ? undefined : INTERVALS[next]?.value;
-        if (next !== null && value) {
-          setInterval(value);
-          refs.current[next]?.focus();
-        }
-      }}
-      role="radiogroup"
-    >
-      <span
-        aria-hidden
-        className="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-chip bg-panel-foreground transition-transform duration-(--dur-base) ease-(--ease-in-out) motion-reduce:transition-none"
-        style={{ transform: `translateX(${index * 100}%)` }}
-      />
-      {INTERVALS.map((item, i) => {
-        const on = item.value === interval;
-        return (
-          // biome-ignore lint/a11y/useSemanticElements: ARIA radio group with roving focus and a sliding thumb.
-          <button
-            aria-checked={on}
-            className={cn(
-              "relative rounded-chip px-5 font-semibold text-sm transition-colors duration-(--dur-fast)",
-              on ? "text-panel" : "text-panel-muted hover:text-panel-foreground"
-            )}
-            key={item.value}
-            onClick={() => setInterval(item.value)}
-            ref={(el) => {
-              refs.current[i] = el;
-            }}
-            role="radio"
-            tabIndex={on ? 0 : -1}
-            type="button"
-          >
-            {item.label}
-          </button>
-        );
-      })}
-    </div>
+    <Segmented
+      className="w-full sm:w-[15rem]"
+      label="Billing interval"
+      onChange={setInterval}
+      options={INTERVALS}
+      size="md"
+      tone="panel"
+      value={interval}
+    />
   );
 }
 

@@ -226,7 +226,7 @@ function DemoButton({
   return (
     <button
       className={cn(
-        "inline-flex h-10 touch-manipulation items-center gap-1.5 rounded-control bg-secondary px-3 font-medium font-mono text-[13px] transition-[background-color,scale] duration-(--dur-fast) ease-out hover:bg-accent active:scale-[0.97]",
+        "pressable inline-flex h-10 items-center gap-1.5 rounded-control bg-secondary px-3 font-medium font-mono text-[13px] hover:bg-accent",
         className
       )}
       onClick={onClick}

@@ -6,21 +6,18 @@ import {
   type Currency,
 } from "@workspace/billing/money";
 import { cn } from "@workspace/tailwind-config/utils";
-import {
-  ArrowUpRightIcon,
-  CheckIcon,
-  CopyIcon,
-  MonitorIcon,
-  MoonIcon,
-  SunIcon,
-} from "lucide-react";
+import { ArrowUpRightIcon, CheckIcon, CopyIcon } from "lucide-react";
 import { useRef } from "react";
 
 import { useLanding } from "@/components/landing/currency-context";
 import { PaystackStatus } from "@/components/landing/paystack-status";
 import { nextRadioIndex } from "@/components/landing/radio";
-import { useCopyCommand } from "@/components/landing/start-command";
-import { THEMES, useThemeChoice } from "@/components/landing/theme-choice";
+import { CopyLabel, useCopyCommand } from "@/components/landing/start-command";
+import { Segmented } from "@/components/landing/segmented";
+import {
+  THEME_OPTIONS,
+  useThemeChoice,
+} from "@/components/landing/theme-choice";
 import { Panel } from "@/components/primitives";
 import { gsap, MOTION_QUERIES, useGSAP } from "@/lib/gsap";
 import { currencyMeta } from "@/lib/landing";
@@ -111,24 +108,14 @@ function FooterCommand() {
       </code>
       <button
         aria-label={copied ? "Copied" : "Copy the install command"}
-        className="relative grid size-9 shrink-0 touch-manipulation place-items-center rounded-chip transition-[background-color,scale] duration-(--dur-fast) ease-out before:absolute before:-inset-1 hover:bg-panel-line active:scale-[0.96]"
+        className="pressable pressable-sm relative grid size-9 shrink-0 place-items-center rounded-chip before:absolute before:-inset-1 hover:bg-panel-line"
         onClick={copy}
         type="button"
       >
-        <CopyIcon
-          aria-hidden
-          className={cn(
-            "col-start-1 row-start-1 size-4 transition-opacity duration-(--dur-fast)",
-            copied && "opacity-0"
-          )}
-        />
-        <CheckIcon
-          aria-hidden
-          className={cn(
-            "col-start-1 row-start-1 size-4 transition-opacity duration-(--dur-fast)",
-            !copied && "opacity-0"
-          )}
-        />
+        <span className="grid place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
+          <CopyLabel icon={CopyIcon} shown={!copied} text="" />
+          <CopyLabel icon={CheckIcon} shown={copied} text="" />
+        </span>
       </button>
     </div>
   );
@@ -165,7 +152,7 @@ function PricesIn() {
               aria-checked={on}
               aria-label={`${meta.word} (${code})`}
               className={cn(
-                "grid size-11 touch-manipulation select-none place-items-center rounded-control font-bold transition-[background-color,color,scale] duration-(--dur-fast) ease-out active:scale-[0.96]",
+                "pressable pressable-sm grid size-11 select-none place-items-center rounded-control font-bold",
                 meta.glyph === "KSh" ? "text-xs" : "text-[17px]",
                 on
                   ? "bg-highlight text-highlight-foreground"
@@ -190,62 +177,21 @@ function PricesIn() {
   );
 }
 
-const THEME_ICON = { light: SunIcon, dark: MoonIcon, system: MonitorIcon };
-
 function ThemeSwitch() {
   const { current, setTheme } = useThemeChoice();
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
-  const index = Math.max(
-    0,
-    THEMES.findIndex((t) => t.value === current)
-  );
   return (
     <div className="grid justify-items-start gap-3">
       <h3 className={HEADING} id="footer-theme">
         Theme
       </h3>
-      <div
-        aria-labelledby="footer-theme"
-        className="inline-flex gap-1 rounded-control bg-panel-tile p-1"
-        onKeyDown={(e) => {
-          const next = nextRadioIndex(e, index, THEMES.length);
-          const value = next === null ? undefined : THEMES[next]?.value;
-          if (next !== null && value) {
-            setTheme(value);
-            refs.current[next]?.focus();
-          }
-        }}
-        role="radiogroup"
-      >
-        {THEMES.map((t, i) => {
-          const on = t.value === current;
-          const Icon = THEME_ICON[t.value];
-          return (
-            // biome-ignore lint/a11y/useSemanticElements: ARIA radio group with roving focus.
-            <button
-              aria-checked={on}
-              className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-chip px-2.5 font-semibold text-[13px] transition-colors duration-(--dur-fast)",
-                on
-                  ? "bg-panel-foreground text-panel"
-                  : "text-panel-muted hover:text-panel-foreground"
-              )}
-              data-theme-choice={t.value}
-              key={t.value}
-              onClick={() => setTheme(t.value)}
-              ref={(el) => {
-                refs.current[i] = el;
-              }}
-              role="radio"
-              tabIndex={(current === null ? i === 2 : on) ? 0 : -1}
-              type="button"
-            >
-              <Icon aria-hidden className="size-3.5" />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
+      <Segmented
+        className="w-full max-w-[16.5rem]"
+        label="Theme"
+        onChange={setTheme}
+        options={THEME_OPTIONS}
+        tone="panel"
+        value={current}
+      />
     </div>
   );
 }

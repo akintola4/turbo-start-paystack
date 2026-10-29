@@ -70,7 +70,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body className="min-h-dvh">
         <a
-          className="fixed top-3 left-3 z-[100] -translate-y-20 rounded-control bg-primary px-4 py-2.5 font-semibold text-primary-foreground focus-visible:translate-y-0"
+          className="pressable fixed top-3 left-3 z-[100] -translate-y-20 rounded-control bg-primary px-4 py-2.5 font-semibold text-primary-foreground focus-visible:translate-y-0"
           href="#content"
         >
           Skip to content

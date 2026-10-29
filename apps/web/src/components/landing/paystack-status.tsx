@@ -67,7 +67,7 @@ export function PaystackStatus({ className }: { className?: string }) {
   return (
     <a
       className={cn(
-        "group inline-flex h-8 items-center gap-2 rounded-chip bg-panel-tile px-2.5 text-[13px] text-panel-foreground transition-colors duration-(--dur-fast) hover:bg-panel-line",
+        "pressable pressable-sm group inline-flex h-8 items-center gap-2 rounded-chip bg-panel-tile px-2.5 text-[13px] text-panel-foreground hover:bg-panel-line",
         className
       )}
       data-status={known?.status ?? state.kind}

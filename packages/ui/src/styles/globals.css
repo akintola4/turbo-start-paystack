@@ -115,6 +115,10 @@
   --motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --motion-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  /* A small overshoot for releases and sliding thumbs. */
+  --motion-ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --dur-press-in: 90ms;
+  --dur-press-out: 180ms;
   --dur-press: 120ms;
   --dur-fast: 150ms;
   --dur-base: 200ms;
@@ -364,4 +368,47 @@
     animation-iteration-count: 1;
     transition-duration: 0.01ms;
   }
+}
+
+/*
+ * Press feedback: the one way anything clickable responds to a press.
+ * Fast press-in, slightly springy release; scale and colours only, never
+ * `all`. `data-pressed` is set while Enter or Space is held (PressFeedback),
+ * so keyboard presses look the same. Reduced motion dims instead of scaling.
+ *   pressable       buttons, CTAs, segments (0.97)
+ *   pressable-sm    chips and tiles (0.96)
+ *   pressable-card  large clickable cards (colour only, no scale)
+ */
+@utility pressable {
+  transform-origin: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  /* The spring curve is for scale only; colours ease plainly. */
+  --press-colours: opacity var(--dur-fast) ease, color var(--dur-fast) ease,
+    background-color var(--dur-fast) ease, border-color var(--dur-fast) ease,
+    outline-color var(--dur-fast) ease, fill var(--dur-fast) ease,
+    stroke var(--dur-fast) ease;
+  transition:
+    scale var(--dur-press-out) var(--motion-ease-spring),
+    var(--press-colours);
+  &:active:not(:disabled, [aria-disabled="true"]),
+  &[data-pressed] {
+    scale: var(--press-scale, 0.97);
+    transition:
+      scale var(--dur-press-in) var(--motion-ease-out),
+      var(--press-colours);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:active:not(:disabled, [aria-disabled="true"]),
+    &[data-pressed] {
+      scale: 1;
+      opacity: 0.82;
+    }
+  }
+}
+@utility pressable-sm {
+  --press-scale: 0.96;
+}
+@utility pressable-card {
+  --press-scale: 1;
 }

@@ -150,19 +150,19 @@ export function Hero({ prices }: { prices: PriceTable }) {
           <Wordmark className="text-panel-foreground" />
           <nav aria-label="Primary" className="flex items-center gap-1">
             <a
-              className="hidden rounded-control px-3 py-2.5 font-medium text-[15px] text-panel-muted transition-colors duration-(--dur-fast) hover:bg-panel-tile hover:text-panel-foreground lg:inline-flex"
+              className="hidden pressable pressable-sm rounded-control px-3 py-2.5 font-medium text-[15px] text-panel-muted hover:bg-panel-tile hover:text-panel-foreground lg:inline-flex"
               href="#pricing"
             >
               Pricing
             </a>
             <a
-              className="hidden rounded-control px-3 py-2.5 font-medium text-[15px] text-panel-muted transition-colors duration-(--dur-fast) hover:bg-panel-tile hover:text-panel-foreground lg:inline-flex"
+              className="hidden pressable pressable-sm rounded-control px-3 py-2.5 font-medium text-[15px] text-panel-muted hover:bg-panel-tile hover:text-panel-foreground lg:inline-flex"
               href="#webhooks"
             >
               How billing works
             </a>
             <a
-              className="hidden rounded-control px-3 py-2.5 font-medium text-[15px] text-panel-muted transition-colors duration-(--dur-fast) hover:bg-panel-tile hover:text-panel-foreground lg:inline-flex"
+              className="hidden pressable pressable-sm rounded-control px-3 py-2.5 font-medium text-[15px] text-panel-muted hover:bg-panel-tile hover:text-panel-foreground lg:inline-flex"
               href={`${REPO}#readme`}
             >
               Docs
@@ -252,7 +252,7 @@ export function Hero({ prices }: { prices: PriceTable }) {
                 aria-label={`Show prices in ${meta.word}`}
                 aria-pressed={on}
                 className={cn(
-                  "grid aspect-square select-none place-items-center rounded-card font-bold transition-[background-color,color,scale] duration-(--dur-base) ease-out active:scale-[0.97] motion-reduce:transition-none sm:rounded-tile",
+                  "pressable pressable-sm grid aspect-square select-none place-items-center rounded-card font-bold motion-reduce:transition-none sm:rounded-tile",
                   "touch-manipulation max-lg:[&:nth-of-type(n+13)]:hidden",
                   on
                     ? "bg-highlight text-highlight-foreground"
@@ -279,8 +279,8 @@ export function Hero({ prices }: { prices: PriceTable }) {
                   tiles.current[i] = el;
                 }}
                 style={{
-                  // Colour ripples; the press scale (last) never waits.
-                  transitionDelay: `${rippleDelay(i, Math.max(0, from), columns)}ms, ${rippleDelay(i, Math.max(0, from), columns)}ms, 0ms`,
+                  // Order follows `pressable`: scale and opacity never wait; colour ripples.
+                  transitionDelay: `0ms, 0ms, ${rippleDelay(i, Math.max(0, from), columns)}ms, ${rippleDelay(i, Math.max(0, from), columns)}ms`,
                 }}
                 tabIndex={i === focusIndex ? 0 : -1}
                 type="button"

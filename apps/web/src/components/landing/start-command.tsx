@@ -33,6 +33,48 @@ export function useCopyCommand() {
   return { copied, copy };
 }
 
+/**
+ * One state of a copy button: icon and word, centred on the word's cap
+ * height. The hidden state is scaled down and blurred a little, so the swap
+ * reads as one thing changing rather than two crossfading.
+ */
+export function CopyLabel({
+  icon: Icon,
+  text,
+  shown,
+  hideTextOnPhone = true,
+}: {
+  icon: typeof CopyIcon;
+  text: string;
+  shown: boolean;
+  hideTextOnPhone?: boolean;
+}) {
+  return (
+    <span
+      aria-hidden={!shown}
+      className={cn(
+        "inline-flex items-center gap-1.5 transition-[opacity,scale,filter] duration-(--dur-base) ease-(--ease-out) motion-reduce:transition-none",
+        shown
+          ? "scale-100 opacity-100 blur-0"
+          : "scale-[0.85] opacity-0 blur-[2px]"
+      )}
+      data-copy-label={text}
+    >
+      <Icon aria-hidden className="size-4 shrink-0" />
+      {text ? (
+        <span
+          className={cn(
+            "[text-box:trim-both_cap_alphabetic]",
+            hideTextOnPhone && "max-sm:sr-only"
+          )}
+        >
+          {text}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export function StartCommand() {
   const { copied, copy } = useCopyCommand();
 
@@ -55,33 +97,17 @@ export function StartCommand() {
       </code>
       <button
         aria-label={copied ? "Copied" : "Copy the install command"}
-        className="grid h-12 shrink-0 touch-manipulation place-items-center rounded-control bg-highlight px-3 font-semibold text-highlight-foreground transition-[background-color,scale] duration-(--dur-fast) ease-out hover:bg-highlight-hover active:scale-[0.97] sm:h-14 sm:px-5"
+        className="pressable grid h-12 shrink-0 place-items-center rounded-control bg-highlight px-3 font-semibold text-highlight-foreground hover:bg-highlight-hover sm:h-14 sm:px-5"
         data-copy
         onClick={copy}
         type="button"
       >
-        {/* Both labels share one grid cell, so the button keeps the width of
-            the wider one and never shifts. */}
-        <span className="grid [&>*]:col-start-1 [&>*]:row-start-1">
-          <span
-            className={cn(
-              "inline-flex items-center gap-2 transition-opacity duration-(--dur-fast)",
-              copied && "opacity-0"
-            )}
-          >
-            <CopyIcon aria-hidden className="size-4" />
-            <span className="max-sm:sr-only">Copy</span>
-          </span>
-          <span
-            aria-hidden={!copied}
-            className={cn(
-              "inline-flex items-center gap-2 transition-opacity duration-(--dur-fast)",
-              !copied && "opacity-0"
-            )}
-          >
-            <CheckIcon aria-hidden className="size-4" />
-            <span className="max-sm:sr-only">Copied</span>
-          </span>
+        {/* Both labels share one centred grid cell: the button takes the
+            width of the wider one, both sit centred, and the swap never
+            moves anything. */}
+        <span className="grid place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
+          <CopyLabel icon={CopyIcon} shown={!copied} text="Copy" />
+          <CopyLabel icon={CheckIcon} shown={copied} text="Copied" />
         </span>
       </button>
     </div>

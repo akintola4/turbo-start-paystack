@@ -3,13 +3,17 @@
 import NumberFlow from "@number-flow/react";
 import { CURRENCIES } from "@workspace/billing/money";
 import { cn } from "@workspace/tailwind-config/utils";
-import { ArrowUpRightIcon, MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { ArrowUpRightIcon } from "lucide-react";
 import { useRef } from "react";
 
 import { NUMBER_TIMING } from "@/components/animated-number";
 import { useLanding } from "@/components/landing/currency-context";
 import { nextRadioIndex } from "@/components/landing/radio";
-import { THEMES, useThemeChoice } from "@/components/landing/theme-choice";
+import { Segmented } from "@/components/landing/segmented";
+import {
+  THEME_OPTIONS,
+  useThemeChoice,
+} from "@/components/landing/theme-choice";
 import { Mark, Panel } from "@/components/primitives";
 import { gsap, MOTION_QUERIES, refreshAfterFonts, useGSAP } from "@/lib/gsap";
 import { barcode, currencyMeta } from "@/lib/landing";
@@ -34,8 +38,6 @@ const LINE_ITEMS = [
   },
   { label: "Licence", to: "MIT", href: `${REPO}/blob/main/LICENSE` },
 ];
-
-const THEME_ICON = { light: SunIcon, dark: MoonIcon, system: MonitorIcon };
 
 function AmountDue() {
   const { currency, setCurrency } = useLanding();
@@ -82,7 +84,7 @@ function AmountDue() {
               aria-checked={on}
               aria-label={meta.word}
               className={cn(
-                "relative grid size-9 touch-manipulation place-items-center rounded-chip font-bold transition-[background-color,color] duration-(--dur-fast) before:absolute before:-inset-1",
+                "pressable pressable-sm relative grid size-9 place-items-center rounded-chip font-bold before:absolute before:-inset-1",
                 meta.glyph === "KSh" ? "text-[11px]" : "text-sm",
                 on
                   ? "bg-panel text-panel-foreground"
@@ -109,55 +111,17 @@ function AmountDue() {
 
 function PaperTheme() {
   const { current, setTheme } = useThemeChoice();
-  const refs = useRef<(HTMLButtonElement | null)[]>([]);
-  const index = Math.max(
-    0,
-    THEMES.findIndex((t) => t.value === current)
-  );
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <span className="text-[13px] text-[var(--receipt-muted)]">Paper</span>
-      <div
-        aria-label="Theme"
-        className="flex gap-1"
-        onKeyDown={(e) => {
-          const next = nextRadioIndex(e, index, THEMES.length);
-          const value = next === null ? undefined : THEMES[next]?.value;
-          if (next !== null && value) {
-            setTheme(value);
-            refs.current[next]?.focus();
-          }
-        }}
-        role="radiogroup"
-      >
-        {THEMES.map((t, i) => {
-          const on = t.value === current;
-          const Icon = THEME_ICON[t.value];
-          return (
-            // biome-ignore lint/a11y/useSemanticElements: ARIA radio group with roving focus.
-            <button
-              aria-checked={on}
-              className={cn(
-                "inline-flex h-9 items-center gap-1.5 rounded-chip px-2.5 font-semibold text-[13px] transition-colors duration-(--dur-fast)",
-                on
-                  ? "bg-[var(--receipt-well)] text-[var(--receipt-ink)]"
-                  : "text-[var(--receipt-muted)] hover:text-[var(--receipt-ink)]"
-              )}
-              key={t.value}
-              onClick={() => setTheme(t.value)}
-              ref={(el) => {
-                refs.current[i] = el;
-              }}
-              role="radio"
-              tabIndex={(current === null ? i === 2 : on) ? 0 : -1}
-              type="button"
-            >
-              <Icon aria-hidden className="size-3.5" />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
+      <Segmented
+        className="w-[16.5rem] max-w-full"
+        label="Theme"
+        onChange={setTheme}
+        options={THEME_OPTIONS}
+        tone="paper"
+        value={current}
+      />
     </div>
   );
 }

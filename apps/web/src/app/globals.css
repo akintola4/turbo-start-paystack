@@ -251,3 +251,47 @@ number-flow-react::part(symbol) {
     transition: none;
   }
 }
+
+/* Segmented icons: a small arrival when an option becomes selected. */
+@keyframes icon-spin {
+  from {
+    rotate: -90deg;
+    scale: 0.6;
+  }
+}
+@keyframes icon-tilt {
+  from {
+    rotate: -35deg;
+    scale: 0.8;
+  }
+}
+@keyframes icon-pop {
+  from {
+    scale: 0.7;
+  }
+}
+@theme {
+  --animate-icon-spin: icon-spin 320ms var(--motion-ease-spring);
+  --animate-icon-tilt: icon-tilt 320ms var(--motion-ease-spring);
+  --animate-icon-pop: icon-pop 260ms var(--motion-ease-spring);
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-icon-spin,
+  .animate-icon-tilt,
+  .animate-icon-pop {
+    animation: none;
+  }
+}
+
+/*
+ * Theme switch: the new theme is revealed by a clip-path circle animated in
+ * useThemeChoice. Turn off the default cross-fade so nothing else moves.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  z-index: 1;
+}
