@@ -23,7 +23,9 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "setup": "pnpm --filter @workspace/scripts run setup",
+    "dev": "pnpm --filter @workspace/scripts run dev:all",
+    "dev:turbo": "turbo run dev",
     "dev:web": "turbo run dev --filter=web",
     "email:preview": "pnpm --filter @workspace/email dev",
     "lint": "turbo run lint",
