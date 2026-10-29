@@ -140,12 +140,9 @@ export function Hero({ prices }: { prices: PriceTable }) {
     <Panel
       aria-label="Turbo Start Paystack"
       as="section"
-      className="mx-2 flex min-h-[calc(100svh-16px)] flex-col p-0 sm:mx-3 sm:min-h-[calc(100svh-24px)] sm:p-0"
+      className="landing-bleed flex min-h-[calc(100svh-2*var(--edge))] flex-col p-0 sm:p-0"
     >
-      <div
-        className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col px-4 pb-4 sm:px-8 sm:pb-8 lg:px-12 lg:pb-12"
-        ref={root}
-      >
+      <div className="landing-inner flex flex-1 flex-col pb-(--gut)" ref={root}>
         <header className="flex items-center justify-between gap-4 pt-[max(1.25rem,env(safe-area-inset-top))] pb-5">
           <Wordmark className="text-panel-foreground" />
           <nav aria-label="Primary" className="flex items-center gap-1">

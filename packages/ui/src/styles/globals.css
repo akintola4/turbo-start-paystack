@@ -384,7 +384,8 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   /* The spring curve is for scale only; colours ease plainly. */
-  --press-colours: opacity var(--dur-fast) ease, color var(--dur-fast) ease,
+  --press-colours:
+    opacity var(--dur-fast) ease, color var(--dur-fast) ease,
     background-color var(--dur-fast) ease, border-color var(--dur-fast) ease,
     outline-color var(--dur-fast) ease, fill var(--dur-fast) ease,
     stroke var(--dur-fast) ease;

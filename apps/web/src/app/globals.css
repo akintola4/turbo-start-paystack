@@ -209,7 +209,7 @@ number-flow-react::part(symbol) {
   color: var(--panel-foreground);
   user-select: none;
   /* Optical alignment: pull the "t" side bearing back to the content edge. */
-  margin-inline-start: -0.035em;
+  margin-inline-start: -0.04em;
 }
 /* A cap-height square sitting on the baseline (no in-flow content, so its
    baseline is its bottom edge). */
@@ -294,4 +294,34 @@ number-flow-react::part(symbol) {
 }
 ::view-transition-new(root) {
   z-index: 1;
+}
+
+/*
+ * Landing layout, as in the Money in motion concept: panels run full-bleed
+ * minus --edge, content sits --gut inside them, and only text gets a
+ * measure. On very wide screens content stops at --content-max (2048px):
+ * at 2560 the concept's tile wall reached ~290px tiles and 2400px lines.
+ */
+:root {
+  --edge: clamp(8px, 1vw, 12px);
+  --gut: clamp(16px, 3.4vw, 48px);
+  --content-max: 2048px;
+}
+/* A section on the page: its content starts where the panels' content does. */
+@utility landing-section {
+  width: 100%;
+  margin-inline: auto;
+  max-width: calc(var(--content-max) + 2 * (var(--edge) + var(--gut)));
+  padding-inline: calc(var(--edge) + var(--gut));
+}
+/* A full-bleed panel. */
+@utility landing-bleed {
+  margin-inline: var(--edge);
+}
+/* Content inside a full-bleed panel. */
+@utility landing-inner {
+  width: 100%;
+  margin-inline: auto;
+  max-width: calc(var(--content-max) + 2 * var(--gut));
+  padding-inline: var(--gut);
 }

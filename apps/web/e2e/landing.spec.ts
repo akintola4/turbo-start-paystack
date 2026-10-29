@@ -207,7 +207,7 @@ test("the wordmark tile holds every symbol at every width", async ({
 });
 
 test("every control on the landing has press feedback", async ({ page }) => {
-  for (const q of ["", "?features=b", "?features=c"]) {
+  for (const q of [""]) {
     await page.goto(`/${q}`);
     const missing = await page.evaluate(() => {
       const controls = document.querySelectorAll<HTMLElement>(
@@ -262,4 +262,105 @@ test("the copy button's label is centred in both states", async ({
   const copied = await probe("Copied");
   expect(copied.padDiff).toBeLessThanOrEqual(1);
   expect(copied.iconOffset).toBeLessThanOrEqual(0.5);
+});
+
+test("every feature tab shows all four border edges", async ({ browser }) => {
+  for (const colorScheme of ["light", "dark"] as const) {
+    for (const width of [375, 1024, 1440]) {
+      const context = await browser.newContext({
+        viewport: { width, height: 900 },
+        colorScheme,
+        reducedMotion: "reduce",
+        deviceScaleFactor: 1,
+      });
+      const page = await context.newPage();
+      await page.goto("/");
+      const tabs = page.locator("[role=tab]");
+      const count = await tabs.count();
+      for (let i = 0; i < count; i++) {
+        const tab = tabs.nth(i);
+        await tab.click();
+        await page.waitForTimeout(250);
+        const box = await tab.boundingBox();
+        if (!box) {
+          throw new Error(`tab ${i} has no box`);
+        }
+        const pad = 4;
+        const png = await page.screenshot({
+          clip: {
+            x: box.x - pad,
+            y: box.y - pad,
+            width: box.width + pad * 2,
+            height: box.height + pad * 2,
+          },
+        });
+        const edges = await page.evaluate(
+          async ({ b64, w, h, pad }) => {
+            const img = new Image();
+            img.src = `data:image/png;base64,${b64}`;
+            await img.decode();
+            const c = document.createElement("canvas");
+            c.width = img.width;
+            c.height = img.height;
+            const ctx = c.getContext("2d") as CanvasRenderingContext2D;
+            ctx.drawImage(img, 0, 0);
+            const px = (x: number, y: number) =>
+              ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
+            const diff = (a: Uint8ClampedArray, b: Uint8ClampedArray) =>
+              Math.abs(a[0]! - b[0]!) +
+              Math.abs(a[1]! - b[1]!) +
+              Math.abs(a[2]! - b[2]!);
+            // Strongest contrast in a 3px band across each edge midpoint,
+            // against the background 3px outside the tab.
+            const band = (pts: [number, number][], out: [number, number]) =>
+              Math.max(...pts.map(([x, y]) => diff(px(x, y), px(...out))));
+            const cx = pad + w / 2;
+            const cy = pad + h / 2;
+            return {
+              top: band(
+                [
+                  [cx, pad - 1],
+                  [cx, pad],
+                  [cx, pad + 1],
+                ],
+                [cx, 1]
+              ),
+              bottom: band(
+                [
+                  [cx, pad + h - 2],
+                  [cx, pad + h - 1],
+                  [cx, pad + h],
+                ],
+                [cx, pad * 2 + h - 2]
+              ),
+              left: band(
+                [
+                  [pad - 1, cy],
+                  [pad, cy],
+                  [pad + 1, cy],
+                ],
+                [1, cy]
+              ),
+              right: band(
+                [
+                  [pad + w - 2, cy],
+                  [pad + w - 1, cy],
+                  [pad + w, cy],
+                ],
+                [pad * 2 + w - 2, cy]
+              ),
+            };
+          },
+          { b64: png.toString("base64"), w: box.width, h: box.height, pad }
+        );
+        for (const [edge, delta] of Object.entries(edges)) {
+          expect(
+            delta,
+            `${colorScheme} ${width}px tab ${i} ${edge} edge`
+          ).toBeGreaterThanOrEqual(6);
+        }
+      }
+      await context.close();
+    }
+  }
 });

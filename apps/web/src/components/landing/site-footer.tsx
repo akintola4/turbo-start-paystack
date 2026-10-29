@@ -237,12 +237,9 @@ export function SiteFooter({ build }: { build: BuildInfo }) {
   );
 
   return (
-    <footer className="mx-2 mt-3 mb-[max(0.5rem,env(safe-area-inset-bottom))] sm:mx-3 sm:mb-3">
-      <Panel
-        as="div"
-        className="mx-auto max-w-[1440px] px-4 pt-8 pb-0 sm:px-8 sm:pt-10 sm:pb-0"
-      >
-        <div className="@container" ref={root}>
+    <footer className="landing-bleed mt-3 mb-[max(var(--edge),env(safe-area-inset-bottom))]">
+      <Panel as="div" className="px-0 pt-8 pb-0 sm:px-0 sm:pt-10 sm:pb-0">
+        <div className="@container landing-inner" ref={root}>
           <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto] xl:grid-cols-[minmax(0,2.8fr)_repeat(3,minmax(0,1fr))_auto] xl:gap-x-8">
             <div className="col-span-2 grid content-start justify-items-start gap-5 md:col-span-3 lg:col-span-4 xl:col-span-1">
               <p className="max-w-[18ch] text-balance font-semibold text-[22px] leading-[1.2] tracking-[-0.02em] [text-box:trim-both_cap_alphabetic]">

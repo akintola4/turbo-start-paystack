@@ -165,13 +165,10 @@ export function ReceiptSection({ version }: { version: string }) {
   );
 
   return (
-    <section
-      aria-labelledby="receipt-title"
-      className="mx-auto w-full max-w-[1440px] px-2 sm:px-3"
-    >
+    <section aria-labelledby="receipt-title" className="landing-bleed">
       <Panel
         as="div"
-        className="overflow-hidden px-4 pt-6 pb-3 sm:px-8 sm:pt-8 sm:pb-5"
+        className="overflow-hidden px-(--gut) pt-6 pb-3 sm:px-(--gut) sm:pt-8 sm:pb-5"
       >
         <div ref={root}>
           <div data-receipt-feeder>

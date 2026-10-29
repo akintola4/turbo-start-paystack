@@ -2,7 +2,6 @@
 
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
 
@@ -12,7 +11,7 @@ import { SplitText } from "gsap/SplitText";
  * reverted on unmount (client navigation) and has a reduced-motion branch.
  */
 if (typeof window !== "undefined") {
-  gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText, DrawSVGPlugin);
+  gsap.registerPlugin(useGSAP, ScrollTrigger, SplitText);
 }
 
 /** matchMedia conditions shared by the landing islands. Always include
@@ -30,4 +29,4 @@ export function refreshAfterFonts() {
   document.fonts?.ready.then(() => ScrollTrigger.refresh()).catch(() => {});
 }
 
-export { DrawSVGPlugin, gsap, ScrollTrigger, SplitText, useGSAP };
+export { gsap, ScrollTrigger, SplitText, useGSAP };

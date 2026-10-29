@@ -135,10 +135,10 @@ export function Pricing({
   return (
     <section
       aria-labelledby="pricing-title"
-      className="mx-auto w-full max-w-[1440px] scroll-mt-4 px-2 sm:px-3"
+      className="landing-bleed scroll-mt-4"
       id="pricing"
     >
-      <Panel className="grid gap-8 p-5 sm:p-10 lg:p-12">
+      <Panel className="grid gap-8 px-(--gut) py-8 sm:px-(--gut) sm:py-12 [&>*]:mx-auto [&>*]:w-full [&>*]:max-w-(--content-max)">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-end">
           <h2
             className="text-balance font-semibold text-[clamp(36px,5.4vw,80px)] leading-[0.96] tracking-[-0.045em]"
