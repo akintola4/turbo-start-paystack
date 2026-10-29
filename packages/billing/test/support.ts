@@ -6,6 +6,7 @@ import { setupServer } from "msw/node";
 
 import { listPlanPrices } from "../src/catalog";
 import { createFakePaystack } from "../src/fake-paystack";
+import type { InvoicingConfig } from "../src/invoicing";
 import { chargeSuccess, subscriptionCreate } from "../src/fixtures";
 import { createPaystackClient } from "../src/paystack/client";
 import type { BillingNotification } from "../src/service/context";
@@ -25,7 +26,9 @@ const silent = { info() {}, warn() {}, error() {} };
  * Real Postgres (PGlite) + the real billing service + a fake Paystack behind
  * msw. Webhooks go through the same sign → ingest → process path as prod.
  */
-export async function setupBilling() {
+export async function setupBilling(
+  options: { invoicing?: InvoicingConfig } = {}
+) {
   const { db, close } = await createTestDb();
   const clock = { now: new Date("2026-03-01T10:00:00Z") };
   const fake = createFakePaystack({ now: () => clock.now });
@@ -59,6 +62,7 @@ export async function setupBilling() {
     graceDays: 7,
     now: () => clock.now,
     logger: silent,
+    invoicing: options.invoicing,
     notify: async (n) => {
       notifications.push(n);
     },

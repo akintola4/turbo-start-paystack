@@ -1,7 +1,8 @@
 import { type DbOrTx, schema } from "@workspace/db";
 import { eq, inArray, or } from "drizzle-orm";
 
-import { newId } from "./context";
+import { DEFAULT_INVOICING, issueInvoice } from "../invoicing";
+import { type BillingDeps, newId } from "./context";
 
 type InvoiceStatus = "pending" | "paid" | "failed" | "void";
 type InvoiceRow = typeof schema.invoice.$inferSelect;
@@ -18,6 +19,10 @@ export type InvoiceInput = {
   periodEnd?: Date | null;
   paidAt?: Date | null;
   description?: string | null;
+  kind?: "subscription" | "renewal" | "proration" | "card_check" | null;
+  planPriceId?: string | null;
+  card?: { brand?: string | null; last4?: string | null } | null;
+  refundedAt?: Date | null;
   raw?: unknown;
   /**
    * Which Paystack object this write comes from. Each one is the authority
@@ -50,6 +55,11 @@ function fold(row: InvoiceRow, other: InvoiceRow): InvoiceRow {
     periodEnd: pick(row.periodEnd, other.periodEnd),
     paidAt: pick(row.paidAt, other.paidAt),
     description: pick(row.description, other.description),
+    kind: pick(row.kind, other.kind),
+    planPriceId: pick(row.planPriceId, other.planPriceId),
+    cardBrand: pick(row.cardBrand, other.cardBrand),
+    cardLast4: pick(row.cardLast4, other.cardLast4),
+    refundedAt: pick(row.refundedAt, other.refundedAt),
   };
 }
 
@@ -73,6 +83,15 @@ function applyInput(row: InvoiceRow, input: InvoiceInput) {
     periodEnd: by(invoice, input.periodEnd, row.periodEnd),
     paidAt: by(charge, input.paidAt, row.paidAt),
     description: by(charge, input.description, row.description),
+    kind: by(charge, input.kind, row.kind),
+    planPriceId: by(charge, input.planPriceId, row.planPriceId),
+    cardBrand: by(
+      charge,
+      input.card?.last4 ? input.card.brand : null,
+      row.cardBrand
+    ),
+    cardLast4: by(charge, input.card?.last4, row.cardLast4),
+    refundedAt: pick(row.refundedAt, input.refundedAt),
   };
 }
 
@@ -111,6 +130,11 @@ async function insertRow(tx: DbOrTx, input: InvoiceInput) {
       periodEnd: input.periodEnd ?? null,
       paidAt: input.paidAt ?? null,
       description: input.description ?? null,
+      kind: input.kind ?? null,
+      planPriceId: input.planPriceId ?? null,
+      cardBrand: input.card?.last4 ? (input.card.brand?.trim() ?? null) : null,
+      cardLast4: input.card?.last4 ?? null,
+      refundedAt: input.refundedAt ?? null,
       raw: input.raw ?? null,
     })
     .onConflictDoNothing()
@@ -128,13 +152,22 @@ async function insertRow(tx: DbOrTx, input: InvoiceInput) {
  * moved back to pending or failed. Returns the row id.
  */
 export async function upsertInvoice(
+  deps: Pick<BillingDeps, "now" | "invoicing">,
   tx: DbOrTx,
   input: InvoiceInput
 ): Promise<string> {
+  const id = await writeInvoice(tx, input);
+  // First time it is paid: number it and freeze seller, buyer and tax, in
+  // this transaction. A no-op once issued.
+  await issueInvoice(tx, deps.invoicing ?? DEFAULT_INVOICING, id, deps.now());
+  return id;
+}
+
+async function writeInvoice(tx: DbOrTx, input: InvoiceInput): Promise<string> {
   const matches = await findRows(tx, input);
   if (matches.length === 0) {
     // On a lost race for the reference or invoice code, merge instead.
-    return (await insertRow(tx, input)) ?? upsertInvoice(tx, input);
+    return (await insertRow(tx, input)) ?? writeInvoice(tx, input);
   }
 
   // Keep the row that already counts as issued, so a paid row (and later

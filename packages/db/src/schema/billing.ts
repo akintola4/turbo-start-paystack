@@ -46,6 +46,15 @@ export const invoiceStatus = pgEnum("invoice_status", [
   "void",
 ]);
 
+/** What an invoice row is for. `card_check` is the refundable charge that
+ *  saves a card for a trial: not a sale, so it never gets an invoice number. */
+export const invoiceKind = pgEnum("invoice_kind", [
+  "subscription",
+  "renewal",
+  "proration",
+  "card_check",
+]);
+
 export const paymentIntentKind = pgEnum("payment_intent_kind", [
   "subscribe",
   "trial",
@@ -164,12 +173,54 @@ export const invoice = pgTable(
     periodEnd: timestamp("period_end", tz),
     paidAt: timestamp("paid_at", tz),
     description: text("description"),
+    kind: invoiceKind("kind"),
+    // The plan the charge was for (the target plan for a proration).
+    planPriceId: text("plan_price_id").references(() => planPrice.id),
+    cardBrand: text("card_brand"),
+    cardLast4: text("card_last4"),
+    // When a void row's money went back to the card.
+    refundedAt: timestamp("refunded_at", tz),
+    // Issued once, when the invoice is first paid, inside the same
+    // transaction: "INV-2026-000123", gap-free per year (invoice_sequence).
+    number: text("number").unique(),
+    issuedAt: timestamp("issued_at", tz),
+    // Seller and buyer as they were at issue, so later edits never rewrite
+    // an issued invoice. See InvoiceParty in @workspace/billing.
+    seller: jsonb("seller"),
+    buyer: jsonb("buyer"),
+    // Tax included in amount_subunit, fixed at issue. Basis points: 750 is
+    // 7.5%. net + tax = amount.
+    taxRateBp: integer("tax_rate_bp"),
+    netSubunit: money("net_subunit"),
+    taxSubunit: money("tax_subunit"),
     raw: jsonb("raw"),
     createdAt,
     updatedAt,
   },
   (t) => [index("invoice_org_idx").on(t.organizationId)]
 );
+
+/** Last invoice number used per scope ("INV-2026"). Incremented with an
+ *  upsert inside the issuing transaction: the row lock serialises issuers
+ *  and a rollback gives the number back, so the sequence has no gaps. */
+export const invoiceSequence = pgTable("invoice_sequence", {
+  scope: text("scope").primaryKey(),
+  lastValue: integer("last_value").notNull(),
+});
+
+/** Who an organization's invoices are made out to. Edited on the billing
+ *  page; copied onto each invoice when it is issued. */
+export const billingDetails = pgTable("billing_details", {
+  organizationId: text("organization_id")
+    .primaryKey()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  legalName: text("legal_name"),
+  address: text("address"),
+  taxId: text("tax_id"),
+  email: text("email"),
+  updatedByUserId: text("updated_by_user_id"),
+  updatedAt,
+});
 
 export const paymentIntent = pgTable(
   "payment_intent",

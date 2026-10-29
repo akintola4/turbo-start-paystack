@@ -4,6 +4,7 @@ import type { Logger } from "@workspace/logger";
 import { and, eq, notInArray, sql } from "drizzle-orm";
 
 import { decryptSecret, encryptSecret } from "../crypto";
+import type { InvoicingConfig } from "../invoicing";
 import type { PaystackClient } from "../paystack/client";
 
 /**
@@ -30,6 +31,8 @@ export type BillingNotification = { organizationId: string; key: string } & (
   | {
       type: "payment_succeeded";
       planPriceId: string;
+      /** The invoice row for this payment, for the receipt's link. */
+      invoiceId: string;
       amountSubunit: number;
       currency: string;
       reference: string;
@@ -70,6 +73,8 @@ export type BillingDeps = {
   now: () => Date;
   logger: Pick<Logger, "info" | "warn" | "error">;
   notify?: (notification: BillingNotification) => Promise<void>;
+  /** Seller details and tax for issued invoices. */
+  invoicing?: InvoicingConfig;
 };
 
 /**

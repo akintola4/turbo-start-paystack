@@ -1,11 +1,17 @@
 import { schema } from "@workspace/db";
 import { Logger } from "@workspace/logger";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, ne, or, sql } from "drizzle-orm";
 
 import { getEntitlement } from "../entitlements";
 import { BillingError } from "../errors";
+import { DEFAULT_INVOICING } from "../invoicing";
 import { reconcile, sendTrialReminders } from "../reconcile";
 import { processEvent, processPending } from "../webhook/process";
+import {
+  type BillingDetailsInput,
+  getBillingDetails,
+  updateBillingDetails,
+} from "./billing-details";
 import { applyChargeSuccess } from "./charge";
 import { type Actor, startCheckout } from "./checkout";
 import {
@@ -31,6 +37,12 @@ export function invoiceDate(invoice: {
 }): Date {
   return invoice.paidAt ?? invoice.periodStart ?? invoice.createdAt;
 }
+
+/** Card checks (the refunded trial tokenisation charge) are not invoices. */
+const isInvoice = or(
+  isNull(schema.invoice.kind),
+  ne(schema.invoice.kind, "card_check")
+);
 
 export type CreateBillingServiceOptions = Omit<BillingDeps, "now" | "logger"> &
   Partial<Pick<BillingDeps, "now" | "logger">>;
@@ -94,16 +106,72 @@ export function createBillingService(options: CreateBillingServiceOptions) {
       );
     },
 
-    listInvoices: (organizationId: string) =>
+    /** Invoices newest first, by the date each row shows. */
+    listInvoices: (
+      organizationId: string,
+      page: { limit?: number; offset?: number } = {}
+    ) =>
       deps.db
         .select()
         .from(schema.invoice)
-        .where(eq(schema.invoice.organizationId, organizationId))
-        // Newest first by the date the row shows (see `invoiceDate`), not
-        // by insert time: a failed attempt inserts its row long before the
-        // payment that settles it.
+        .where(
+          and(eq(schema.invoice.organizationId, organizationId), isInvoice)
+        )
+        // Not by insert time: a failed attempt inserts its row long before
+        // the payment that settles it.
         .orderBy(desc(invoiceDateSql), desc(schema.invoice.id))
-        .limit(50),
+        .limit(page.limit ?? 50)
+        .offset(page.offset ?? 0),
+
+    async countInvoices(organizationId: string) {
+      const [row] = await deps.db
+        .select({ n: count() })
+        .from(schema.invoice)
+        .where(
+          and(eq(schema.invoice.organizationId, organizationId), isInvoice)
+        );
+      return row?.n ?? 0;
+    },
+
+    /** The refunded card checks behind card-up-front trials. */
+    listCardChecks: (organizationId: string) =>
+      deps.db
+        .select()
+        .from(schema.invoice)
+        .where(
+          and(
+            eq(schema.invoice.organizationId, organizationId),
+            eq(schema.invoice.kind, "card_check")
+          )
+        )
+        .orderBy(desc(invoiceDateSql), desc(schema.invoice.id))
+        .limit(20),
+
+    /** One invoice, only if it belongs to `organizationId`. */
+    async getInvoice(organizationId: string, invoiceId: string) {
+      const [row] = await deps.db
+        .select()
+        .from(schema.invoice)
+        .where(
+          and(
+            eq(schema.invoice.id, invoiceId),
+            eq(schema.invoice.organizationId, organizationId)
+          )
+        );
+      return row ?? null;
+    },
+
+    getBillingDetails: (organizationId: string) =>
+      getBillingDetails(deps.db, organizationId),
+
+    updateBillingDetails: (input: {
+      organizationId: string;
+      actor: Actor;
+      details: BillingDetailsInput;
+    }) => updateBillingDetails(deps.db, input),
+
+    /** Seller and tax settings new invoices are issued with. */
+    invoicing: () => deps.invoicing ?? DEFAULT_INVOICING,
 
     changePlan: (input: {
       organizationId: string;

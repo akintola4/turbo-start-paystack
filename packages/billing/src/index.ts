@@ -2,6 +2,8 @@ export * from "./catalog";
 export * from "./crypto";
 export * from "./entitlements";
 export * from "./errors";
+export * from "./invoice-document";
+export * from "./invoicing";
 export * from "./money";
 export { createPaystackClient, type PaystackClient } from "./paystack/client";
 export * from "./proration";

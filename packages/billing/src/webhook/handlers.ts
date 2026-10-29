@@ -247,7 +247,7 @@ async function onInvoice(
           ? "paid"
           : "pending";
 
-  await upsertInvoice(tx, {
+  await upsertInvoice(deps, tx, {
     source: "invoice",
     organizationId: sub.organizationId,
     subscriptionId: sub.id,
@@ -260,6 +260,8 @@ async function onInvoice(
     periodStart: date(data.period_start),
     periodEnd,
     paidAt: status === "paid" ? (date(data.paid_at) ?? deps.now()) : null,
+    kind: "renewal",
+    planPriceId: sub.planPriceId,
     raw: data,
   });
 
