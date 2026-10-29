@@ -91,6 +91,18 @@ async function step<T>(
   run: () => Promise<T>,
   done: (value: T) => string
 ): Promise<T> {
+  // Without a terminal (CI, piped logs) a spinner prints every frame as a
+  // new line; write one line per step instead.
+  if (!process.stdout.isTTY) {
+    p.log.step(start);
+    try {
+      const value = await run();
+      p.log.success(done(value));
+      return value;
+    } catch (error) {
+      fail(error);
+    }
+  }
   const s = p.spinner();
   s.start(start);
   try {
