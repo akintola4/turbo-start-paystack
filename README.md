@@ -238,7 +238,7 @@ pnpm email:preview                                         # http://localhost:30
 pnpm --filter @workspace/email export /tmp/out             # every template as .html and .txt
 pnpm --filter @workspace/email screenshots /tmp/shots      # light/dark, desktop/phone, client checks
 pnpm --filter @workspace/email icons                       # regenerate the status icons
-pnpm --filter @workspace/email send-test --to you@example.com   # every template to a real inbox
+pnpm --filter @workspace/email send-test --to you@example.com --inline   # every template to a real inbox
 ```
 
 The preview uses the sample props at the bottom of each template file.
@@ -249,8 +249,12 @@ can check it in Gmail, Outlook and Apple Mail in light and dark mode. It reads
 domain, Resend only delivers from `onboarding@resend.dev` to the address your
 Resend account uses. Add `--only payment-receipt,payment-failed` to send a few.
 Icons and fonts load from `EMAIL_TEST_ASSETS_URL` (or `--assets-url`), which
-must be a public URL such as a preview deploy's `/email`; without it the icons
-show their alt text and the fallback fonts are used.
+must be a public URL such as a preview deploy's `/email`. Before anything is
+deployed, pass `--inline`: the status icons are attached to each message and
+referenced by Content-ID, so they show without hosting, and the fonts fall back
+to Helvetica/Arial, as they do in Gmail anyway. Mail sent from
+`onboarding@resend.dev` often lands in spam; a verified domain with SPF and
+DKIM fixes that.
 
 <p>
   <img alt="Payment receipt email, light mode" src="docs/images/email-receipt-light.png" width="380">
