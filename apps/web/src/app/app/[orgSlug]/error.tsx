@@ -3,10 +3,15 @@
 import { Button } from "@workspace/ui/components/button";
 import { TriangleAlertIcon } from "lucide-react";
 
+/**
+ * A server error inside an organization. Next logs it on the server with
+ * the same digest shown here, so a support request can be matched to it.
+ */
 export default function OrgError({
+  error,
   reset,
 }: {
-  error: Error;
+  error: Error & { digest?: string };
   reset: () => void;
 }) {
   return (
@@ -20,8 +25,14 @@ export default function OrgError({
           This page didn't load
         </h1>
         <p className="text-muted-foreground text-sm">
-          The server returned an error. Try again; if it keeps happening, check
-          the server logs.
+          Something went wrong on our side. Try again in a moment.
+          {error.digest ? (
+            <>
+              {" "}
+              If it keeps happening, quote reference{" "}
+              <code className="font-mono text-foreground">{error.digest}</code>.
+            </>
+          ) : null}
         </p>
       </div>
       <Button onClick={reset} size="sm" variant="outline">
