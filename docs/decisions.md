@@ -235,3 +235,39 @@ can be revisited.
     `library.json` tsconfig with `moduleResolution: Bundler` so relative
     imports don't need `.js` extensions.
 32. **pnpm 11.24.0, Biome 2.5.15, Turbo 2.11**, matching turbo-start-sanity.
+
+### Invoices
+
+33. **Invoices are issued when first paid, numbered per calendar year.**
+    `INV-2026-000123` comes from an `invoice_sequence` row upserted inside the
+    paying transaction: the row lock serialises issuers and a rollback returns
+    the number, so the sequence has no gaps (a Postgres `SEQUENCE` would
+    skip numbers on rollback). The year is the paid date's, in UTC. Numbers
+    are per seller, and this app is the one seller.
+34. **Seller, buyer and tax are copied onto the invoice at issue.** Later
+    changes to `INVOICE_SELLER_*`, `INVOICE_VAT_RATE` or the organization's
+    invoice details never change an issued invoice. Rows that were never
+    issued (refunds, failed and pending charges, card checks) show today's
+    details.
+35. **Prices are VAT-inclusive.** Paystack charges the plan price, so VAT is
+    worked out of it: net = round(total ÷ (1 + rate)) in subunits, VAT = the
+    remainder. Rounding the net, not the VAT, keeps net + VAT equal to the
+    amount charged.
+36. **The trial card check is not an invoice.** It is a tokenisation charge
+    refunded at once, so nothing was sold: numbering it would need a matching
+    credit note and would put two zero-sum documents in the books for every
+    trial. It is stored as `kind = card_check`, never numbered, and listed
+    apart under "Card checks" with a receipt showing the charge and refund.
+37. **PDFs with `@react-pdf/renderer`, on the server.** Pure JavaScript, so it
+    runs in an ordinary serverless function (no headless Chrome to ship or
+    cold-start), embeds and subsets real fonts, and lays out with the same
+    flexbox model as the page. Geist has no ₦ or ₵, so the PDF stacks a
+    two-glyph Inter subset behind it (static instances at 400/500/600, scaled
+    to Geist's cap height), as the web app does.
+38. **The receipt email links to the invoice; it does not attach the PDF.**
+    Emails are sent after the webhook commits, once per billing manager.
+    Rendering a PDF there would add font loading and ~100 ms of CPU to every
+    renewal webhook, and a rendering failure would hold up the receipt.
+    The link is permission-checked, always shows the invoice's current state
+    (a later refund included), and Paystack already emails the card holder
+    its own receipt.

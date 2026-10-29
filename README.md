@@ -186,6 +186,12 @@ refuses to boot if a required one is missing or malformed.
 | `EMAIL_BRAND_NAME` | no | Product name in email headers and footers. Default `Turbo Start` |
 | `EMAIL_LOGO_URL` | no | https URL of a logo (shown 28px tall). Without it, the name is used as a wordmark |
 | `EMAIL_SUPPORT_URL` | no | `https:` or `mailto:` link for "Contact support" in the footer |
+| `INVOICE_SELLER_NAME` | no | Seller on invoices. Default: `EMAIL_BRAND_NAME` |
+| `INVOICE_SELLER_ADDRESS` | no | Seller address; write line breaks as `\n` |
+| `INVOICE_SELLER_EMAIL` | no | Seller contact email on invoices |
+| `INVOICE_SELLER_TAX_ID` | no | Company or tax registration, e.g. `RC 1234567` or a TIN |
+| `INVOICE_SELLER_VAT_NUMBER` | no | VAT registration number |
+| `INVOICE_VAT_RATE` | no | VAT included in your prices, in percent (Nigeria: `7.5`). Unset or `0`: no VAT lines |
 
 #### 3. Create the database
 
@@ -400,12 +406,41 @@ must be verified) and can be used once.
 - **Cancel / resume.** Cancel disables renewal on Paystack; access continues
   until the period ends. Resume re-enables it before then.
 - **Failed renewal.** `invoice.payment_failed` marks the subscription past due
-  with a grace period, emails billing managers a Paystack link to update the
-  card, and shows a banner. After the grace period access stops and the
+  with a grace period that runs from the failed renewal's due date, emails
+  billing managers a Paystack link to update the card, and shows a banner. After the grace period access stops and the
   subscription is disabled.
 - **Reconcile.** An hourly job retries failed webhooks, checks unpaid
   checkouts (failed payments send no webhook), resyncs subscriptions whose
   period ended without a renewal event, and applies scheduled downgrades.
+
+### Invoices
+
+Every payment is one invoice row, whichever of `charge.success` and
+`invoice.update` arrives first. When it is first paid it is **issued**, in the
+same transaction: it gets a number, `INV-<year>-<000123>`, from a counter row
+that is locked until commit, so numbers are sequential with no gaps, and it
+keeps a copy of the seller (from `INVOICE_SELLER_*`), the buyer and the tax
+split. Changing your settings or the organization's details later never
+changes an issued invoice.
+
+- **Billing page.** Invoices newest first by paid date, 12 per page. Each row
+  opens the invoice; the row's icon downloads it as a PDF.
+- **Invoice page** (`/app/[org]/settings/billing/invoices/[id]`): seller,
+  billed to, dates, period, line items, totals, card and Paystack reference.
+  "Print" prints it on A4 (light paper in either theme); "Download PDF" gets
+  the same layout from `…/[id]/pdf`, rendered on the server with
+  `@react-pdf/renderer` with Geist embedded. Only roles that can view billing
+  get either; everyone else gets a 404.
+- **Invoice details.** Billing managers set the legal name, address, tax ID and
+  billing email invoices are made out to (blank fields fall back to the
+  organization name and the email Paystack bills).
+- **VAT.** Prices are VAT-inclusive. With `INVOICE_VAT_RATE` set, invoices show
+  subtotal, VAT and total: net is total ÷ (1 + rate) rounded to the subunit,
+  and VAT is the rest, so they always add up to what was charged.
+- **Card checks.** The refundable trial charge is not a sale, so it gets no
+  invoice number. It is listed apart under "Card checks", with a receipt that
+  shows the charge and the refund.
+- **Receipt email.** "View invoice" opens that payment's invoice.
 
 Webhooks are verified with a constant-time HMAC-SHA512 check, stored once
 (duplicates are acknowledged and ignored), answered with 200, then processed.
