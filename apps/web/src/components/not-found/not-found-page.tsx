@@ -1,67 +1,28 @@
 "use client";
 
-import type { Currency } from "@workspace/billing/money";
 import { cn } from "@workspace/tailwind-config/utils";
 import { buttonVariants } from "@workspace/ui/components/button";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { usePathname } from "next/navigation";
 
-import { Declined } from "@/components/not-found/declined";
-import { LostTile } from "@/components/not-found/lost-tile";
-import { TileBoard } from "@/components/not-found/tile-board";
+import { opticalEdge } from "@/components/landing/display";
+import { Puzzle } from "@/components/not-found/puzzle";
 import { Panel, Wordmark } from "@/components/primitives";
 import { fileUrl, REPO } from "@/lib/landing";
 import { displayPath } from "@/lib/not-found";
 
-const OPTIONS = {
-  a: { label: "Tiles", Component: TileBoard },
-  b: { label: "Declined", Component: Declined },
-  c: { label: "Puzzle", Component: LostTile },
-} as const;
-type OptionKey = keyof typeof OPTIONS;
+const TITLE = "This page isn’t in the ledger.";
 
-const isOption = (v: string | null): v is OptionKey =>
-  v === "a" || v === "b" || v === "c";
+/** The path chip never wraps: 28 mono characters fit a 300px screen. */
+const PATH_MAX = 28;
 
 /**
- * Preview only, while the three options are compared: switches with ?v=.
- * Deleted with the options that aren't picked.
+ * The site's 404: the landing's forest panel with the copy on the left and
+ * the lost-tile puzzle on the right (stacked, copy first, up to 768px).
+ * The requested path is shown decoded and middle-truncated; React escapes it.
  */
-function Switcher({ current }: { current: OptionKey }) {
-  return (
-    <nav
-      aria-label="Preview a 404 option"
-      className="fixed right-[calc(var(--edge)+12px)] bottom-[calc(var(--edge)+12px)] z-50 flex gap-1 rounded-control bg-surface-1 p-1 shadow-tile"
-      data-switcher
-    >
-      {(Object.keys(OPTIONS) as OptionKey[]).map((key) => (
-        <Link
-          aria-current={key === current ? "page" : undefined}
-          className={cn(
-            "pressable pressable-sm grid h-9 min-w-9 place-items-center rounded-chip px-2.5 font-semibold text-[13px]",
-            key === current
-              ? "bg-highlight text-highlight-foreground"
-              : "text-muted-foreground hover:bg-surface-2 hover:text-foreground"
-          )}
-          href={`?v=${key}`}
-          key={key}
-          replace
-          scroll={false}
-        >
-          {key.toUpperCase()}
-          <span className="sr-only"> {OPTIONS[key].label}</span>
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
-function Page({ currency }: { currency: Currency }) {
+export function NotFoundPage() {
   const path = usePathname() ?? "/";
-  const v = useSearchParams()?.get("v") ?? null;
-  const key: OptionKey = isOption(v) ? v : "a";
-  const { Component } = OPTIONS[key];
 
   return (
     <div className="flex min-h-dvh flex-col pt-(--edge)">
@@ -80,19 +41,43 @@ function Page({ currency }: { currency: Currency }) {
             </a>
           </header>
           <main
-            className="flex flex-1 flex-col justify-center py-[clamp(24px,5vh,64px)]"
+            className="grid flex-1 content-center items-center gap-10 py-[clamp(24px,5vh,64px)] min-[769px]:grid-cols-[minmax(0,1fr)_minmax(0,30rem)] min-[769px]:gap-12 lg:gap-16"
             id="content"
           >
-            <Component
-              currency={currency}
-              key={key}
-              path={path}
-              shown={displayPath(path)}
-            />
+            <div className="grid justify-items-start gap-6">
+              <h1 className="display-l max-w-[16ch]" style={opticalEdge(TITLE)}>
+                {TITLE}
+              </h1>
+              <p className="max-w-[32rem] text-pretty text-[17px] text-panel-muted">
+                Nothing is filed under{" "}
+                <code
+                  className="whitespace-nowrap rounded-chip bg-panel-tile px-1.5 py-0.5 font-mono text-[0.86em] text-panel-foreground"
+                  title={path}
+                >
+                  {displayPath(path, PATH_MAX)}
+                </code>
+                . The link may be old, or it has a typo.
+              </p>
+              <div className="grid w-full gap-2.5 min-[420px]:flex min-[420px]:w-auto min-[420px]:flex-wrap">
+                <Link className={buttonVariants({ size: "lg" })} href="/">
+                  Back home
+                </Link>
+                <Link
+                  className={cn(
+                    buttonVariants({ size: "lg" }),
+                    "bg-panel-tile text-panel-foreground hover:bg-panel-line"
+                  )}
+                  href="/#start"
+                >
+                  Clone the starter
+                </Link>
+              </div>
+            </div>
+            <Puzzle path={path} />
           </main>
         </div>
       </Panel>
-      <footer className="landing-section flex flex-wrap items-center justify-between gap-x-6 gap-y-1 pt-4 pb-20 text-[13px] text-muted-foreground">
+      <footer className="landing-section flex flex-wrap items-center justify-between gap-x-6 gap-y-1 py-4 text-[13px] text-muted-foreground">
         <p>
           Turbo Start Paystack ·{" "}
           <a
@@ -104,16 +89,6 @@ function Page({ currency }: { currency: Currency }) {
         </p>
         <p>Not affiliated with Paystack.</p>
       </footer>
-      <Switcher current={key} />
     </div>
-  );
-}
-
-/** The 404, in one of three preview options (?v=a|b|c). */
-export function NotFoundPage({ currency }: { currency: Currency }) {
-  return (
-    <Suspense>
-      <Page currency={currency} />
-    </Suspense>
   );
 }

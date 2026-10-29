@@ -135,9 +135,6 @@ number-flow-react::part(symbol) {
   --receipt-muted: var(--neutral-600);
   --receipt-rule: var(--neutral-400);
   --receipt-well: var(--neutral-200);
-  /* Light-mode danger, fixed: the paper is light in both themes. */
-  --receipt-danger: oklch(0.52 0.17 27);
-  --receipt-danger-bg: oklch(0.93 0.035 25);
   --ring: var(--forest-600);
   background-color: var(--receipt-paper);
   color: var(--receipt-ink);
@@ -412,108 +409,12 @@ number-flow-react::part(symbol) {
 /* ----------------------------------------------------------------- 404 */
 
 /*
- * A: the tile board. Off tiles alternate two greens (the checker); "404"
- * tiles are sunflower. Each off tile hides a currency that the pointer
- * trail, a flip or the keyboard cursor shows. The trail lights instantly
- * and fades out, so it reads as a trail rather than a hover.
- */
-.tile-board {
-  gap: clamp(3px, 0.62cqw, 10px);
-  --board-tile: var(--panel-tile);
-  --board-dim: color-mix(in oklch, var(--panel-tile) 52%, var(--panel));
-}
-.board-tile {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1;
-  border-radius: 18%;
-  background-color: var(--board-tile);
-  color: var(--panel-foreground);
-  font-weight: 700;
-  /* (board width - 12 gaps) / 13 tiles, times the glyph ratio. */
-  font-size: calc((100cqw - 12 * clamp(3px, 0.62cqw, 10px)) / 13 * 0.44);
-  cursor: pointer;
-}
-/* Only the pointer trail fades; the keyboard cursor moves instantly. */
-.board-tile[data-fade] {
-  transition:
-    background-color 520ms ease,
-    color 520ms ease;
-}
-.board-tile.is-dim {
-  background-color: var(--board-dim);
-}
-.board-glyph {
-  opacity: 0;
-}
-.board-glyph.is-wide {
-  font-size: 0.62em;
-}
-.board-tile.is-pixel {
-  background-color: var(--highlight);
-  color: var(--highlight-foreground);
-}
-.board-tile.is-pixel .board-glyph,
-.board-tile.is-revealed .board-glyph {
-  opacity: 1;
-}
-.board-tile[data-fade] .board-glyph {
-  transition: opacity 520ms ease;
-}
-/* Lit by the trail or under the keyboard cursor: shown at once. */
-.board-tile[data-lit] .board-glyph,
-.board-tile.is-cursor .board-glyph {
-  opacity: 1;
-  transition: none;
-}
-.board-tile.is-revealed:not(.is-pixel) .board-glyph {
-  opacity: 0.72;
-}
-.board-tile[data-lit]:not(.is-pixel) {
-  background-color: var(--panel-line);
-}
-/* The keyboard cursor: sunflower, ringed in off-white so it never reads
-   as one of the "404" pixels. */
-.board-tile.is-cursor {
-  background-color: var(--highlight);
-  color: var(--highlight-foreground);
-  outline: 2px solid var(--panel-foreground);
-  outline-offset: 1px;
-}
-/* The cursor on a "404" tile turns off-white so it still stands out. */
-.board-tile.is-pixel.is-cursor {
-  background-color: var(--panel-foreground);
-  color: var(--panel);
-}
-.tile-board:focus-visible {
-  outline: 2px solid var(--ring);
-}
-@media (prefers-reduced-motion: no-preference) and (scripting: enabled) {
-  .tile-board:not([data-ready]) .board-tile.is-pixel {
-    opacity: 0;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .board-tile[data-fade],
-  .board-tile[data-fade] .board-glyph {
-    transition: none;
-  }
-}
-
-/* B: the declined receipt is hidden in its slot until the print starts. */
-@media (prefers-reduced-motion: no-preference) and (scripting: enabled) {
-  .declined:not([data-ready]) [data-receipt-paper] {
-    transform: translateY(-101%);
-  }
-}
-
-/*
- * C: the sliding puzzle. Tiles are absolutely placed by --x / --y (in tile
+ * The 404's sliding puzzle. Tiles are absolutely placed by --x / --y (in tile
  * widths plus the gap) and slide with `translate`, on-screen movement, so
  * an in-out curve. The home tile arrives with the system's one bounce.
+ * Lengths in cqw come from the puzzle's column (an @container). The well's
+ * radius is the tile's plus the padding, so the corners stay concentric.
  */
-/* Lengths in cqw come from the puzzle's column (an @container). The well's
-   radius is the tile's plus the padding, so the corners stay concentric. */
 .puzzle {
   --pad: clamp(8px, 2.8cqw, 14px);
   --gap: clamp(6px, 2.2cqw, 12px);

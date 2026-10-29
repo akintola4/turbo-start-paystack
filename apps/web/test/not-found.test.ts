@@ -1,15 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  BOARD_COLS,
-  BOARD_ROWS,
-  boardPixels,
-  boardStep,
   displayPath,
   inPlace,
   isSolved,
   neighbours,
-  referenceFor,
   SOLVED,
   shuffleMoves,
   slide,
@@ -39,38 +34,6 @@ describe("displayPath", () => {
 
   it("returns markup as text for React to escape", () => {
     expect(displayPath("/%3Cscript%3E")).toBe("/<script>");
-  });
-});
-
-describe("referenceFor", () => {
-  it("is stable per path and differs between paths", () => {
-    expect(referenceFor("/a")).toBe(referenceFor("/a"));
-    expect(referenceFor("/a")).not.toBe(referenceFor("/b"));
-    expect(referenceFor("/a")).toMatch(/^T404-[0-9A-Z]{8}$/);
-  });
-});
-
-describe("boardPixels", () => {
-  it("draws 404 inside a one-tile margin", () => {
-    const on = boardPixels();
-    expect(on).toHaveLength(BOARD_COLS * BOARD_ROWS);
-    // 4 has 9 pixels, 0 has 12.
-    expect(on.filter(Boolean)).toHaveLength(30);
-    for (let x = 0; x < BOARD_COLS; x++) {
-      expect(on[x]).toBe(false);
-      expect(on[(BOARD_ROWS - 1) * BOARD_COLS + x]).toBe(false);
-    }
-  });
-});
-
-describe("boardStep", () => {
-  it("moves within the board and stops at its edges", () => {
-    expect(boardStep(0, "ArrowRight")).toBe(1);
-    expect(boardStep(0, "ArrowLeft")).toBeNull();
-    expect(boardStep(0, "ArrowUp")).toBeNull();
-    expect(boardStep(0, "ArrowDown")).toBe(BOARD_COLS);
-    expect(boardStep(BOARD_COLS - 1, "ArrowRight")).toBeNull();
-    expect(boardStep(0, "Enter")).toBeUndefined();
   });
 });
 

@@ -1,6 +1,5 @@
-import { isCurrency } from "@workspace/billing/money";
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 import { NotFoundPage } from "@/components/not-found/not-found-page";
 
@@ -11,11 +10,11 @@ export const metadata: Metadata = {
 };
 
 /**
- * Every unknown URL (and every `notFound()`) lands here with a 404. The
- * remembered currency comes from the landing's cookie, so the tiles and the
- * receipt speak the visitor's money from the first paint.
+ * Every unknown URL, and every `notFound()` outside an organization's pages,
+ * lands here with a 404. Rendered per request, so the server HTML already
+ * has the requested path and the puzzle's path-seeded shuffle.
  */
 export default async function NotFound() {
-  const saved = (await cookies()).get("tsp-currency")?.value ?? "";
-  return <NotFoundPage currency={isCurrency(saved) ? saved : "NGN"} />;
+  await connection();
+  return <NotFoundPage />;
 }

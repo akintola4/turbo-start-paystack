@@ -22,7 +22,7 @@ export function displayPath(raw: string, max = 44): string {
 }
 
 /** A 32-bit FNV-1a hash: stable between server and client renders. */
-export function hash(seed: string): number {
+function hash(seed: string): number {
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) {
     h = Math.imul(h ^ seed.charCodeAt(i), 16777619) >>> 0;
@@ -30,15 +30,8 @@ export function hash(seed: string): number {
   return h;
 }
 
-/** A Paystack-style reference for a path: "T404-" and 8 base-36 characters. */
-export function referenceFor(path: string): string {
-  const a = hash(path).toString(36);
-  const b = hash(`${path}#`).toString(36);
-  return `T404-${(a + b).slice(0, 8).toUpperCase().padEnd(8, "0")}`;
-}
-
 /** A small deterministic PRNG (mulberry32) seeded from a string. */
-export function seeded(seed: string): () => number {
+function seeded(seed: string): () => number {
   let s = hash(seed);
   return () => {
     s = (s + 0x6d2b79f5) >>> 0;
@@ -49,55 +42,7 @@ export function seeded(seed: string): () => number {
   };
 }
 
-/* ------------------------------------------------------- A: tile board */
-
-/** 3 x 5 pixel digits, row by row. */
-const DIGITS: Record<"4" | "0", readonly string[]> = {
-  "4": ["#.#", "#.#", "###", "..#", "..#"],
-  "0": ["###", "#.#", "#.#", "#.#", "###"],
-};
-
-export const BOARD_COLS = 13;
-export const BOARD_ROWS = 7;
-
-/** Which cells of the 13 x 7 board draw "404" (one tile of margin around). */
-export function boardPixels(): boolean[] {
-  const on = new Array<boolean>(BOARD_COLS * BOARD_ROWS).fill(false);
-  (["4", "0", "4"] as const).forEach((digit, d) => {
-    const left = 1 + d * 4;
-    DIGITS[digit].forEach((row, y) => {
-      [...row].forEach((ch, x) => {
-        if (ch === "#") {
-          on[(y + 1) * BOARD_COLS + left + x] = true;
-        }
-      });
-    });
-  });
-  return on;
-}
-
-/**
- * Where an arrow key moves the board cursor from `at`: the new cell, null at
- * an edge (the key is still the board's), or undefined for any other key.
- */
-export function boardStep(at: number, key: string): number | null | undefined {
-  const x = at % BOARD_COLS;
-  const count = BOARD_COLS * BOARD_ROWS;
-  switch (key) {
-    case "ArrowRight":
-      return x < BOARD_COLS - 1 ? at + 1 : null;
-    case "ArrowLeft":
-      return x > 0 ? at - 1 : null;
-    case "ArrowDown":
-      return at + BOARD_COLS < count ? at + BOARD_COLS : null;
-    case "ArrowUp":
-      return at - BOARD_COLS >= 0 ? at - BOARD_COLS : null;
-    default:
-      return undefined;
-  }
-}
-
-/* ---------------------------------------------------- C: sliding puzzle */
+/* ------------------------------------------------------- sliding puzzle */
 
 /**
  * The board is 9 cells. `board[cell]` is the tile in that cell, or null for
