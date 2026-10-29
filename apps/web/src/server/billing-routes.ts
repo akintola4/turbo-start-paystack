@@ -233,7 +233,9 @@ export async function handlePaystackWebhook(
     const { eventId } = result;
     input.schedule(() => deps.billing.processEvent(eventId));
   }
-  return json({ ok: true });
+  // `duplicate` tells a replay apart from a first delivery (the event was
+  // stored before and is not processed again). Paystack ignores the body.
+  return json({ ok: true, duplicate: result.duplicate });
 }
 
 /** Bearer-token check for cron routes, in constant time. */

@@ -14,12 +14,19 @@ export type EmailSender = (message: EmailMessage) => Promise<void>;
 
 const logger = new Logger("email");
 
-/** Messages "sent" without a provider, newest last. Dev and smoke tests read
- *  invite and verification links from here. Bounded so it can't grow forever. */
-const devOutbox: EmailMessage[] = [];
-const DEV_OUTBOX_MAX = 50;
+export type DevOutboxEntry = EmailMessage & { id: string; sentAt: string };
 
-export function getDevOutbox(): readonly EmailMessage[] {
+/** Messages "sent" without a provider, newest last. Dev and smoke tests read
+ *  invite and verification links from here, and the billing page's dev panel
+ *  lists them. Bounded so it can't grow forever. Kept on globalThis so every
+ *  bundle of this module in a dev server (route handlers, pages) shares it. */
+const store = globalThis as unknown as { __devOutbox?: DevOutboxEntry[] };
+store.__devOutbox ??= [];
+const devOutbox: DevOutboxEntry[] = store.__devOutbox;
+const DEV_OUTBOX_MAX = 50;
+let outboxSeq = 0;
+
+export function getDevOutbox(): readonly DevOutboxEntry[] {
   return devOutbox;
 }
 
@@ -68,7 +75,12 @@ export function createEmailSender(options: {
 }
 
 function logToOutbox(message: EmailMessage) {
-  devOutbox.push(message);
+  outboxSeq += 1;
+  devOutbox.push({
+    ...message,
+    id: `${Date.now().toString(36)}${outboxSeq.toString(36)}`,
+    sentAt: new Date().toISOString(),
+  });
   if (devOutbox.length > DEV_OUTBOX_MAX) {
     devOutbox.shift();
   }

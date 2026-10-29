@@ -16,6 +16,9 @@ describe("transport", () => {
       text: "link http://l/1",
       html: "<p>link</p>",
     });
+    const entry = getDevOutbox().at(-1);
+    expect(entry?.id).toMatch(/^[a-z0-9]+$/);
+    expect(Date.parse(entry?.sentAt ?? "")).not.toBeNaN();
   });
 
   it("refuses to drop mail in production unless explicitly allowed", async () => {
