@@ -27,6 +27,7 @@
     ".": "./src/index.ts",
     "./catalog": "./src/catalog.ts",
     "./money": "./src/money.ts",
+    "./dates": "./src/dates.ts",
     "./entitlements": "./src/entitlements.ts",
     "./fake": "./src/fake-paystack.ts",
     "./fixtures": "./src/fixtures.ts",

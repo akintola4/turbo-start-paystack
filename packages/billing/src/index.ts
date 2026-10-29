@@ -1,5 +1,6 @@
 export * from "./catalog";
 export * from "./crypto";
+export * from "./dates";
 export * from "./entitlements";
 export * from "./errors";
 export * from "./invoice-document";

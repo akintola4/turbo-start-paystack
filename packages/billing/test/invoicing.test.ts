@@ -252,7 +252,7 @@ describe("issuing invoices", () => {
         amountSubunit: 2_790_698,
       }),
     ]);
-    expect(doc.lines[0]?.detail).toMatch(/^Monthly · 1 Mar 2026 – 1 Apr 2026$/);
+    expect(doc.lines[0]?.detail).toMatch(/^Monthly · 1 Mar – 1 Apr 2026$/);
     expect(invoiceFilename(doc, "Kola Logistics!")).toBe(
       `${row.number}-kola-logistics.pdf`
     );

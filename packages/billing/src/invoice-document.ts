@@ -1,6 +1,7 @@
 import type { schema } from "@workspace/db";
 
 import { getPlan, getPlanPrice } from "./catalog";
+import { formatPeriod } from "./dates";
 import {
   type InvoiceParty,
   type InvoicingConfig,
@@ -61,16 +62,7 @@ export type InvoiceDocument = {
 const iso = (value: Date | null) => (value ? value.toISOString() : null);
 
 function rangeLabel(start: Date | null, end: Date | null) {
-  if (!(start && end)) {
-    return null;
-  }
-  const fmt = new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-  return `${fmt.format(start)} – ${fmt.format(end)}`.replaceAll("Sept", "Sep");
+  return start && end ? formatPeriod(start, end) : null;
 }
 
 function planLabel(planPriceId: string | null) {
@@ -166,8 +158,8 @@ export function buildInvoiceDocument(
     status,
     kind: row.kind ?? (row.paystackInvoiceCode ? "renewal" : "subscription"),
     currency: row.currency,
-    seller: issued ? (row.seller as InvoiceParty) : current.config.seller,
-    buyer: issued && row.buyer ? (row.buyer as InvoiceParty) : current.buyer,
+    seller: issued && row.seller ? row.seller : current.config.seller,
+    buyer: issued && row.buyer ? row.buyer : current.buyer,
     issuedAt: iso(row.issuedAt ?? row.paidAt ?? row.createdAt),
     paidAt: iso(row.paidAt),
     refundedAt: iso(row.refundedAt),

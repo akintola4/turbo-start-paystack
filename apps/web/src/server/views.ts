@@ -14,6 +14,7 @@ import {
   getPlanPrice,
   invoiceDate,
   planPriceId,
+  formatPeriod,
 } from "@workspace/billing";
 import { schema } from "@workspace/db";
 import { env as clientEnv } from "@workspace/env/client";
@@ -110,25 +111,8 @@ const KIND_TITLE = {
   card_check: () => "Card check",
 } as const;
 
-const shortRange = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-});
-
-/** "12 Nov – 12 Dec 2026": the year once, at the end. */
 function periodLabel(start: Date | null, end: Date | null) {
-  if (!(start && end)) {
-    return null;
-  }
-  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
-  const from = sameYear
-    ? shortRange.format(start)
-    : `${shortRange.format(start)} ${start.getUTCFullYear()}`;
-  return `${from} – ${shortRange.format(end)} ${end.getUTCFullYear()}`.replaceAll(
-    "Sept",
-    "Sep"
-  );
+  return start && end ? formatPeriod(start, end) : null;
 }
 
 function invoiceTitle(invoice: Invoice) {

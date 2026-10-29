@@ -29,6 +29,14 @@ const orgId = () =>
     .notNull()
     .references(() => organization.id, { onDelete: "cascade" });
 
+export type InvoicePartySnapshot = {
+  name: string;
+  address?: string | null;
+  email?: string | null;
+  taxId?: string | null;
+  vatNumber?: string | null;
+};
+
 export const subscriptionStatus = pgEnum("subscription_status", [
   "incomplete",
   "trialing",
@@ -185,9 +193,9 @@ export const invoice = pgTable(
     number: text("number").unique(),
     issuedAt: timestamp("issued_at", tz),
     // Seller and buyer as they were at issue, so later edits never rewrite
-    // an issued invoice. See InvoiceParty in @workspace/billing.
-    seller: jsonb("seller"),
-    buyer: jsonb("buyer"),
+    // an issued invoice. Same shape as InvoiceParty in @workspace/billing.
+    seller: jsonb("seller").$type<InvoicePartySnapshot>(),
+    buyer: jsonb("buyer").$type<InvoicePartySnapshot>(),
     // Tax included in amount_subunit, fixed at issue. Basis points: 750 is
     // 7.5%. net + tax = amount.
     taxRateBp: integer("tax_rate_bp"),
