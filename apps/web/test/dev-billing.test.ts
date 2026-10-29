@@ -513,3 +513,81 @@ describe("simulated trial end", () => {
     expect(again.status).toBe(409);
   });
 });
+
+describe("grace deadline with the simulator's fast-forwarded dates", () => {
+  let ctx: Ctx;
+  let owner: Headers;
+  let orgId: string;
+  const DAY = 86_400_000;
+  beforeAll(async () => {
+    ctx = await setup("off");
+    ({ headers: owner, orgId } = await ownerWithOrg(ctx, "grace"));
+    await subscribe(ctx, orgId, "owner@grace.test", "pro-monthly-ngn");
+  });
+  afterAll(async () => ctx.close());
+
+  /** When Paystack will next charge: the renewal that is about to fail. */
+  const nextDue = async () => {
+    const sub = await subscriptionOf(ctx, orgId);
+    const remote = ctx.fake.subscriptions.get(
+      sub.paystackSubscriptionCode ?? ""
+    );
+    return new Date(remote?.next_payment_date ?? 0);
+  };
+
+  const failedEmailText = async (graceUntil: Date) => {
+    const sent: string[] = [];
+    const mailer = createMailer({
+      appUrl: "http://localhost:3000",
+      send: async (m) => {
+        sent.push(m.text);
+      },
+    });
+    await mailer.paymentFailed({
+      to: "owner@grace.test",
+      organizationName: "Grace",
+      organizationSlug: "grace",
+      planName: "Pro",
+      graceUntil,
+    });
+    return sent[0] ?? "";
+  };
+
+  it("is the failed renewal's due date plus the grace days, not today plus 7", async () => {
+    for (const _ of [1, 2, 3]) {
+      expect((await simulate(ctx, owner, orgId, "renew")).status).toBe(200);
+    }
+    const due = await nextDue();
+    // Three months ahead of the real clock, like the dev panel after
+    // several fast-forwards.
+    expect(due.getTime()).toBeGreaterThan(Date.now() + 60 * DAY);
+
+    await simulate(ctx, owner, orgId, "fail");
+    const sub = await subscriptionOf(ctx, orgId);
+    const expected = new Date(due.getTime() + 7 * DAY);
+    expect(sub.status).toBe("past_due");
+    // The billing page's past-due banner renders this same field.
+    expect(sub.graceUntil).toEqual(expected);
+    const notice = ctx.notifications.findLast((n) => n.type === "past_due");
+    expect(notice?.type === "past_due" && notice.graceUntil).toEqual(expected);
+
+    const longDate = new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }).format(expected);
+    expect(await failedEmailText(expected)).toContain(longDate);
+  });
+
+  it("is worked out again for the next failed period", async () => {
+    await simulate(ctx, owner, orgId, "recover");
+    expect((await subscriptionOf(ctx, orgId)).graceUntil).toBeNull();
+    await simulate(ctx, owner, orgId, "renew");
+    const due = await nextDue();
+    await simulate(ctx, owner, orgId, "fail");
+    expect((await subscriptionOf(ctx, orgId)).graceUntil).toEqual(
+      new Date(due.getTime() + 7 * DAY)
+    );
+  });
+});

@@ -282,17 +282,22 @@ async function onInvoice(
   if (stale || !["active", "trialing", "past_due"].includes(sub.status)) {
     return {};
   }
-  await markPastDue(deps, tx, sub);
+  // The renewal that failed was due at the invoice's period start. Grace
+  // runs from then, not from when this webhook is processed: a retried or
+  // late event (or the simulator's fast-forwarded renewals) must not move
+  // the deadline, and each failed period gets its own.
+  const due = date(data.period_start) ?? sub.currentPeriodEnd ?? deps.now();
+  await markPastDue(deps, tx, sub, due);
   return {};
 }
 
 async function markPastDue(
   deps: BillingDeps,
   tx: DbOrTx,
-  sub: SubscriptionRow
+  sub: SubscriptionRow,
+  due: Date
 ) {
-  const now = deps.now();
-  const graceUntil = sub.graceUntil ?? addDays(now, deps.graceDays);
+  const graceUntil = addDays(due, deps.graceDays);
   await tx
     .update(schema.subscription)
     .set({ status: "past_due", graceUntil })

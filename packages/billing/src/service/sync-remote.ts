@@ -128,7 +128,9 @@ export async function resyncSubscription(
     }
   } else if (mapped === "past_due") {
     patch.status = "past_due";
-    patch.graceUntil = sub.graceUntil ?? addDays(now, deps.graceDays);
+    // Paystack says the renewal is overdue: it was due at the period end.
+    patch.graceUntil =
+      sub.graceUntil ?? addDays(sub.currentPeriodEnd ?? now, deps.graceDays);
   } else if (mapped === "ended") {
     patch.status = periodEnded ? "canceled" : "non_renewing";
     patch.cancelAtPeriodEnd = true;
