@@ -6,8 +6,6 @@ import {
   rankOf,
   roleHasPermission,
 } from "@workspace/auth/permissions";
-
-import { ORG_VIEW_COOKIE } from "@/lib/org-view";
 import {
   type Currency,
   catalog,
@@ -22,6 +20,8 @@ import { and, count, eq, gt, inArray } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { formatMoney } from "@/lib/money";
+import { ORG_VIEW_COOKIE } from "@/lib/org-view";
 import type {
   AcceptInviteData,
   BillingData,
@@ -35,8 +35,8 @@ import type {
   SubscriptionStatus,
   SubscriptionSummary,
 } from "@/lib/view-models";
-import { formatMoney } from "@/lib/money";
 import { getServerContext } from "./context";
+import { isDevToolsEnabled } from "./dev-context";
 import {
   listMyOrganizations,
   requireOrgBySlug,
@@ -427,6 +427,7 @@ export async function loadBilling(
     invoices: invoices.map(invoiceRow),
     seats: { used: seatRow?.n ?? 1, limit: entitlement.plan.limits.members },
     publicKey: clientEnv.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+    devTools: can("billing:manage") && isDevToolsEnabled(),
   };
 }
 
