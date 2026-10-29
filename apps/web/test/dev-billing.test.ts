@@ -467,9 +467,7 @@ describe("simulated lifecycle drives state through webhooks", () => {
     expect(await ctx.db.select().from(schema.webhookEvent)).toHaveLength(
       events.length
     );
-    expect(await ctx.billing.listInvoices(orgId)).toHaveLength(
-      invoices.length
-    );
+    expect(await ctx.billing.listInvoices(orgId)).toHaveLength(invoices.length);
   });
 });
 

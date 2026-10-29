@@ -26,7 +26,8 @@ subscription code.
 - `packages/ui`, `packages/env`, `packages/logger`, `packages/tailwind-config`,
   `packages/typescript-config`: shared UI (shadcn, new-york), env validation
   (t3-env), a logger that redacts tokens, and config
-- `scripts`: `billing:sync`, a local Paystack mock, and a webhook replay tool
+- `scripts`: `pnpm setup` and `pnpm dev`, `billing:sync`, a local Paystack
+  mock with a webhook simulator, and a webhook replay tool
 
 ## Repo layout
 
@@ -43,7 +44,7 @@ packages/
   tailwind-config/
   typescript-config/
   ui/
-scripts/          billing:sync, paystack:mock, webhook:replay, fixtures/
+scripts/          setup, dev, billing:sync, paystack:mock, webhook:replay, fixtures/
 docs/             decisions, Paystack setup, Paystack test-mode checklist
 ```
 
@@ -52,17 +53,109 @@ docs/             decisions, Paystack setup, Paystack test-mode checklist
 - Node.js 24 or newer
 - pnpm 11 (`corepack enable` picks up the version in `package.json`)
 - Postgres 15 or newer (Neon, Supabase, Railway or local)
-- A Paystack account. Test keys are enough to start
+- Docker, or a local Postgres install (`initdb`/`pg_ctl`), for `pnpm setup`
+- A Paystack account for real payments. Not needed locally: `pnpm setup`
+  uses a Paystack mock
 
 ## Getting started
 
-### 1. Install
+No Paystack account needed: the local stack runs against a Paystack mock.
+
+```bash
+git clone https://github.com/akintola4/turbo-start-paystack.git
+cd turbo-start-paystack
+pnpm install
+pnpm setup
+pnpm dev
+```
+
+Open the URL `pnpm setup` prints (usually `http://localhost:3000`) and sign
+in as `ada@kolalogistics.test` with the password `kola-demo-2026`. On
+Billing, start a trial, press "Pay" on the mock checkout, then use the
+**Simulate billing** panel to play renewals, failed payments and
+recoveries. From a warm pnpm store this takes a couple of minutes,
+most of it clicking.
+
+`pnpm setup` is safe to run again. It:
+
+- checks Node 24+, pnpm, and Docker or a local Postgres (`initdb`/`pg_ctl`),
+  and prints the fix for anything missing;
+- creates `apps/web/.env` from `.env.example`, generates
+  `BETTER_AUTH_SECRET`, `BILLING_ENCRYPTION_KEY` and `CRON_SECRET`, and points
+  Paystack at the local mock. It only fills blanks and the template's
+  placeholders: a value you set is never changed, and secrets are never
+  printed;
+- picks free ports for the app (from 3000) and the mock (from 4010) and
+  writes them into `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`,
+  `PAYSTACK_API_URL`, `PAYSTACK_MOCK_PORT` and `PAYSTACK_MOCK_WEBHOOK_URL`;
+- reuses a Postgres on 127.0.0.1:54329 if one answers, otherwise starts one
+  with `scripts/dev-db.sh` (Docker if it is running, else `.pgdata/`),
+  creates the database and runs the migrations;
+- creates the plans on the mock (`billing:sync`) and seeds Kola Logistics:
+  Ada (owner), Tunde (billing) and Chioma (member), all with verified email
+  and the same demo password.
+
+`pnpm dev` runs the app and the mock in one terminal with `app │` and
+`mock │` log prefixes, and starts the dev Postgres again if it is down.
+`pnpm dev:web` runs only the app.
+
+```bash
+pnpm setup:reset                  # drop and reseed the dev database (stop pnpm dev first)
+SETUP_DB=my_db pnpm setup         # use another database name
+```
+
+pnpm has a built-in `setup` command. pnpm 10 and 11 run this repo's script
+instead, but reject flags after it, which is why the variants above exist.
+On pnpm 9 or older, `pnpm setup` is pnpm's own command (it edits your shell
+profile): use `corepack enable` to get the pnpm version in `package.json`.
+
+macOS and Linux are supported. On Windows, use WSL 2 (`dev-db.sh` is a bash
+script).
+
+### Simulate billing (development only)
+
+The billing page shows a dashed **Simulate billing** card to owners and
+billing managers when the app runs against the local mock. Each button asks
+the mock to emit what Paystack would send for the organization's
+subscription, signed with the secret key, to the real
+`/api/webhooks/paystack` route. The panel waits for the handlers to process
+the events, then runs reconcile, as the hourly cron would. It never writes
+billing state itself.
+
+| Button | What the mock sends | Result |
+|---|---|---|
+| Fast-forward to renewal | `charge.success` + `invoice.update` for the next billing date | Period moves on, receipt email |
+| Fail the next renewal | `invoice.payment_failed`; the mock's subscription goes to `attention` | Past due, grace banner, failed-payment email |
+| Recover | The retried charge succeeds | Active again, the failed invoice is paid |
+| End the trial | Reconcile's trial reminder (as of 2 days before the end), then the first charge | Trial-ending email, then active |
+| Duplicate the last event | The same body and signature again | `ignored: duplicate` (stored once) |
+| Forged webhook | A `charge.success` signed with the wrong key | `401 bad_signature`, nothing stored |
+| Simulate a month | Renewal, failed renewal, recovery, one step at a time | Step log |
+
+The event log shows each webhook's HTTP status and what its handler did. The
+Emails tab lists the dev outbox (every email sent without
+`RESEND_API_KEY`: verification, invitations, receipts) with a link to the
+rendered HTML.
+
+Guards: the panel renders, and `/api/dev/orgs/:orgId/*` answers, only when
+`NODE_ENV` is not `production`, `PAYSTACK_API_URL` is plain `http` on
+`localhost`, `127.0.0.1` or `[::1]`, and the secret key is not `sk_live_`.
+Otherwise those routes return 404 (checked before the session). They also
+require `billing:manage` on the organization in the URL, and take only an
+action name: the subscription code comes from the database, never the
+request. The mock's `/__dev/simulate` requires the secret key as a bearer
+token.
+
+<details>
+<summary>Manual setup</summary>
+
+#### 1. Install
 
 ```bash
 pnpm install
 ```
 
-### 2. Configure environment variables
+#### 2. Configure environment variables
 
 ```bash
 cp .env.example apps/web/.env
@@ -80,6 +173,7 @@ refuses to boot if a required one is missing or malformed.
 | `PAYSTACK_SECRET_KEY` | yes | `sk_test_…` or `sk_live_…`. Also the webhook signing key |
 | `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` | no | `pk_test_…`. Enables the inline popup; without it checkout redirects to Paystack |
 | `PAYSTACK_API_URL` | no | Leave unset in production. Point at the local mock in development |
+| `PAYSTACK_MOCK_PORT`, `PAYSTACK_MOCK_WEBHOOK_URL` | no | Local mock only: its port, and where it sends webhooks |
 | `PAYSTACK_WEBHOOK_IP_ALLOWLIST` | no | `true` to also reject webhooks not from Paystack's IPs |
 | `BILLING_ENCRYPTION_KEY` | yes | 64 hex chars (`openssl rand -hex 32`). Encrypts email tokens and card authorizations |
 | `BILLING_CURRENCY` | no | `NGN` (default), `GHS`, `ZAR`, `KES` or `USD` |
@@ -93,7 +187,7 @@ refuses to boot if a required one is missing or malformed.
 | `EMAIL_LOGO_URL` | no | https URL of a logo (shown 28px tall). Without it, the name is used as a wordmark |
 | `EMAIL_SUPPORT_URL` | no | `https:` or `mailto:` link for "Contact support" in the footer |
 
-### 3. Create the database
+#### 3. Create the database
 
 Use any Postgres. For a throwaway local one, `./scripts/dev-db.sh` starts
 Postgres 17 (Docker, or a local install) and prints a `DATABASE_URL`.
@@ -102,7 +196,7 @@ Postgres 17 (Docker, or a local install) and prints a `DATABASE_URL`.
 DATABASE_URL=postgres://… pnpm db:migrate
 ```
 
-### 4. Create the Paystack plans
+#### 4. Create the Paystack plans
 
 ```bash
 pnpm billing:sync                     # BILLING_CURRENCY only
@@ -114,7 +208,7 @@ This creates one Paystack plan per plan, interval and currency in
 again. It never changes the amount of an existing plan; to change a price, add
 a new price to the catalog.
 
-### 5. Start the app
+#### 5. Start the app
 
 ```bash
 pnpm dev:web
@@ -122,7 +216,7 @@ pnpm dev:web
 
 Open `http://localhost:3000`, create an account, then an organization.
 
-### Developing without Paystack keys
+#### Developing without Paystack keys
 
 `pnpm paystack:mock` runs a local stand-in for `api.paystack.co` on port 4010
 with a fake hosted checkout page. Set `PAYSTACK_API_URL=http://localhost:4010`
@@ -131,10 +225,14 @@ subscribe from the billing page. The mock's "Pay" button sends signed
 `charge.success` and `subscription.create` webhooks to the app, like Paystack
 would. It is for development only and is not a Paystack simulator.
 
+</details>
+
 ## Useful commands
 
 ```bash
-pnpm dev:web           # Next.js app
+pnpm setup             # one-time (and re-runnable) local setup
+pnpm dev               # app + Paystack mock
+pnpm dev:web           # Next.js app only
 pnpm email:preview     # React Email preview of every template on :3001
 pnpm build             # build everything
 pnpm lint              # Biome
