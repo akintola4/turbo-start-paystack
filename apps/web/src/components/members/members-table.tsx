@@ -34,7 +34,7 @@ import {
   ArrowUpIcon,
   SearchIcon,
 } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { MemberRow, Role } from "@/lib/view-models";
 import { formatDate, roleLabel } from "@/lib/format";
@@ -47,18 +47,10 @@ export type MembersTableProps = {
   orgName: string;
   members: MemberRow[];
   roles: Role[];
-  density?: "compact" | "comfortable";
-  /** How the role column renders for editable rows. */
-  roleEditor?: "select" | "menu";
-  monogramTone?: "soft" | "solid" | "mono";
-  monogramShape?: "rounded" | "circle" | "square";
-  /** Extra toolbar content on the right (e.g. invite button). */
-  toolbar?: ReactNode;
-  className?: string;
-  tableClassName?: string;
-  /** Hide the search/filter toolbar. */
-  bare?: boolean;
 };
+
+/** Search and the role filter earn their place past this many people. */
+const TOOLBAR_FROM = 8;
 
 function SortHeader({
   label,
@@ -77,7 +69,7 @@ function SortHeader({
         : ArrowUpDownIcon;
   return (
     <Button
-      className="-ml-2 h-7 gap-1 px-2 font-medium text-inherit text-xs hover:text-foreground"
+      className="-ml-2 h-7 gap-1 px-2 font-medium text-inherit text-xs before:-inset-y-2 hover:text-foreground"
       onClick={onClick}
       size="sm"
       variant="ghost"
@@ -93,14 +85,6 @@ export function MembersTable({
   orgName,
   members,
   roles,
-  density = "comfortable",
-  roleEditor = "select",
-  monogramTone = "soft",
-  monogramShape = "circle",
-  toolbar,
-  className,
-  tableClassName,
-  bare = false,
 }: MembersTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [query, setQuery] = useState("");
@@ -131,14 +115,7 @@ export function MembersTable({
           const m = row.original;
           return (
             <div className="flex min-w-0 items-center gap-3">
-              <Monogram
-                className={
-                  density === "compact" ? "size-6 text-[10px]" : "size-8"
-                }
-                name={m.name}
-                shape={monogramShape}
-                tone={monogramTone}
-              />
+              <Monogram className="size-8" name={m.name} shape="circle" />
               <div className="min-w-0">
                 <div className="flex items-center gap-2 truncate font-medium">
                   <span className="truncate">{m.name}</span>
@@ -165,7 +142,7 @@ export function MembersTable({
         header: () => <span>Role</span>,
         cell: ({ row }) => {
           const m = row.original;
-          if (roleEditor === "select" && m.canUpdate) {
+          if (m.canUpdate) {
             return (
               <RoleSelect
                 className="w-28 sm:w-32"
@@ -203,21 +180,12 @@ export function MembersTable({
               member={row.original}
               organizationId={organizationId}
               orgName={orgName}
-              roles={roles}
             />
           </div>
         ),
       },
     ],
-    [
-      density,
-      monogramShape,
-      monogramTone,
-      organizationId,
-      orgName,
-      roleEditor,
-      roles,
-    ]
+    [organizationId, orgName, roles]
   );
 
   const table = useReactTable({
@@ -231,12 +199,11 @@ export function MembersTable({
     getFilteredRowModel: getFilteredRowModel(),
   });
 
-  const cellPad = density === "compact" ? "h-10 py-1.5" : "h-14 py-2.5";
   const presentRoles = [...new Set(members.map((m) => m.role))];
 
   return (
-    <div className={cn("grid gap-3", className)}>
-      {bare ? null : (
+    <div className="grid gap-3">
+      {members.length < TOOLBAR_FROM ? null : (
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-0 flex-1 sm:max-w-xs">
             <SearchIcon
@@ -272,12 +239,9 @@ export function MembersTable({
               ))}
             </SelectContent>
           </Select>
-          {toolbar ? (
-            <div className="ml-auto flex items-center gap-2">{toolbar}</div>
-          ) : null}
         </div>
       )}
-      <div className={cn("overflow-x-auto", tableClassName)}>
+      <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
@@ -289,7 +253,7 @@ export function MembersTable({
                       header.column.id === "actions" && "w-12",
                       header.column.id === "role" && "w-32 sm:w-40",
                       header.column.id === "joined" &&
-                        "hidden w-36 md:table-cell"
+                        "hidden w-36 lg:table-cell"
                     )}
                     key={header.id}
                   >
@@ -311,9 +275,9 @@ export function MembersTable({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       className={cn(
-                        cellPad,
+                        "h-14 py-2.5",
                         cell.column.id === "member" && "max-w-0 w-full",
-                        cell.column.id === "joined" && "hidden md:table-cell"
+                        cell.column.id === "joined" && "hidden lg:table-cell"
                       )}
                       key={cell.id}
                     >
@@ -331,7 +295,9 @@ export function MembersTable({
                   className="h-28 text-center text-muted-foreground"
                   colSpan={columns.length}
                 >
-                  No members match “{query}”.
+                  {query
+                    ? `No members match “${query}”.`
+                    : `No one has the ${roleLabel(roleFilter)} role.`}
                 </TableCell>
               </TableRow>
             )}

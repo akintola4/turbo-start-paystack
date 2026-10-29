@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { Monogram } from "@/components/avatars";
 import { useRowPresence } from "@/components/motion";
-import { MemberRowMenu } from "@/components/members/member-actions";
+import { MemberRowMenu, RoleSelect } from "@/components/members/member-actions";
 import type { MemberRow, Role } from "@/lib/view-models";
 import { formatDate, roleLabel } from "@/lib/format";
 
@@ -19,7 +19,7 @@ function PresenceItem({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
-/** Mobile list: one row per member, role under the name, actions in a menu. */
+/** Mobile list: one row per member, the role (or its select) under the name. */
 export function MemberCards({
   members,
   organizationId,
@@ -46,16 +46,23 @@ export function MemberCards({
                 </span>
               ) : null}
             </span>
-            <span className="truncate text-muted-foreground text-xs">
-              {roleLabel(m.role)}, joined {formatDate(m.joinedAt, "short")}
-            </span>
+            {m.canUpdate ? (
+              <RoleSelect
+                className="w-32"
+                member={m}
+                organizationId={organizationId}
+                roles={roles}
+              />
+            ) : (
+              <span className="truncate text-muted-foreground text-sm">
+                {roleLabel(m.role)}, joined {formatDate(m.joinedAt, "short")}
+              </span>
+            )}
           </div>
           <MemberRowMenu
             member={m}
             organizationId={organizationId}
             orgName={orgName}
-            roles={roles}
-            triggerClassName="rounded-full"
           />
         </PresenceItem>
       ))}

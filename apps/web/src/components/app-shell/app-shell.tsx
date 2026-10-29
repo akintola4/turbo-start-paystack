@@ -14,9 +14,9 @@ import { Monogram } from "@/components/avatars";
 import { OrgSwitcherMenu } from "@/components/orgs/org-switcher-menu";
 import { UserMenu } from "@/components/app-shell/user-menu";
 import type { ShellData } from "@/lib/view-models";
-import { roleLabel, STATUS_META } from "@/lib/format";
+import { roleLabel } from "@/lib/format";
 import { ShellNav } from "@/components/app-shell/shell-nav";
-import { Mark } from "@/components/primitives";
+import { statusLabel } from "@/components/primitives";
 
 export function AppShell({
   data,
@@ -25,7 +25,11 @@ export function AppShell({
   data: ShellData;
   children: ReactNode;
 }) {
-  const status = data.plan.status ? STATUS_META[data.plan.status].label : null;
+  const { plan } = data;
+  const status =
+    plan.status && plan.status !== "active"
+      ? statusLabel(plan.status, plan.endsAt)
+      : null;
   return (
     <SidebarProvider
       className="bg-background"
@@ -52,10 +56,7 @@ export function AppShell({
                   {data.org.name}
                 </span>
                 <span className="truncate text-muted-foreground text-xs">
-                  {data.plan.name} plan
-                  {status && data.plan.status !== "active"
-                    ? `, ${status.toLowerCase()}`
-                    : ""}
+                  {plan.name} plan{status ? ` · ${status}` : ""}
                 </span>
               </span>
               <ChevronsUpDownIcon
@@ -106,9 +107,22 @@ export function AppShell({
             aria-label="Open navigation"
             className="-ml-2 size-11"
           />
-          <Mark className="size-6" />
+          <Monogram
+            className="size-7 text-[11px]"
+            name={data.org.name}
+            tone="solid"
+          />
           <span className="truncate font-semibold">{data.org.name}</span>
         </header>
+        {/* Desktop: the only visible way to collapse the sidebar (⌘B / Ctrl+B
+            also works). Sits in the gutter, clear of the content column. */}
+        <SidebarTrigger
+          aria-keyshortcuts="Meta+B Control+B"
+          aria-label="Toggle sidebar"
+          className="absolute top-12 left-1 z-10 hidden md:inline-flex"
+          size="icon-xs"
+          data-print="hide"
+        />
         <main
           className="mx-auto w-full max-w-[1120px] px-4 pt-8 pb-24 sm:px-8 md:pt-10"
           id="content"

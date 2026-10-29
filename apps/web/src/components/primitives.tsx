@@ -4,6 +4,7 @@ import {
   CalendarXIcon,
   CheckIcon,
   CircleCheckIcon,
+  CircleDashedIcon,
   CircleSlashIcon,
   CircleXIcon,
   ClockIcon,
@@ -19,7 +20,7 @@ import Link from "next/link";
 import type { HTMLAttributes, ReactNode } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
-import { splitMoney } from "@/lib/format";
+import { formatDate, splitMoney } from "@/lib/format";
 import { spokenMoney } from "@/lib/money";
 import type { InvoiceRow, SubscriptionStatus } from "@/lib/view-models";
 
@@ -105,15 +106,33 @@ const INVOICE_STATUS: Record<
   pending: { label: "Pending", icon: ClockIcon, variant: "info" },
 };
 
+/**
+ * The one word for a plan's state, everywhere it appears (badge, sidebar,
+ * org list): "Active", "Trial", "Past due", "Ends 12 Mar"… A plan that
+ * ends shows its date when the viewer may see dates, "Ending" otherwise.
+ */
+export function statusLabel(
+  status: SubscriptionStatus,
+  endsAt?: string | null
+) {
+  if (status === "non_renewing" && endsAt) {
+    return `Ends ${formatDate(endsAt, "short")}`;
+  }
+  return SUBSCRIPTION_STATUS[status].label;
+}
+
 /** Icon + word chip. `label` overrides the word (e.g. "Trial, 9 days left"). */
 export function StatusBadge({
   status,
   label,
+  endsAt,
   graceEnded = false,
   className,
 }: {
   status: SubscriptionStatus | "free";
   label?: string;
+  /** For non_renewing: the day access ends ("Ends 12 Mar"). */
+  endsAt?: string | null;
   /** Past due becomes danger once the grace period has run out. */
   graceEnded?: boolean;
   className?: string;
@@ -121,6 +140,7 @@ export function StatusBadge({
   if (status === "free") {
     return (
       <Badge className={className} variant="quiet">
+        <CircleDashedIcon aria-hidden />
         Free
       </Badge>
     );
@@ -132,7 +152,7 @@ export function StatusBadge({
   return (
     <Badge className={className} variant={variant}>
       <Icon aria-hidden />
-      {label ?? meta.label}
+      {label ?? statusLabel(status, endsAt)}
     </Badge>
   );
 }

@@ -118,7 +118,7 @@ export function PresenceTableRow({
   const presence = useRowPresence(id);
   return (
     <TableRow
-      className={cn("transition-colors duration-(--duration-hover)", className)}
+      className={cn("transition-colors duration-(--dur-fast)", className)}
       data-presence={presence}
     >
       {children}

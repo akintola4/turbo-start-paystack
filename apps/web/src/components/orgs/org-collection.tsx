@@ -20,7 +20,7 @@ import { useState } from "react";
 import { AnimatedNumber } from "@/components/animated-number";
 import { Monogram } from "@/components/avatars";
 import { RowPresenceProvider, useRowPresence } from "@/components/motion";
-import { Amount, StatusBadge } from "@/components/primitives";
+import { Amount, StatusBadge, statusLabel } from "@/components/primitives";
 import { formatDate, roleLabel } from "@/lib/format";
 import { ORG_VIEW_COOKIE } from "@/lib/org-view";
 import type { OrgPickerData } from "@/lib/view-models";
@@ -28,12 +28,12 @@ import type { OrgPickerData } from "@/lib/view-models";
 type Org = OrgPickerData["orgs"][number];
 type View = OrgPickerData["view"];
 
-function statusLabel(org: Org) {
+function orgStatusLabel(org: Org) {
   if (org.status === "trialing" && org.billing?.date) {
     return `Trial (ends ${formatDate(org.billing.date, "short")})`;
   }
   if (org.billing?.kind === "ends") {
-    return "Cancelling";
+    return statusLabel("non_renewing", org.billing.date);
   }
   return undefined;
 }
@@ -90,7 +90,10 @@ function OrgRow({ org }: { org: Org }) {
           </span>
         </span>
         <span className="justify-self-end md:justify-self-start">
-          <StatusBadge label={statusLabel(org)} status={org.status ?? "free"} />
+          <StatusBadge
+            label={orgStatusLabel(org)}
+            status={org.status ?? "free"}
+          />
         </span>
         {/* Rendered once; on phones they share the second line under the name. */}
         <span className="col-start-2 row-start-2 text-sm md:col-start-auto md:row-start-auto">
@@ -124,7 +127,10 @@ function OrgCard({ org }: { org: Org }) {
             name={org.name}
             tone="solid"
           />
-          <StatusBadge label={statusLabel(org)} status={org.status ?? "free"} />
+          <StatusBadge
+            label={orgStatusLabel(org)}
+            status={org.status ?? "free"}
+          />
         </div>
         <div className="grid gap-1">
           <span className="truncate font-semibold text-lg">{org.name}</span>
