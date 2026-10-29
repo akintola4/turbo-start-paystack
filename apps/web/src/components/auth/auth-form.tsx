@@ -186,6 +186,9 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
 
+  // Plain /app may skip the picker after sign-in (see app/app/page.tsx).
+  const landing = callbackURL === "/app" ? "/app?from=sign-in" : callbackURL;
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
@@ -200,7 +203,11 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             name: String(form.get("name") || email.split("@")[0]),
             callbackURL,
           })
-        : await authClient.signIn.email({ email, password, callbackURL });
+        : await authClient.signIn.email({
+            email,
+            password,
+            callbackURL: landing,
+          });
     if (result.error) {
       setPending(false);
       setError(authFormError(result.error, mode));
@@ -212,8 +219,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       return;
     }
     // Stays pending through the navigation, so the button doesn't flicker.
-    router.push(callbackURL);
-    router.refresh();
+    router.push(landing);
   }
 
   if (sentTo) {

@@ -12,6 +12,7 @@ import type { CSSProperties, ReactNode } from "react";
 
 import { Monogram } from "@/components/avatars";
 import { OrgSwitcherMenu } from "@/components/orgs/org-switcher-menu";
+import { RememberOrg } from "@/components/app-shell/remember-org";
 import { UserMenu } from "@/components/app-shell/user-menu";
 import type { ShellData } from "@/lib/view-models";
 import { roleLabel } from "@/lib/format";
@@ -98,6 +99,7 @@ export function AppShell({
           </UserMenu>
         </SidebarFooter>
       </Sidebar>
+      <RememberOrg slug={data.org.slug} />
       <SidebarInset className="bg-background">
         <header
           className="sticky top-0 z-10 flex min-h-14 items-center gap-3 border-b bg-background px-4 pt-[env(safe-area-inset-top)] md:hidden"

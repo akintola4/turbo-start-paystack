@@ -31,8 +31,7 @@ export function OrgPicker({ data }: { data: OrgPickerData }) {
       >
         <PageHeader
           actions={<NewOrgDialog defaultOpen={data.orgs.length === 0} />}
-          description="Pick one to continue."
-          title={`Hi, ${first}`}
+          title="Organizations"
         />
         {data.user.emailVerified ? null : (
           <VerifyCallout email={data.user.email} />

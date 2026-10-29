@@ -14,7 +14,6 @@ import {
   UsersIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
@@ -200,7 +199,6 @@ export function OrgCollection({
   orgs: Org[];
   initialView: View;
 }) {
-  const router = useRouter();
   const [view, setView] = useState<View>(initialView);
   const [query, setQuery] = useState("");
   const shown = query
@@ -238,7 +236,6 @@ export function OrgCollection({
               setView(next);
               // biome-ignore lint/suspicious/noDocumentCookie: one non-sensitive UI preference, read on the server for SSR.
               document.cookie = `${ORG_VIEW_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;
-              router.refresh();
             }}
             value={view}
           />

@@ -1,6 +1,6 @@
 "use client";
 
-import type * as React from "react";
+import * as React from "react";
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
 import { cn } from "@workspace/tailwind-config/utils";
 
@@ -41,15 +41,28 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  initialFocus,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left";
   showCloseButton?: boolean;
 }) {
+  const popup = React.useRef<HTMLDivElement>(null);
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Popup
+        // On touch screens focus the sheet, not its first field, so the
+        // keyboard doesn't open over it before anyone has read it.
+        initialFocus={
+          initialFocus ??
+          ((openType) =>
+            openType === "touch" ||
+            window.matchMedia("(pointer: coarse)").matches
+              ? popup.current
+              : true)
+        }
+        ref={popup}
         data-slot="sheet-content"
         data-side={side}
         className={cn(

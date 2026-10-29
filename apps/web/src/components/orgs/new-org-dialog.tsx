@@ -11,6 +11,7 @@ import {
 } from "@workspace/ui/components/dialog";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -59,7 +60,13 @@ export function NewOrgDialog({
                 {DESCRIPTION}
               </SheetDescription>
             </SheetHeader>
-            <CreateOrgForm layout="stack" />
+            <CreateOrgForm
+              footer={
+                <SheetClose render={<Button variant="ghost" />}>
+                  Cancel
+                </SheetClose>
+              }
+            />
           </div>
         </SheetContent>
       </Sheet>
@@ -73,7 +80,7 @@ export function NewOrgDialog({
           <DialogTitle>{TITLE}</DialogTitle>
           <DialogDescription>{DESCRIPTION}</DialogDescription>
         </DialogHeader>
-        <CreateOrgForm layout="stack" />
+        <CreateOrgForm />
       </DialogContent>
     </Dialog>
   );
