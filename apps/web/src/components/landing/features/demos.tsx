@@ -1,7 +1,7 @@
 "use client";
 
 import { catalog } from "@workspace/billing/catalog";
-import { CURRENCY_SYMBOL, type Currency } from "@workspace/billing/money";
+import type { Currency } from "@workspace/billing/money";
 import { cn } from "@workspace/tailwind-config/utils";
 import {
   CheckIcon,
@@ -19,7 +19,7 @@ import { useLanding } from "@/components/landing/currency-context";
 import { nextRadioIndex } from "@/components/landing/radio";
 import { type SegmentOption, Segmented } from "@/components/landing/segmented";
 import { StatusBadge } from "@/components/primitives";
-import { formatMoney } from "@/lib/money";
+import { CURRENCY_SYMBOL, formatMoney } from "@/lib/money";
 
 /* ------------------------------------------------------------- helpers */
 

@@ -1,5 +1,5 @@
-import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/tailwind-config/utils";
+import { Badge } from "@workspace/ui/components/badge";
 import {
   CalendarXIcon,
   CheckIcon,
@@ -230,7 +230,7 @@ const SPOKEN: Record<string, string> = {
   "₦": "naira",
   "GH₵": "cedis",
   R: "rand",
-  "KSh ": "shillings",
+  "KSh ": "shillings",
   $: "dollars",
 };
 

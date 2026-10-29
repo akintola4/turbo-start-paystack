@@ -1,8 +1,8 @@
 "use client";
 
 import NumberFlow from "@number-flow/react";
-import { buttonVariants } from "@workspace/ui/components/button";
 import { cn } from "@workspace/tailwind-config/utils";
+import { buttonVariants } from "@workspace/ui/components/button";
 import { GitForkIcon } from "lucide-react";
 import { useRef } from "react";
 
@@ -17,6 +17,8 @@ import { formatMoney } from "@/lib/money";
 import { moneyFlowProps } from "@/lib/money-flow";
 
 const TITLE = "Nothing to pay. One command to start.";
+/** The heading's two set lines; the text column takes their width. */
+const TITLE_LINES = ["Nothing to pay.", "One command to start."];
 
 /** What you "buy": every line is free, in whatever currency you chose. */
 const LINE_ITEMS = [
@@ -77,18 +79,26 @@ export function ReceiptSection({ version }: { version: string }) {
         className="overflow-hidden px-(--gut) pt-8 pb-3 sm:px-(--gut) sm:pt-12 sm:pb-5"
       >
         <div
-          className="mx-auto grid w-full max-w-(--content-max) gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,37.5rem)] lg:gap-16"
+          className="mx-auto grid w-full max-w-(--content-max) gap-10 min-[90rem]:grid-cols-[minmax(0,1fr)_minmax(0,34rem)] min-[90rem]:items-center min-[90rem]:gap-12"
           ref={root}
         >
-          <div className="grid content-start justify-items-start gap-6 lg:pt-4">
+          {/* The column is as wide as the heading's longer line; the
+              paragraph (w-0 min-w-full) wraps to that width rather than
+              setting it. Centred on the receipt's box, which is its final
+              printed height: the print-in only translates the paper. */}
+          <div className="grid w-fit max-w-full justify-items-start gap-6">
             <h2
               className="display-l"
               id="start-title"
               style={opticalEdge(TITLE)}
             >
-              {TITLE}
+              {TITLE_LINES.map((line) => (
+                <span className="block" key={line}>
+                  {line}
+                </span>
+              ))}
             </h2>
-            <p className="max-w-[34rem] text-pretty text-panel-muted">
+            <p className="w-0 min-w-full text-pretty text-panel-muted">
               Clone it, run setup, and you have organizations, roles and
               Paystack billing on your machine, with a mock Paystack so you
               don&rsquo;t need an account yet. Node 22, pnpm and Postgres.
@@ -110,7 +120,7 @@ export function ReceiptSection({ version }: { version: string }) {
             </div>
           </div>
 
-          <div data-receipt-feeder>
+          <div className="w-full max-w-[37.5rem]" data-receipt-feeder>
             <div
               aria-hidden
               className="relative z-10 h-2.5 rounded-chip bg-[var(--forest-950)] shadow-[inset_0_2px_0_oklch(0_0_0/0.35)]"

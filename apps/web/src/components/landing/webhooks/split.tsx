@@ -1,7 +1,6 @@
 "use client";
 
 import { Badge } from "@workspace/ui/components/badge";
-import { CURRENCY_SYMBOL } from "@workspace/billing/money";
 import { cn } from "@workspace/tailwind-config/utils";
 import {
   CopyCheckIcon,
@@ -16,7 +15,7 @@ import { AnimatedNumber } from "@/components/animated-number";
 import { useLanding } from "@/components/landing/currency-context";
 import type { PriceTable } from "@/components/landing/types";
 import { Panel } from "@/components/primitives";
-import { formatMoney } from "@/lib/money";
+import { CURRENCY_SYMBOL, formatMoney } from "@/lib/money";
 
 const STEP_MS = 1000;
 

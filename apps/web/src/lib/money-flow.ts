@@ -1,8 +1,8 @@
-import { CURRENCY_SYMBOL } from "@workspace/billing/money";
+import { CURRENCY_SYMBOL } from "./money";
 
 /**
  * NumberFlow props that print exactly what `formatMoney` prints: the shared
- * symbol (with its U+202F after KSh) as the prefix and two decimals with
+ * display symbol (U+00A0 after KSh, see lib/money.ts) as the prefix and two decimals with
  * English grouping. `money-flow.test.ts` checks every currency.
  */
 export function moneyFlowProps(amountSubunit: number, currency: string) {
