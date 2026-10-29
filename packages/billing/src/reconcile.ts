@@ -230,11 +230,19 @@ export async function reconcile(deps: BillingDeps): Promise<ReconcileReport> {
  * is null) and emails after the commit, so overlapping cron runs can't both
  * send it. At most once: if the email fails after the claim it is not
  * retried, which is the better failure for a reminder.
+ *
+ * Reconcile runs it for every organization at the real time. The dev
+ * "Simulate billing" panel runs it for one organization as of a date near
+ * the trial's end, to play the reminder without waiting 11 days.
  */
-async function sendTrialReminders(
+export async function sendTrialReminders(
   deps: BillingDeps,
   now: Date,
-  step: (label: string, run: () => Promise<void>) => Promise<void>
+  step: (label: string, run: () => Promise<void>) => Promise<void> = (
+    _label,
+    run
+  ) => run(),
+  organizationId?: string
 ): Promise<number> {
   const s = schema.subscription;
   const due = await deps.db
@@ -245,7 +253,8 @@ async function sendTrialReminders(
         eq(s.status, "trialing"),
         isNull(s.trialReminderSentAt),
         gt(s.trialEndsAt, now),
-        lte(s.trialEndsAt, addDays(now, TRIAL_REMINDER_DAYS))
+        lte(s.trialEndsAt, addDays(now, TRIAL_REMINDER_DAYS)),
+        organizationId ? eq(s.organizationId, organizationId) : undefined
       )
     )
     .limit(200);

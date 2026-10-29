@@ -144,6 +144,9 @@ export type BillingData = {
   invoices: InvoiceRow[];
   seats: { used: number; limit: number };
   publicKey?: string;
+  /** Show the "Simulate billing" dev panel: development, local Paystack
+   *  mock and a role that can manage billing. Never true in production. */
+  devTools: boolean;
 };
 
 export type OrgPickerData = {

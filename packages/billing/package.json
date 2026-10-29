@@ -29,6 +29,7 @@
     "./money": "./src/money.ts",
     "./entitlements": "./src/entitlements.ts",
     "./fake": "./src/fake-paystack.ts",
-    "./fixtures": "./src/fixtures.ts"
+    "./fixtures": "./src/fixtures.ts",
+    "./simulate": "./src/simulate.ts"
   }
 }

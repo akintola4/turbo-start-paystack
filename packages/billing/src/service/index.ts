@@ -4,7 +4,7 @@ import { desc, eq } from "drizzle-orm";
 
 import { getEntitlement } from "../entitlements";
 import { BillingError } from "../errors";
-import { reconcile } from "../reconcile";
+import { reconcile, sendTrialReminders } from "../reconcile";
 import { processEvent, processPending } from "../webhook/process";
 import { applyChargeSuccess } from "./charge";
 import { type Actor, startCheckout } from "./checkout";
@@ -107,6 +107,10 @@ export function createBillingService(options: CreateBillingServiceOptions) {
       getManageCardLink(deps, organizationId),
 
     reconcile: () => reconcile(deps),
+    /** The reconcile trial-reminder step for one organization, as of `asOf`
+     *  (development: the "Simulate billing" panel). */
+    sendTrialReminders: (input: { organizationId: string; asOf: Date }) =>
+      sendTrialReminders(deps, input.asOf, undefined, input.organizationId),
   };
 }
 

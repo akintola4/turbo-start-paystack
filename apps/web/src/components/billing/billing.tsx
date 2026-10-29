@@ -9,11 +9,12 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { AnimatedNumber } from "@/components/animated-number";
 import {
   BillingAction,
   type BillingConfirm,
 } from "@/components/billing/billing-action";
-import { AnimatedNumber } from "@/components/animated-number";
+import { DevBillingPanel } from "@/components/billing/dev-billing-panel";
 import { PaymentToast } from "@/components/billing/payment-toast";
 import { PlanPicker } from "@/components/billing/plan-picker";
 import { SwapOnChange } from "@/components/motion";
@@ -337,6 +338,9 @@ export function Billing({ data }: { data: BillingData }) {
       <PageHeader description={description} title="Billing" />
       <PastDueBanner data={data} />
       <CurrentPlan data={data} />
+      {data.devTools ? (
+        <DevBillingPanel orgId={data.org.id} status={sub?.status ?? null} />
+      ) : null}
       <section aria-labelledby="plans-title" className="grid gap-5">
         <PlanPicker
           data={data}

@@ -28,6 +28,7 @@ export {
 } from "./theme";
 export {
   createEmailSender,
+  type DevOutboxEntry,
   type EmailMessage,
   type EmailSender,
   getDevOutbox,

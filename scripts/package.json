@@ -10,16 +10,26 @@
     "check-types": "tsc --noEmit",
     "billing:sync": "tsx --env-file-if-exists=../apps/web/.env billing-sync.ts",
     "paystack:mock": "tsx --env-file-if-exists=../apps/web/.env paystack-mock.ts",
-    "webhook:replay": "tsx --env-file-if-exists=../apps/web/.env webhook-replay.ts"
+    "webhook:replay": "tsx --env-file-if-exists=../apps/web/.env webhook-replay.ts",
+    "setup": "tsx setup.ts",
+    "dev:all": "tsx dev.ts",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@clack/prompts": "^1.8.1",
+    "@workspace/auth": "workspace:*",
     "@workspace/billing": "workspace:*",
-    "@workspace/db": "workspace:*"
+    "@workspace/db": "workspace:*",
+    "@workspace/email": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "picocolors": "^1.1.1",
+    "postgres": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "@workspace/typescript-config": "workspace:*",
     "tsx": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

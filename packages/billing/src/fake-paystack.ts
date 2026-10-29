@@ -33,6 +33,8 @@ type Sub = {
   customer: string;
   authorization: string;
   next_payment_date: string;
+  /** Invoice of a failed renewal, until a later charge pays it. */
+  open_invoice?: string;
 };
 
 type Call = { method: string; path: string; body: Record<string, unknown> };
