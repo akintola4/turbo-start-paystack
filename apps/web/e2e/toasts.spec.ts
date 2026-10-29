@@ -84,8 +84,8 @@ test.describe("signed in", () => {
     await select.click();
     await page.getByRole("option", { name: next }).click();
     await expect(toast(page, /Wanjiru Kamau is now/)).toBeVisible();
-    // Let the refresh after the change settle before opening the select again.
-    await page.waitForLoadState("networkidle");
+    // Start from a fresh render before putting the role back.
+    await page.reload({ waitUntil: "networkidle" });
     await expect(select.locator("[data-slot=select-value]")).toHaveText(next);
     // Put it back so the demo data stays as seeded.
     await select.click();

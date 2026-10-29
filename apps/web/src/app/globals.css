@@ -90,9 +90,27 @@
   }
 }
 
-/* NumberFlow: inherit the Geist + currency-symbol stack inside its shadow DOM. */
+/*
+ * NumberFlow. Its mask needs vertical padding inside the shadow root; the
+ * matching negative margin keeps the element's box at the text's own height,
+ * so neighbours align to the real baseline. Fonts inherit through the shadow
+ * DOM (Geist, with the ₦/₵ subset). Money units are a muted, smaller suffix.
+ */
+number-flow-react {
+  margin-block: calc(
+    round(nearest, var(--number-flow-mask-height, 0.25em) / 2, 1px) *
+    -2
+  );
+  vertical-align: baseline;
+}
 number-flow-react::part(digit),
 number-flow-react::part(symbol) {
   font-family: inherit;
   font-variant-numeric: tabular-nums;
+}
+.money number-flow-react::part(suffix) {
+  font-size: max(14px, 0.32em);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--muted-foreground);
 }

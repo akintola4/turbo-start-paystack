@@ -123,6 +123,11 @@
   --dur-modal-exit: 170ms;
   --dur-sheet: 320ms;
   --dur-sheet-exit: 220ms;
+  /* NumberFlow (mirrored in apps/web/src/components/animated-number.tsx) */
+  --motion-number-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-number-spin: 850ms; /* counts: 750ms */
+  --motion-number-transform: 700ms; /* counts: 600ms */
+  --motion-number-opacity: 340ms; /* counts: 300ms */
 
   /* type */
   --app-font-sans:

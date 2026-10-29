@@ -62,8 +62,10 @@ function Members({ count }: { count: number }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-muted-foreground">
       <UsersIcon aria-hidden className="size-4" />
-      <AnimatedNumber value={count} />
-      <span className="sr-only">{count === 1 ? "member" : "members"}</span>
+      <AnimatedNumber
+        label={`${count} ${count === 1 ? "member" : "members"}`}
+        value={count}
+      />
     </span>
   );
 }
@@ -90,16 +92,11 @@ function OrgRow({ org }: { org: Org }) {
         <span className="justify-self-end md:justify-self-start">
           <StatusBadge label={statusLabel(org)} status={org.status ?? "free"} />
         </span>
-        {/* Mobile: one muted line under the name. */}
-        <span className="col-start-2 col-end-4 flex items-center gap-2 text-muted-foreground text-sm md:hidden">
-          <Members count={org.memberCount} />
-          <span aria-hidden>·</span>
-          <span>{roleLabel(org.role)}</span>
-        </span>
-        <span className="hidden text-sm md:inline-flex">
+        {/* Rendered once; on phones they share the second line under the name. */}
+        <span className="col-start-2 row-start-2 text-sm md:col-start-auto md:row-start-auto">
           <Members count={org.memberCount} />
         </span>
-        <span className="hidden text-muted-foreground text-sm md:block">
+        <span className="col-start-3 row-start-2 justify-self-end text-muted-foreground text-sm md:col-start-auto md:row-start-auto md:justify-self-start">
           {roleLabel(org.role)}
         </span>
         <span className="hidden text-right text-sm tabular-nums md:block">

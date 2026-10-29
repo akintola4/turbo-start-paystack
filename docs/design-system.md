@@ -372,6 +372,9 @@ The stack is Base UI (`data-starting-style` / `data-ending-style`, `--transform-
 | `--dur-number` | 240ms | Price and currency changes |
 | `--dur-modal` | 240ms enter / 170ms exit | Dialog |
 | `--dur-sheet` | 320ms enter / 220ms exit | Bottom sheet |
+| `--motion-number-spin` | 850ms money / 750ms counts, `cubic-bezier(0.16, 1, 0.3, 1)` | NumberFlow digit roll: slow enough to read, smooth deceleration |
+| `--motion-number-transform` | 700ms money / 600ms counts, same curve | NumberFlow width and position, finishing with the roll |
+| `--motion-number-opacity` | 340ms money / 300ms counts, ease-out | Digits fading in and out |
 
 ### Per interaction
 
@@ -382,7 +385,7 @@ The stack is Base UI (`data-starting-style` / `data-ending-style`, `--transform-
 | **Dropdown / select / popover** | `opacity 0, scale 0.97` → 1 from `transform-origin: var(--transform-origin)`, 180ms `--ease-out`. Exit opacity only, 120ms. Arrow-key highlight movement: **no animation** | Origin-aware. Keyboard actions are never animated |
 | **Tooltip** | 400ms open delay, 150ms fade. Warm state: siblings open instantly with no animation, cleared 300ms after the last closes | Avoids flicker along toolbars |
 | **Toast** (Sonner) | Enter `translateY(16px), opacity 0` → 0, 240ms `--ease-out`. Exit 170ms. Bottom-centre on mobile above the safe area, bottom-right on desktop. Duration = max(4s, words ÷ 4 per second). Pause on hover and on `visibilitychange` | Reading time scales with content |
-| **Plan toggle (monthly ↔ annual)** | Thumb slides `translate` 200ms `--ease-in-out`. Each price: the old value exits `translateY(-8px), opacity 0` in 140ms, the new value enters from `+8px` in 240ms `--ease-out`. Old and new are stacked in one grid cell (`grid-area: 1/1`), so the wider string reserves width (**no layout shift**). The period label crossfades. Cards stagger 30ms left→right (total < 300ms) | The eye follows the change across cards. Tabular digits keep columns still |
+| **Plan toggle (monthly ↔ annual)** | Thumb slides `translate` 200ms `--ease-in-out`. Each price is one NumberFlow (`@number-flow/react`): symbol as `prefix`, unit as `suffix`, digits roll with the `--motion-number-*` timings and the direction follows the change (`trend`). The amount animates its own width; nothing else on the card moves. NumberFlow's mask padding is cancelled with an equal negative margin so the box is the text's height | The eye follows the change across cards. Tabular digits keep columns still |
 | **Currency switch** (landing picker) | Same number transition. The symbol swaps with the digits as one unit. The matching tiles in the reference grid take sunflower via `background-color` 150ms. The previous ones return to tile green | Ties the decorative grid to the real control, a signature moment |
 | **Status badge change** (past_due → active after payment) | Background and text colour 200ms. Icon swap: old `scale 0.8, opacity 0` out in 120ms, new `scale 0.8→1, opacity 0→1` in 200ms `--ease-out`. Badge width animates with no layout cost by reserving the larger label | Announce via `aria-live="polite"` |
 | **Press feedback** | `scale: 0.97` on `:active`, `--dur-press` `--ease-out`. Clickable cards 0.985. **Not** on nav items, segmented options or table rows | High-frequency controls stay instant |

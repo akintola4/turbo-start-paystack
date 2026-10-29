@@ -113,13 +113,6 @@ function PlanFooter({
   );
 }
 
-/** Both intervals' labels for a plan, so the price slot never changes width. */
-function reserveFor(data: BillingData, key: string) {
-  return [data.plans.monthly, data.plans.annually]
-    .map((list) => list.find((p) => p.key === key)?.price?.label)
-    .filter((l): l is string => Boolean(l));
-}
-
 function PlanTiles({
   data,
   plans,
@@ -158,8 +151,12 @@ function PlanTiles({
           <div className="grid gap-1.5">
             <Money
               label={plan.price?.label ?? formatMoney(0, data.currency)}
-              per={intervalLabel(plan.price?.interval ?? "monthly", "long")}
-              reserve={reserveFor(data, plan.key)}
+              per={intervalLabel(
+                plan.price?.interval ??
+                  plans.find((p) => p.price)?.price?.interval ??
+                  "monthly",
+                "long"
+              )}
             />
             <p className="text-muted-foreground text-sm">{plan.description}</p>
           </div>

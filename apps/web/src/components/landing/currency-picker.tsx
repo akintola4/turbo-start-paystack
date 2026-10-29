@@ -233,12 +233,7 @@ export function CurrencyShowcase({ table }: { table: CurrencyTable }) {
         />
         <div className="flex items-baseline justify-between gap-3 rounded-card bg-panel-tile px-4 py-3">
           <span className="font-semibold text-panel-muted text-sm">Pro</span>
-          <Money
-            label={proOf(current)}
-            per="month"
-            reserve={table.map(proOf)}
-            size="md"
-          />
+          <Money label={proOf(current)} per="month" size="md" />
         </div>
         <CurrencyRadios onChange={setCode} table={table} value={code} />
       </Panel>
@@ -262,23 +257,16 @@ export function CurrencyShowcase({ table }: { table: CurrencyTable }) {
           {current.plans.map((plan) => (
             <li key={plan.key}>
               <Tile as="article" className="grid h-full content-start gap-5">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-baseline justify-between gap-2">
                   <h3 className="font-semibold text-lg">{plan.name}</h3>
-                  {plan.trialDays > 0 ? (
-                    <span className="text-muted-foreground text-sm">
-                      {plan.trialDays}-day trial
-                    </span>
-                  ) : null}
+                  <span className="text-muted-foreground text-sm">
+                    {plan.trialDays > 0
+                      ? `${plan.trialDays}-day trial`
+                      : "No card needed"}
+                  </span>
                 </div>
                 <div className="grid gap-1.5">
-                  <Money
-                    label={plan.monthly}
-                    per="month"
-                    reserve={table.map(
-                      (t) =>
-                        t.plans.find((p) => p.key === plan.key)?.monthly ?? ""
-                    )}
-                  />
+                  <Money label={plan.monthly} per="month" />
                   <p className="text-muted-foreground text-sm">
                     {plan.description}
                   </p>

@@ -235,22 +235,21 @@ const SPOKEN: Record<string, string> = {
 };
 
 /**
- * Display amount (≥ 32px): symbol at 0.56em, top-aligned to the cap height;
- * `.00` hidden; the period sits on the baseline. Geist, tabular figures.
+ * Display amount. Symbol, digits and the period unit are one NumberFlow:
+ * the symbol at the digits' size and weight (from the shared formatter),
+ * `.00` hidden, and the unit as a smaller muted suffix on the same baseline.
+ * The number animates its own width; nothing else is reserved.
  */
 export function Money({
   label,
   className,
   size = "lg",
   per,
-  reserve = [],
 }: {
   label: string;
   className?: string;
   size?: "md" | "lg" | "xl";
   per?: string;
-  /** Other labels this amount can switch to; the widest one holds the width. */
-  reserve?: string[];
 }) {
   const { symbol, whole, decimals } = splitMoney(label);
   const sizes = {
@@ -258,58 +257,27 @@ export function Money({
     lg: "text-[32px]",
     xl: "text-[40px] sm:text-[56px]",
   } as const;
-  const spoken = `${whole} ${SPOKEN[symbol] ?? symbol.trim()}${per ? ` per ${per}` : ""}`;
   const showDecimals = Boolean(decimals && decimals !== ".00");
-  const symbolEl = (sym: string) => (
-    <span className="mt-[0.1em] mr-[0.04em] font-medium text-[0.56em] text-muted-foreground">
-      {sym.trim()}
-    </span>
-  );
-  const digits = (text: string) => {
-    const parts = splitMoney(text);
-    return `${parts.whole}${parts.decimals && parts.decimals !== ".00" ? parts.decimals : ""}`;
-  };
+  const spoken = `${whole} ${SPOKEN[symbol] ?? symbol.trim()}${per ? ` per ${per}` : ""}`;
   return (
-    <data
+    <AnimatedNumber
       className={cn(
-        "inline-flex items-baseline whitespace-nowrap font-money font-semibold tabular-nums leading-none tracking-[-0.02em]",
+        "money font-money font-semibold leading-none tracking-[-0.02em]",
         sizes[size],
         className
       )}
-      value={whole.replaceAll(",", "")}
-    >
-      <span className="sr-only">{spoken}</span>
-      {/* The widest candidate (symbol and digits) holds the width, so "/ month" never moves. */}
-      <span aria-hidden className="inline-grid [&>*]:[grid-area:1/1]">
-        {reserve.map((r) => (
-          <span className="invisible inline-flex items-start" key={r}>
-            {symbolEl(splitMoney(r).symbol)}
-            {digits(r)}
-          </span>
-        ))}
-        <span className="inline-flex items-start">
-          {symbolEl(symbol)}
-          <AnimatedNumber
-            format={{
-              minimumFractionDigits: showDecimals ? 2 : 0,
-              maximumFractionDigits: showDecimals ? 2 : 0,
-            }}
-            value={Number(
-              `${whole.replaceAll(",", "")}${showDecimals ? decimals : ""}`
-            )}
-          />
-        </span>
-      </span>
-      {per ? (
-        <span
-          aria-hidden
-          className="ml-1.5 font-normal font-sans text-muted-foreground text-sm tracking-normal"
-          data-slot="plan-per"
-        >
-          / {per}
-        </span>
-      ) : null}
-    </data>
+      format={{
+        minimumFractionDigits: showDecimals ? 2 : 0,
+        maximumFractionDigits: showDecimals ? 2 : 0,
+      }}
+      kind="money"
+      label={spoken}
+      prefix={symbol}
+      suffix={per ? `\u2009/\u2009${per}` : undefined}
+      value={Number(
+        `${whole.replaceAll(",", "")}${showDecimals ? decimals : ""}`
+      )}
+    />
   );
 }
 
