@@ -1,9 +1,11 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@workspace/tailwind-config/utils";
+import { Loader2Icon } from "lucide-react";
+import type { ReactNode } from "react";
 
 const buttonVariants = cva(
-  "group/button relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-control border border-transparent font-semibold text-[15px] outline-none pressable disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-control border border-transparent font-semibold text-[15px] outline-hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid pressable disabled:pointer-events-none disabled:opacity-50 data-pending:disabled:opacity-100 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -37,18 +39,55 @@ const buttonVariants = cva(
   }
 );
 
+/**
+ * `pending` (when passed at all) keeps the label in its place and fades it
+ * out under a centred spinner, so the button never changes width or shifts
+ * its text when a request starts. It also disables the button and sets
+ * aria-busy.
+ */
 function Button({
   className,
   variant = "default",
   size = "default",
+  pending,
+  disabled,
+  children,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & {
+    pending?: boolean;
+    children?: ReactNode;
+  }) {
   return (
     <ButtonPrimitive
-      data-slot="button"
+      aria-busy={pending || undefined}
       className={cn(buttonVariants({ variant, size, className }))}
+      data-pending={pending || undefined}
+      data-slot="button"
+      disabled={disabled || pending}
       {...props}
-    />
+    >
+      {pending === undefined ? (
+        children
+      ) : (
+        <>
+          <span
+            className={cn(
+              "inline-flex items-center justify-center gap-[inherit] transition-opacity duration-(--dur-fast)",
+              pending && "opacity-0"
+            )}
+          >
+            {children}
+          </span>
+          {pending ? (
+            <Loader2Icon
+              aria-hidden
+              className="absolute inset-0 m-auto animate-spin motion-reduce:animate-none"
+            />
+          ) : null}
+        </>
+      )}
+    </ButtonPrimitive>
   );
 }
 

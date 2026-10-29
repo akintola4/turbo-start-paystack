@@ -4,7 +4,6 @@ import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
 import { cn } from "@workspace/tailwind-config/utils";
-import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
@@ -83,10 +82,7 @@ export function CreateOrgForm({
             value={name}
           />
         </div>
-        <Button disabled={pending} type="submit">
-          {pending ? (
-            <Loader2Icon aria-hidden className="animate-spin" />
-          ) : null}
+        <Button pending={pending} type="submit">
           {submitLabel}
         </Button>
       </div>

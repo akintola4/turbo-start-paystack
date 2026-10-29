@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@workspace/ui/components/button";
-import { Loader2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type ComponentProps, type ReactNode, useState } from "react";
 import { toast } from "sonner";
@@ -128,7 +127,6 @@ export function BillingAction({
   confirm,
   successMessage,
   children,
-  pendingLabel,
   disabled,
   ...buttonProps
 }: {
@@ -139,7 +137,6 @@ export function BillingAction({
   confirm?: BillingConfirm;
   successMessage?: string;
   children: ReactNode;
-  pendingLabel?: ReactNode;
 } & Omit<ComponentProps<typeof Button>, "onClick" | "children">) {
   const { run, pending } = useBillingAction({
     orgId,
@@ -153,18 +150,11 @@ export function BillingAction({
   const button = (
     <Button
       {...buttonProps}
-      aria-busy={pending || undefined}
-      disabled={pending || disabled}
+      disabled={disabled}
       onClick={() => (confirm ? setOpen(true) : run())}
+      pending={pending}
     >
-      {pending ? (
-        <>
-          <Loader2Icon aria-hidden className="animate-spin" />
-          {pendingLabel ?? children}
-        </>
-      ) : (
-        children
-      )}
+      {children}
     </Button>
   );
 

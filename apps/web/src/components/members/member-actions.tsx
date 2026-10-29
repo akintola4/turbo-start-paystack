@@ -42,7 +42,6 @@ import {
 import { cn } from "@workspace/tailwind-config/utils";
 import {
   CopyIcon,
-  Loader2Icon,
   MoreHorizontalIcon,
   UserMinusIcon,
   XIcon,
@@ -173,8 +172,7 @@ export function InviteForm({
       onSubmit={onSubmit}
     >
       <InviteFields idPrefix="inline-invite" layout={layout} roles={roles} />
-      <Button disabled={pending} type="submit">
-        {pending ? <Loader2Icon aria-hidden className="animate-spin" /> : null}
+      <Button pending={pending} type="submit">
         {submitLabel}
       </Button>
     </form>
@@ -204,8 +202,7 @@ export function InviteDialog({
     </>
   );
   const submit = (
-    <Button disabled={pending} type="submit">
-      {pending ? <Loader2Icon aria-hidden className="animate-spin" /> : null}
+    <Button pending={pending} type="submit">
       Send invite
     </Button>
   );

@@ -19,7 +19,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@workspace/ui/components/sheet";
-import { Loader2Icon, PencilIcon } from "lucide-react";
+import { PencilIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
@@ -149,8 +149,7 @@ function DetailsForm({
           {error}
         </p>
       ) : null}
-      <Button className="justify-self-start" disabled={pending} type="submit">
-        {pending ? <Loader2Icon aria-hidden className="animate-spin" /> : null}
+      <Button className="justify-self-start" pending={pending} type="submit">
         Save details
       </Button>
     </form>
