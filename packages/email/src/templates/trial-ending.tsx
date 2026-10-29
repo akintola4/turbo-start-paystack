@@ -1,13 +1,8 @@
-import { Layout } from "../components/layout";
-import {
-  Button,
-  DetailTable,
-  Heading,
-  Strong,
-  Text,
-} from "../components/primitives";
+import { type EmailContent, money, strong } from "../content";
+import { Email } from "../components/email";
 import { formatDate, formatInterval, formatMoney } from "../format";
 import { oneLine } from "../links";
+import type { EmailTheme } from "../theme";
 import { billingReason, type Themed, themeOf } from "./shared";
 
 export type TrialEndingProps = {
@@ -25,50 +20,68 @@ export const trialEndingSubject = (p: TrialEndingProps) =>
     `Your ${p.planName} trial for ${p.organizationName} ends on ${formatDate(p.trialEndsAt)}`
   );
 
-export function TrialEnding(props: Themed<TrialEndingProps>) {
-  const theme = themeOf(props);
+export function trialEndingContent(
+  props: TrialEndingProps,
+  theme: EmailTheme
+): EmailContent {
   const amount = formatMoney(props.amountSubunit, props.currency);
   const date = formatDate(props.trialEndsAt);
-  return (
-    <Layout
-      preview={`Your card will be charged ${amount} on ${date}.`}
-      reason={billingReason(props.organizationName, theme)}
-      theme={theme}
-    >
-      <Heading theme={theme}>Your trial ends on {date}</Heading>
-      <Text theme={theme}>
-        The <Strong theme={theme}>{props.planName}</Strong> trial for{" "}
-        <Strong theme={theme}>{props.organizationName}</Strong> ends soon.
-        Nothing for you to do if you want to keep it: we'll charge the card you
-        added when the trial ends.
-      </Text>
-      <DetailTable
-        theme={theme}
-        rows={[
-          {
-            label: "Plan",
-            value: `${props.planName} (${formatInterval(props.interval)})`,
-          },
-          { label: "First charge", value: amount },
-          { label: "Charged on", value: date },
-        ]}
-      />
-      <Button theme={theme} fallback={false} href={props.billingUrl}>
-        Manage subscription
-      </Button>
-      <Text theme={theme} muted small style={{ margin: 0 }}>
-        To avoid the charge, cancel from the billing page before {date}.
-      </Text>
-    </Layout>
-  );
+  const interval = formatInterval(props.interval);
+  return {
+    billing: true,
+    preview: `${amount} will be charged on ${date} unless you cancel.`,
+    status: {
+      tone: "info",
+      label: `Trial ends ${date.replace(/ \d{4}$/, "")}`,
+      icon: "hourglass",
+    },
+    title: `${props.planName} plan`,
+    headline: `Your trial ends on ${date.replace(/ \d{4}$/, "")}`,
+    hero: {
+      kind: "money",
+      amountSubunit: props.amountSubunit,
+      currency: props.currency,
+      unit: interval === "yearly" ? "/ year" : "/ month",
+      caption: "First charge, when the trial ends",
+    },
+    body: [
+      [
+        `The ${props.planName} trial for `,
+        strong(props.organizationName),
+        ` ends on ${date}. If you're keeping it, there's nothing to do: we'll charge `,
+        money(amount),
+        " to the card you added.",
+      ],
+    ],
+    details: {
+      title: "First charge",
+      rows: [
+        { label: "Plan", value: `${props.planName} (${interval})`, tile: true },
+        { label: "First charge", value: amount, money: true, isHero: true },
+        { label: "Charged on", value: date, tile: true },
+      ],
+    },
+    cta: { label: "Manage subscription", href: props.billingUrl },
+    after: [
+      [
+        `Not keeping it? Cancel from the billing page before ${date} and nothing is charged.`,
+      ],
+    ],
+    reason: billingReason(props.organizationName, theme),
+  };
+}
+
+export function TrialEnding(props: Themed<TrialEndingProps>) {
+  const theme = themeOf(props);
+  return <Email content={trialEndingContent(props, theme)} theme={theme} />;
 }
 
 TrialEnding.PreviewProps = {
-  organizationName: "Acme Logistics",
+  organizationName: "Kola Logistics",
   planName: "Starter",
   interval: "monthly",
   trialEndsAt: new Date("2026-10-31T09:00:00Z"),
   amountSubunit: 15_000,
   currency: "GHS",
-  billingUrl: "https://app.example.com/app/acme/settings/billing",
+  billingUrl: "https://app.example.com/app/kola/settings/billing",
 } satisfies TrialEndingProps;

@@ -6,4 +6,4 @@ export const themeOf = (props: { theme?: EmailTheme }) =>
   props.theme ?? defaultTheme;
 
 export const billingReason = (organizationName: string, theme: EmailTheme) =>
-  `You're receiving this because you manage billing for ${organizationName} on ${theme.productName}.`;
+  `Sent to you because you manage billing for ${organizationName} on ${theme.productName}.`;

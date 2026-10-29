@@ -27,9 +27,13 @@ packages/email/
                           package is bundled into Next.js server code)
     links.ts              appLink() / checked external links (no user-supplied URLs)
     format.ts             formatMoney (integer subunits + currency), formatDate (UTC)
-    components/           Layout, Button, Heading, Text, DetailTable
+    content.ts            EmailContent: what an email says; the plain text is written from it
+    assets.ts             fonts and icons the emails load from apps/web/public/email
+    components/           email.tsx (the Forest card layout), kit.tsx (shell, colours, money)
     templates/*.tsx       one file per email
   scripts/export.tsx      renders every template's sample props to .html/.txt
+  scripts/screenshots.ts  Playwright shots: light/dark, desktop/phone, client checks
+  scripts/icons.ts        regenerates the status icon PNGs from Lucide
 ```
 
 ## Templates

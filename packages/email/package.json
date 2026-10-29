@@ -6,11 +6,14 @@
   "scripts": {
     "dev": "email dev --dir emails --port 3001",
     "export": "tsx scripts/export.tsx",
+    "icons": "tsx scripts/icons.ts",
+    "screenshots": "tsx scripts/screenshots.ts",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "check-types": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "send-test": "tsx --env-file-if-exists=../../apps/web/.env scripts/send-test.ts"
   },
   "dependencies": {
     "@react-email/render": "catalog:",
@@ -21,11 +24,13 @@
     "react-email": "catalog:"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@react-email/ui": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@workspace/typescript-config": "workspace:*",
+    "lucide-react": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

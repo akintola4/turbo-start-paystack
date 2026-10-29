@@ -75,8 +75,8 @@ describe("content", () => {
       expect(email.subject).toContain(shown);
     }
     const email = await renderEmail("payment-receipt", base);
-    expect(email.text).toContain("Period: 28 Oct 2026 – 28 Nov 2026");
-    expect(email.text).toContain("Paid on: 28 October 2026");
+    expect(email.text).toContain("Period: 12 Oct 2026 – 12 Nov 2026");
+    expect(email.text).toContain("Paid on: 12 October 2026");
     expect(email.text).toContain(`Reference: ${base.reference}`);
     expect(email.text).toContain("Plan: Pro (monthly)");
   });
@@ -102,7 +102,7 @@ describe("content", () => {
   it("cancellation shows the access date and resume link", async () => {
     const props = templates["subscription-canceled"].Component.PreviewProps;
     const email = await renderEmail("subscription-canceled", props);
-    expect(email.text).toContain("28 November 2026");
+    expect(email.text).toContain("12 November 2026");
     expect(email.text).toContain(props.resumeUrl);
     const unknown = await renderEmail("subscription-canceled", {
       ...props,
@@ -114,7 +114,7 @@ describe("content", () => {
   it("plan change: upgrade shows the charge, downgrade the date", async () => {
     const base = templates["plan-changed"].Component.PreviewProps;
     const up = await renderEmail("plan-changed", base);
-    expect(up.subject).toBe("Acme Logistics is now on Pro (monthly)");
+    expect(up.subject).toBe("Kola Logistics is now on Pro (monthly)");
     expect(up.text).toContain("Charged now: ₦10,000.00");
     const down = await renderEmail("plan-changed", {
       ...base,
@@ -125,7 +125,7 @@ describe("content", () => {
       effectiveAt: new Date("2026-11-28T09:00:00Z"),
     });
     expect(down.subject).toBe(
-      "Acme Logistics moves to Starter (monthly) on 28 November 2026"
+      "Kola Logistics moves to Starter (monthly) on 28 November 2026"
     );
     expect(down.text).toContain("Takes effect: 28 November 2026");
     expect(down.text).not.toContain("Charged now");
@@ -157,7 +157,7 @@ describe("theme", () => {
     expect(email.html).toContain('alt="Ledgerly"');
     expect(email.html).toContain('href="https://help.test"');
     expect(email.html).toContain("#0a7cff");
-    expect(email.text).toContain("signing up for Ledgerly");
+    expect(email.text).toContain("finish setting up Ledgerly");
     expect(email.text).not.toContain("logo.png");
   });
 
@@ -167,5 +167,52 @@ describe("theme", () => {
     });
     expect(email.html).toContain("Turbo Start");
     expect(email.html).not.toContain("Contact support");
+  });
+});
+
+describe("layout", () => {
+  it.each(names)("%s fits the client limits", async (name) => {
+    const props = templates[name].Component.PreviewProps;
+    const email = await renderEmail(
+      name,
+      props as never,
+      createTheme({ assetsUrl: "https://app.test/email" })
+    );
+    // Gmail clips messages over 102 KB; keep a wide margin.
+    expect(Buffer.byteLength(email.html)).toBeLessThan(40 * 1024);
+    expect(email.html).toContain("<!--[if mso]>");
+    for (const [, href] of email.html.matchAll(/href="([^"]+)"/g)) {
+      expect(href).toMatch(/^(https:\/\/|mailto:)/);
+    }
+    // Every image carries alt (empty for decorative status icons).
+    for (const [tag] of email.html.matchAll(/<img[^>]*>/g)) {
+      expect(tag).toMatch(/alt="/);
+    }
+  });
+
+  it("loads Geist and the ₦/₵ subset only when assets are configured", async () => {
+    const props = templates["payment-receipt"].Component.PreviewProps;
+    const without = await renderEmail("payment-receipt", props);
+    expect(without.html).not.toContain("@font-face");
+    expect(without.html).not.toContain("<img");
+    const withAssets = await renderEmail(
+      "payment-receipt",
+      props,
+      createTheme({ assetsUrl: "https://app.test/email" })
+    );
+    expect(withAssets.html).toContain(
+      "https://app.test/email/fonts/geist-latin.woff2"
+    );
+    expect(withAssets.html).toContain("unicode-range:U+20A6,U+20B5");
+    expect(withAssets.html).toContain(
+      "https://app.test/email/icons/circle-check-success.png"
+    );
+  });
+
+  it("keeps dates on one line in the HTML but not in the text", async () => {
+    const props = templates["payment-failed"].Component.PreviewProps;
+    const email = await renderEmail("payment-failed", props);
+    expect(email.html).toContain("4\u00a0November\u00a02026");
+    expect(email.text).toContain("4 November 2026");
   });
 });

@@ -1,3 +1,8 @@
+export {
+  EMAIL_ASSET_FILES,
+  EMAIL_FONT_FILES,
+  EMAIL_ICON_FILES,
+} from "./assets";
 export { formatDate, formatMoney } from "./format";
 export {
   appLink,

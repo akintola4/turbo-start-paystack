@@ -1,14 +1,8 @@
-import { Layout } from "../components/layout";
-import {
-  Button,
-  type Detail,
-  DetailTable,
-  Heading,
-  Strong,
-  Text,
-} from "../components/primitives";
+import { type DetailRow, type EmailContent, money, strong } from "../content";
+import { Email } from "../components/email";
 import { formatDate, formatMoney } from "../format";
 import { oneLine } from "../links";
+import type { EmailTheme } from "../theme";
 import { billingReason, type Themed, themeOf } from "./shared";
 
 export type PlanChangedProps = {
@@ -32,71 +26,111 @@ export const planChangedSubject = (p: PlanChangedProps) =>
       : `${p.organizationName} moves to ${p.toPlan} on ${formatDate(p.effectiveAt)}`
   );
 
-export function PlanChanged(props: Themed<PlanChangedProps>) {
-  const theme = themeOf(props);
+const dayMonth = (d: Date) =>
+  new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(d);
+
+export function planChangedContent(
+  props: PlanChangedProps,
+  theme: EmailTheme
+): EmailContent {
   const date = formatDate(props.effectiveAt);
   const upgrade = props.change === "upgrade";
-  const rows: Detail[] = [
-    { label: "Previous plan", value: props.fromPlan },
-    { label: "New plan", value: props.toPlan },
-    { label: upgrade ? "Effective" : "Takes effect", value: date },
+  const charged =
+    props.chargedSubunit > 0
+      ? formatMoney(props.chargedSubunit, props.currency)
+      : null;
+  const rows: DetailRow[] = [
+    { label: "Previous plan", value: props.fromPlan, tile: true },
+    { label: "New plan", value: props.toPlan, tile: true },
+    {
+      label: upgrade ? "Effective" : "Takes effect",
+      value: date,
+      isHero: !upgrade,
+    },
   ];
   if (upgrade) {
     rows.push({
       label: "Charged now",
-      value:
-        props.chargedSubunit > 0
-          ? formatMoney(props.chargedSubunit, props.currency)
-          : "Nothing",
+      value: charged ?? "Nothing",
+      money: true,
+      isHero: Boolean(charged),
     });
   }
-  return (
-    <Layout
-      preview={
-        upgrade
-          ? `${props.toPlan} is active now.`
-          : `You keep ${props.fromPlan} until ${date}.`
-      }
-      reason={billingReason(props.organizationName, theme)}
-      theme={theme}
-    >
-      <Heading theme={theme}>
-        {upgrade ? "Your plan was upgraded" : "Downgrade scheduled"}
-      </Heading>
-      {upgrade ? (
-        <Text theme={theme}>
-          <Strong theme={theme}>{props.organizationName}</Strong> is now on{" "}
-          <Strong theme={theme}>{props.toPlan}</Strong>.{" "}
-          {props.chargedSubunit > 0
-            ? `We charged ${formatMoney(props.chargedSubunit, props.currency)} for the rest of the current billing period. `
-            : ""}
-          Your billing date doesn't change; the next renewal is at the new
-          price.
-        </Text>
-      ) : (
-        <Text theme={theme}>
-          <Strong theme={theme}>{props.organizationName}</Strong> keeps{" "}
-          <Strong theme={theme}>{props.fromPlan}</Strong> until{" "}
-          <Strong theme={theme}>{date}</Strong>, then moves to{" "}
-          <Strong theme={theme}>{props.toPlan}</Strong>. The next renewal is
-          charged at the new price. Nothing is charged today.
-        </Text>
-      )}
-      <DetailTable theme={theme} rows={rows} />
-      <Button theme={theme} fallback={false} href={props.billingUrl} last>
-        View billing
-      </Button>
-    </Layout>
-  );
+  return {
+    billing: true,
+    preview: upgrade
+      ? `${props.toPlan} is active now.`
+      : `You keep ${props.fromPlan} until ${date}.`,
+    status: upgrade
+      ? { tone: "success", label: "Upgraded", icon: "arrow-up-right" }
+      : {
+          tone: "quiet",
+          label: "Downgrade scheduled",
+          icon: "arrow-down-right",
+        },
+    title: upgrade ? props.toPlan : props.fromPlan,
+    headline: upgrade
+      ? `You're on ${props.toPlan} now`
+      : "Your downgrade is scheduled",
+    hero: upgrade
+      ? charged
+        ? {
+            kind: "money",
+            amountSubunit: props.chargedSubunit,
+            currency: props.currency,
+            caption: "Charged today for the rest of this billing period",
+          }
+        : undefined
+      : {
+          kind: "date",
+          text: `From ${dayMonth(props.effectiveAt)}`,
+          caption: `Then ${props.toPlan}. Nothing changes before that.`,
+        },
+    body: upgrade
+      ? [
+          [
+            strong(props.organizationName),
+            ` is on ${props.toPlan} from today.`,
+            ...(charged
+              ? [
+                  " We charged ",
+                  money(charged),
+                  " to cover the rest of this billing period.",
+                ]
+              : []),
+            " Your renewal date stays the same, at the new price.",
+          ],
+        ]
+      : [
+          [
+            strong(props.organizationName),
+            ` keeps ${props.fromPlan} until `,
+            strong(date),
+            `, then moves to ${props.toPlan}. Nothing is charged today, and the next renewal is at the new price.`,
+          ],
+        ],
+    details: { title: "Plan change", rows },
+    cta: { label: "View billing", href: props.billingUrl },
+    reason: billingReason(props.organizationName, theme),
+  };
+}
+
+export function PlanChanged(props: Themed<PlanChangedProps>) {
+  const theme = themeOf(props);
+  return <Email content={planChangedContent(props, theme)} theme={theme} />;
 }
 
 PlanChanged.PreviewProps = {
-  organizationName: "Acme Logistics",
+  organizationName: "Kola Logistics",
   change: "upgrade",
   fromPlan: "Starter (monthly)",
   toPlan: "Pro (monthly)",
   chargedSubunit: 1_000_000,
   currency: "NGN",
   effectiveAt: new Date("2026-10-28T09:12:00Z"),
-  billingUrl: "https://app.example.com/app/acme/settings/billing",
+  billingUrl: "https://app.example.com/app/kola/settings/billing",
 } satisfies PlanChangedProps;
