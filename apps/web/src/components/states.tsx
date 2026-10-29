@@ -1,7 +1,5 @@
-import { buttonVariants } from "@workspace/ui/components/button";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { Loader2Icon } from "lucide-react";
-import Link from "next/link";
 
 import { Mark } from "@/components/primitives";
 
@@ -51,30 +49,6 @@ export function ConfirmingPayment() {
         >
           <span className="absolute inset-y-0 left-0 w-1/3 animate-indeterminate rounded-full bg-primary" />
         </span>
-      </div>
-    </main>
-  );
-}
-
-export function NotFound() {
-  return (
-    <main className="flex min-h-[70dvh] items-center justify-center px-4 py-16">
-      <div className="grid max-w-md justify-items-start gap-6">
-        <span className="font-semibold text-[88px] text-primary leading-none tracking-[-0.02em]er">
-          404
-        </span>
-        <div className="grid gap-2">
-          <h1 className="font-semibold text-2xl tracking-[-0.02em]">
-            This page isn't here
-          </h1>
-          <p className="text-muted-foreground">
-            The link may be old, or the organization belongs to a team you're
-            not part of.
-          </p>
-        </div>
-        <Link className={buttonVariants()} href="/app">
-          Go to your organizations
-        </Link>
       </div>
     </main>
   );

@@ -115,9 +115,15 @@
   --motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --motion-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  /* A small overshoot for releases and sliding thumbs. */
+  --motion-ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --dur-press-in: 90ms;
+  --dur-press-out: 180ms;
   --dur-press: 120ms;
   --dur-fast: 150ms;
   --dur-base: 200ms;
+  /* Sliding indicators: segmented thumbs, tab indicators. */
+  --dur-thumb: 260ms;
   --dur-number: 240ms;
   --dur-modal: 240ms;
   --dur-modal-exit: 170ms;
@@ -131,11 +137,128 @@
 
   /* type */
   --app-font-sans:
-    var(--font-geist-sans), var(--font-currency), ui-sans-serif, system-ui,
-    sans-serif;
+    var(--font-geist-sans), var(--font-currency), "Geist Fallback",
+    ui-sans-serif, system-ui, sans-serif;
   --app-font-display: var(--app-font-sans);
   --app-font-money: var(--app-font-sans);
-  --app-font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --app-font-mono:
+    var(--font-geist-mono), "Geist Mono Fallback", ui-monospace, monospace;
+}
+
+/*
+ * Metric-matched fallbacks, so nothing re-wraps or moves when Geist swaps
+ * in. One face per weight band; 600 and up use Arial Bold, so headings
+ * never get a synthetic bold. size-adjust is Geist's width over Arial's,
+ * calibrated in Chrome on the site's own text (DOM widths, kerning on) and
+ * checked against fallback-only vs loaded line counts: 400 → 101.6%,
+ * 500 → 107%, 600 → 98.4%, 700 → 103.1%. Digits get their own faces:
+ * Geist's tabular figures are 600/612/624/636 per 1000 at 400–700 and
+ * Arial's are 556, so 107.9/110/112.2/114.4%. Geist's vertical metrics
+ * are ascender 1005, descender -295, line gap 0 per 1000; each override
+ * is that divided by the face's size-adjust. Liberation Sans and Arimo
+ * share Arial's widths, so Linux gets the same match.
+ * Geist Mono is 600/1000 per glyph; Menlo, DejaVu Sans Mono, Liberation
+ * Mono and Courier New are all within 0.4%, so one face covers them.
+ * The ₦/₵ subset sits before these in the stack, so those two glyphs never
+ * come from Arial.
+ */
+@font-face {
+  font-family: "Geist Fallback";
+  src:
+    local("Arial"), local("ArialMT"), local("Liberation Sans"), local("Arimo");
+  font-weight: 100 449;
+  size-adjust: 101.6%;
+  ascent-override: 98.92%;
+  descent-override: 29.04%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Geist Fallback";
+  src:
+    local("Arial"), local("ArialMT"), local("Liberation Sans"), local("Arimo");
+  font-weight: 450 549;
+  size-adjust: 107.0%;
+  ascent-override: 93.93%;
+  descent-override: 27.57%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Geist Fallback";
+  src:
+    local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"),
+    local("Arimo Bold");
+  font-weight: 550 649;
+  size-adjust: 98.4%;
+  ascent-override: 102.13%;
+  descent-override: 29.98%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Geist Fallback";
+  src:
+    local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"),
+    local("Arimo Bold");
+  font-weight: 650 1000;
+  size-adjust: 103.1%;
+  ascent-override: 97.48%;
+  descent-override: 28.61%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Geist Fallback";
+  src:
+    local("Arial"), local("ArialMT"), local("Liberation Sans"), local("Arimo");
+  font-weight: 100 449;
+  unicode-range: U+30-39;
+  size-adjust: 107.9%;
+  ascent-override: 93.14%;
+  descent-override: 27.34%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Geist Fallback";
+  src:
+    local("Arial"), local("ArialMT"), local("Liberation Sans"), local("Arimo");
+  font-weight: 450 549;
+  unicode-range: U+30-39;
+  size-adjust: 110.0%;
+  ascent-override: 91.36%;
+  descent-override: 26.82%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Geist Fallback";
+  src:
+    local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"),
+    local("Arimo Bold");
+  font-weight: 550 649;
+  unicode-range: U+30-39;
+  size-adjust: 112.2%;
+  ascent-override: 89.57%;
+  descent-override: 26.29%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Geist Fallback";
+  src:
+    local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"),
+    local("Arimo Bold");
+  font-weight: 650 1000;
+  unicode-range: U+30-39;
+  size-adjust: 114.4%;
+  ascent-override: 87.85%;
+  descent-override: 25.79%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Geist Mono Fallback";
+  src:
+    local("Menlo-Regular"), local("Menlo"), local("DejaVu Sans Mono"),
+    local("Liberation Mono"), local("Courier New");
+  size-adjust: 99.66%;
+  ascent-override: 100.84%;
+  descent-override: 29.6%;
+  line-gap-override: 0%;
 }
 
 @media only screen and (min-resolution: 192dpi) {
@@ -364,4 +487,52 @@
     animation-iteration-count: 1;
     transition-duration: 0.01ms;
   }
+}
+
+/*
+ * Press feedback: the one way anything clickable responds to a press.
+ * Fast press-in, slightly springy release; scale and colours only, never
+ * `all`. `data-pressed` is set while Enter or Space is held (PressFeedback),
+ * so keyboard presses look the same. Reduced motion dims instead of scaling.
+ *   pressable       buttons, CTAs, segments (0.97)
+ *   pressable-sm    chips and tiles (0.96)
+ *   pressable-lg    wide targets: tabs, rows (0.98)
+ *   pressable-card  large clickable cards (colour only, no scale)
+ */
+@utility pressable {
+  transform-origin: center;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  /* The spring curve is for scale only; colours ease plainly. */
+  --press-colours:
+    opacity var(--dur-fast) ease, color var(--dur-fast) ease,
+    background-color var(--dur-fast) ease, border-color var(--dur-fast) ease,
+    outline-color var(--dur-fast) ease, fill var(--dur-fast) ease,
+    stroke var(--dur-fast) ease;
+  transition:
+    scale var(--dur-press-out) var(--motion-ease-spring),
+    var(--press-colours);
+  &:active:not(:disabled, [aria-disabled="true"]),
+  &[data-pressed] {
+    scale: var(--press-scale, 0.97);
+    transition:
+      scale var(--dur-press-in) var(--motion-ease-out),
+      var(--press-colours);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:active:not(:disabled, [aria-disabled="true"]),
+    &[data-pressed] {
+      scale: 1;
+      opacity: 0.82;
+    }
+  }
+}
+@utility pressable-sm {
+  --press-scale: 0.96;
+}
+@utility pressable-lg {
+  --press-scale: 0.98;
+}
+@utility pressable-card {
+  --press-scale: 1;
 }

@@ -88,7 +88,7 @@ test("landing preview and plan tiles share a baseline and even gaps", async ({
   page,
 }) => {
   await page.goto("/");
-  expectAligned(await probeAmounts(page, "aside[aria-label=Currencies]"));
+  expectAligned(await probeAmounts(page, "[data-hero-price]"));
   const tiles = await probeAmounts(
     page,
     "section[aria-labelledby=pricing-title]"

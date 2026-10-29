@@ -5,6 +5,8 @@ import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 
+import { PressFeedback } from "@/components/press-feedback";
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider
@@ -16,6 +18,7 @@ export function Providers({ children }: { children: ReactNode }) {
       <TooltipProvider delay={300}>
         {children}
         <Toaster />
+        <PressFeedback />
       </TooltipProvider>
     </ThemeProvider>
   );

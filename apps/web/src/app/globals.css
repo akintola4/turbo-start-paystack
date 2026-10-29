@@ -114,3 +114,393 @@ number-flow-react::part(symbol) {
   letter-spacing: 0;
   color: var(--muted-foreground);
 }
+
+/* ------------------------------------------------------------- landing */
+
+/*
+ * First visit per session only: the intro gate in the root layout sets
+ * <html data-intro="play"> before the hero paints, and the hero's GSAP
+ * timeline clears it as it starts (the gate clears it after 2.5s otherwise).
+ */
+[data-intro="play"] [data-hero-title],
+[data-intro="play"] [data-hero-fade],
+[data-intro="play"] [data-wall-tile] {
+  opacity: 0;
+}
+
+/* The receipt keeps its paper colours in light and dark. */
+.receipt-paper {
+  --receipt-paper: var(--neutral-100);
+  --receipt-ink: oklch(0.22 0.018 159);
+  --receipt-muted: var(--neutral-600);
+  --receipt-rule: var(--neutral-400);
+  --receipt-well: var(--neutral-200);
+  --ring: var(--forest-600);
+  background-color: var(--receipt-paper);
+  color: var(--receipt-ink);
+  padding: 32px clamp(20px, 4vw, 40px) 28px;
+  font-size: 14px;
+}
+/* Torn edge: paper-coloured teeth, drawn with a mask so the colour is a token. */
+.receipt-paper::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -9px;
+  height: 10px;
+  background-color: var(--receipt-paper);
+  mask:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10'%3E%3Cpath d='M0 0h16L8 10z'/%3E%3C/svg%3E")
+    0 0 / 16px 10px repeat-x;
+}
+.receipt-rule {
+  border: 0;
+  border-top: 1px dashed var(--receipt-rule);
+  margin-block: 18px;
+}
+/* A line item: label, a dotted leader that sits on the text, the target. */
+.receipt-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-block: 6px;
+  border-radius: 6px;
+}
+.receipt-leader {
+  flex: 1;
+  min-width: 16px;
+  border-bottom: 1.5px dotted var(--receipt-rule);
+  translate: 0 -0.28em;
+}
+
+/* A slow ring around the provider status dot. */
+@keyframes status-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+@theme {
+  --animate-status-pulse: status-pulse 2.4s var(--motion-ease-out) infinite;
+}
+
+/*
+ * Footer wordmark. Its width in ems, measured in Geist 700 at -0.06em
+ * tracking, is about 5.44 from the first letter's ink to the tile's edge;
+ * this is the server-side guess, and useFillWidth (site-footer.tsx) then
+ * sets the exact size so it runs edge to edge.
+ */
+.footer-wordmark {
+  font-size: calc(100cqw / 5.44);
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  line-height: 0.86;
+  white-space: nowrap;
+  color: var(--panel-foreground);
+  user-select: none;
+  /* Optical alignment: pull the "t" side bearing (0.041em) to the edge. */
+  margin-inline-start: -0.041em;
+}
+/* A cap-height square sitting on the baseline (no in-flow content, so its
+   baseline is its bottom edge). */
+.footer-wordmark-tile {
+  position: relative;
+  display: inline-block;
+  vertical-align: baseline;
+  width: 0.71em;
+  height: 0.71em;
+  margin-inline-start: 0.1em;
+  border-radius: 0.13em;
+  background-color: var(--highlight);
+  color: var(--highlight-foreground);
+  letter-spacing: 0;
+}
+.footer-wordmark-glyph {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(40%);
+  transition:
+    opacity 240ms var(--motion-ease-out),
+    transform 420ms var(--motion-ease-out);
+}
+.footer-wordmark-glyph.is-on {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .footer-wordmark-glyph {
+    transition: none;
+  }
+}
+
+/* Segmented icons: a small arrival when an option becomes selected. */
+@keyframes icon-spin {
+  from {
+    rotate: -90deg;
+    scale: 0.6;
+  }
+}
+@keyframes icon-tilt {
+  from {
+    rotate: -35deg;
+    scale: 0.8;
+  }
+}
+@keyframes icon-pop {
+  from {
+    scale: 0.7;
+  }
+}
+@theme {
+  --animate-icon-spin: icon-spin 320ms var(--motion-ease-spring);
+  --animate-icon-tilt: icon-tilt 320ms var(--motion-ease-spring);
+  --animate-icon-pop: icon-pop 260ms var(--motion-ease-spring);
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-icon-spin,
+  .animate-icon-tilt,
+  .animate-icon-pop {
+    animation: none;
+  }
+}
+
+/*
+ * Theme switch: the new theme is revealed by a clip-path circle animated in
+ * useThemeChoice. Turn off the default cross-fade so nothing else moves.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  z-index: 1;
+}
+
+/*
+ * Landing layout, as in the Money in motion concept: panels run full-bleed
+ * minus --edge, content sits --gut inside them, and only text gets a
+ * measure. On very wide screens content stops at --content-max (2048px):
+ * at 2560 the concept's tile wall reached ~290px tiles and 2400px lines.
+ */
+:root {
+  --edge: clamp(8px, 1vw, 12px);
+  --gut: clamp(16px, 3.4vw, 48px);
+  --content-max: 2048px;
+}
+/* A section on the page: its content starts where the panels' content does. */
+@utility landing-section {
+  width: 100%;
+  margin-inline: auto;
+  max-width: calc(var(--content-max) + 2 * (var(--edge) + var(--gut)));
+  padding-inline: calc(var(--edge) + var(--gut));
+}
+/* The intro row of a section: heading, and one measure of copy beside it. */
+@utility landing-head {
+  display: grid;
+  gap: 16px;
+  @media (width >= 64rem) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+    align-items: end;
+    column-gap: 64px;
+  }
+}
+/* A full-bleed panel. */
+@utility landing-bleed {
+  margin-inline: var(--edge);
+}
+/* Content inside a full-bleed panel. */
+@utility landing-inner {
+  width: 100%;
+  margin-inline: auto;
+  max-width: calc(var(--content-max) + 2 * var(--gut));
+  padding-inline: var(--gut);
+}
+
+/*
+ * Display type: two steps. The hero headline, and every section heading.
+ * Headings take an optical left edge from opticalEdge() (display.ts), so
+ * the ink of the first letter, not its side bearing, sits on the edge.
+ */
+@utility display-xl {
+  font-size: clamp(48px, 8.6vw, 148px);
+  font-weight: 600;
+  line-height: 0.9;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+@utility display-l {
+  font-size: clamp(36px, 5vw, 72px);
+  font-weight: 600;
+  line-height: 0.96;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+/*
+ * Currency tile glyphs: trimmed to cap height so the symbol centres on its
+ * ink. The ₦ comes from the Inter subset, whose ink sits 0.025em higher than
+ * Geist capitals after the trim; this moves it back onto the centre line.
+ */
+.currency-glyph {
+  display: block;
+  line-height: 1;
+  text-box: trim-both cap alphabetic;
+}
+.currency-glyph[data-glyph="NGN"] {
+  translate: 0 0.025em;
+}
+
+/*
+ * Wall tiles keep the press scale from `pressable` but name their own colour
+ * transition, so the ripple delay (--ripple, set per tile) applies to the
+ * colours only and the press never waits.
+ */
+.wall-tile {
+  transition:
+    scale var(--dur-press-out) var(--motion-ease-spring),
+    background-color var(--dur-fast) ease var(--ripple, 0ms),
+    color var(--dur-fast) ease var(--ripple, 0ms);
+}
+.wall-tile:active,
+.wall-tile[data-pressed] {
+  transition:
+    scale var(--dur-press-in) var(--motion-ease-out),
+    background-color var(--dur-fast) ease var(--ripple, 0ms),
+    color var(--dur-fast) ease var(--ripple, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wall-tile,
+  .wall-tile:active,
+  .wall-tile[data-pressed] {
+    transition: opacity var(--dur-fast) ease;
+  }
+}
+
+/*
+ * Code surface: dark in both themes. In light it is the near-black neutral;
+ * in dark it steps below the page (#0e1311) so the slab keeps its shape.
+ * Token colours are fixed for this surface: all pass 4.5:1 on both values.
+ */
+:root {
+  --code-bg: var(--neutral-950);
+  --code-ring: var(--neutral-800);
+  --code-text: var(--neutral-100);
+  --code-gutter: var(--neutral-500);
+  --code-comment: var(--neutral-400);
+  --code-string: var(--forest-300);
+  --code-keyword: var(--sunflower-300);
+  --code-number: oklch(0.8 0.08 245);
+}
+.dark {
+  --code-bg: oklch(0.145 0.008 165);
+  --code-ring: oklch(0.3 0.012 163);
+}
+
+/* ----------------------------------------------------------------- 404 */
+
+/*
+ * The 404's sliding puzzle. Tiles are absolutely placed by --x / --y (in tile
+ * widths plus the gap) and slide with `translate`, on-screen movement, so
+ * an in-out curve. The home tile arrives with the system's one bounce.
+ * Lengths in cqw come from the puzzle's column (an @container). The well's
+ * radius is the tile's plus the padding, so the corners stay concentric.
+ */
+.puzzle {
+  --pad: clamp(8px, 2.8cqw, 14px);
+  --gap: clamp(6px, 2.2cqw, 12px);
+  --tile-r: clamp(14px, 5cqw, 24px);
+  --size: calc((100% - 2 * var(--gap)) / 3);
+  padding: var(--pad);
+  border-radius: calc(var(--tile-r) + var(--pad));
+}
+.puzzle-tile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--size);
+  height: var(--size);
+  display: grid;
+  place-items: center;
+  border-radius: var(--tile-r);
+  font-weight: 700;
+  font-size: calc(100cqw / 3 * 0.4);
+  user-select: none;
+  translate: calc(var(--x) * (100% + var(--gap)))
+    calc(var(--y) * (100% + var(--gap)));
+  transition:
+    translate 200ms var(--motion-ease-drawer),
+    scale var(--dur-press-out) var(--motion-ease-spring),
+    background-color var(--dur-fast) ease,
+    opacity 200ms var(--motion-ease-out);
+}
+.puzzle-tile:active:not([aria-disabled="true"]),
+.puzzle-tile[data-pressed] {
+  transition:
+    translate 200ms var(--motion-ease-drawer),
+    scale var(--dur-press-in) var(--motion-ease-out),
+    background-color var(--dur-fast) ease;
+}
+.puzzle-tile.is-digit {
+  background-color: var(--highlight);
+  color: var(--highlight-foreground);
+}
+.puzzle-tile.is-currency {
+  background-color: var(--panel-tile);
+  color: var(--panel-foreground);
+}
+.puzzle-tile[aria-disabled="true"] {
+  cursor: default;
+}
+@media (hover: hover) and (pointer: fine) {
+  .puzzle-tile.is-currency.is-movable:hover {
+    background-color: var(--panel-line);
+  }
+  .puzzle-tile.is-digit.is-movable:hover {
+    background-color: var(--highlight-hover);
+  }
+}
+.puzzle-home {
+  grid-template-rows: auto auto;
+  align-content: center;
+  gap: 0.12em;
+  background-color: var(--panel-foreground);
+  color: var(--panel);
+  opacity: 0;
+  scale: 0.9;
+  pointer-events: none;
+  transition:
+    opacity 160ms var(--motion-ease-exit),
+    scale 160ms var(--motion-ease-exit);
+}
+.puzzle-home[data-shown] {
+  opacity: 1;
+  scale: 1;
+  pointer-events: auto;
+  transition:
+    opacity 220ms var(--motion-ease-out),
+    scale 420ms var(--motion-ease-spring);
+}
+/* Found: the home tile waits for the last slide to land. */
+.puzzle[data-phase="solved"] .puzzle-home[data-shown] {
+  transition-delay: 160ms;
+}
+.puzzle-home[data-shown]:active {
+  scale: 0.96;
+}
+@media (prefers-reduced-motion: reduce) {
+  .puzzle-tile,
+  .puzzle-home,
+  .puzzle-home[data-shown] {
+    transition: none;
+  }
+}
