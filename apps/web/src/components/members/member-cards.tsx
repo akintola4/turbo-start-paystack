@@ -2,11 +2,11 @@
 
 import type { ReactNode } from "react";
 
-import { Monogram } from "@/components/avatars";
-import { useRowPresence } from "@/components/motion";
+import { MarkAvatar } from "@/components/mark-avatar";
 import { MemberRowMenu, RoleSelect } from "@/components/members/member-actions";
-import type { MemberRow, Role } from "@/lib/view-models";
+import { useRowPresence } from "@/components/motion";
 import { formatDate, roleLabel } from "@/lib/format";
+import type { MemberRow, Role } from "@/lib/view-models";
 
 function PresenceItem({ id, children }: { id: string; children: ReactNode }) {
   return (
@@ -35,7 +35,7 @@ export function MemberCards({
     <ul className="grid divide-y">
       {members.map((m) => (
         <PresenceItem id={m.id} key={m.id}>
-          <Monogram className="size-10" name={m.name} shape="circle" />
+          <MarkAvatar className="size-10 rounded-[11px]" seed={m.email} />
           <div className="grid min-w-0 flex-1 gap-0.5">
             <span className="truncate font-medium text-sm">
               {m.name}

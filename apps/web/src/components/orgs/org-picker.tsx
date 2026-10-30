@@ -1,14 +1,14 @@
 import { cn } from "@workspace/tailwind-config/utils";
 import { Button } from "@workspace/ui/components/button";
 
-import { Monogram } from "@/components/avatars";
+import { CONTENT, TopBarRow } from "@/components/app-shell/top-bar";
+import { UserMenu } from "@/components/app-shell/user-menu";
+import { MarkAvatar } from "@/components/mark-avatar";
 import { NewOrgDialog } from "@/components/orgs/new-org-dialog";
 import { OrgCollection } from "@/components/orgs/org-collection";
 import { VerifyCallout } from "@/components/orgs/verify-callout";
-import { CONTENT, TopBarRow } from "@/components/app-shell/top-bar";
-import { UserMenu } from "@/components/app-shell/user-menu";
-import type { OrgPickerData } from "@/lib/view-models";
 import { PageHeader, Tile, Wordmark } from "@/components/primitives";
+import type { OrgPickerData } from "@/lib/view-models";
 
 export function OrgPicker({ data }: { data: OrgPickerData }) {
   const first = data.user.name.split(" ")[0] ?? data.user.name;
@@ -22,7 +22,7 @@ export function OrgPicker({ data }: { data: OrgPickerData }) {
             className="-mr-2 gap-2 pr-3 pl-1.5"
             variant="ghost"
           >
-            <Monogram className="size-8" name={data.user.name} shape="circle" />
+            <MarkAvatar seed={data.user.email} />
             <span className="hidden text-sm sm:inline">{first}</span>
           </Button>
         </UserMenu>
