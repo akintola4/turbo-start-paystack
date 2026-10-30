@@ -8,6 +8,11 @@ import {
   cardExpiringSubject,
 } from "./card-expiring";
 import {
+  ChangeEmailApproval,
+  changeEmailApprovalContent,
+  changeEmailApprovalSubject,
+} from "./change-email-approval";
+import {
   OrganizationInvitation,
   organizationInvitationContent,
   organizationInvitationSubject,
@@ -79,6 +84,11 @@ export const templates = {
     verifyEmailSubject,
     verifyEmailContent
   ),
+  "change-email-approval": define<ChangeEmailApprovalProps>(
+    ChangeEmailApproval,
+    changeEmailApprovalSubject,
+    changeEmailApprovalContent
+  ),
   "reset-password": define<ResetPasswordProps>(
     ResetPassword,
     resetPasswordSubject,
@@ -137,6 +147,7 @@ export type TemplateProps<N extends TemplateName> = Parameters<
 >[0];
 
 import type { CardExpiringProps } from "./card-expiring";
+import type { ChangeEmailApprovalProps } from "./change-email-approval";
 import type { OrganizationInvitationProps } from "./organization-invitation";
 import type { PaymentDisputedProps } from "./payment-disputed";
 import type { PaymentFailedProps } from "./payment-failed";
@@ -150,6 +161,7 @@ import type { VerifyEmailProps } from "./verify-email";
 
 export type {
   CardExpiringProps,
+  ChangeEmailApprovalProps,
   OrganizationInvitationProps,
   PaymentDisputedProps,
   PaymentFailedProps,

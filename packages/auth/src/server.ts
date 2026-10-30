@@ -253,6 +253,35 @@ export function createAuth(options: CreateAuthOptions) {
     }
   }
 
+  // Changing the sign-in address needs the current password again, so a
+  // session left open somewhere can't move the account (and its reset
+  // links) to someone else's inbox.
+  async function guardChangeEmail(ctx: HookCtx) {
+    const session = await getSessionFromCtx(ctx);
+    if (!session) {
+      return;
+    }
+    const password = (ctx.body as { password?: unknown } | undefined)?.password;
+    const accounts = await ctx.context.internalAdapter.findAccounts(
+      session.user.id
+    );
+    const credential = accounts.find((a) => a.providerId === "credential");
+    const valid =
+      typeof password === "string" &&
+      password.length > 0 &&
+      credential?.password &&
+      (await ctx.context.password.verify({
+        hash: credential.password,
+        password,
+      }));
+    if (!valid) {
+      throw new APIError("BAD_REQUEST", {
+        code: "INVALID_PASSWORD",
+        message: "Enter your current password to change your email.",
+      });
+    }
+  }
+
   const auth = betterAuth({
     secret: options.secret,
     baseURL: options.baseURL,
@@ -289,7 +318,19 @@ export function createAuth(options: CreateAuthOptions) {
       },
     },
     user: {
-      changeEmail: { enabled: true },
+      changeEmail: {
+        enabled: true,
+        // A verified account's current address approves the move first;
+        // only then does the new address get its confirmation link.
+        sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+          await mailer.changeEmailApproval({
+            to: user.email,
+            name: user.name,
+            newEmail,
+            url,
+          });
+        },
+      },
       deleteUser: {
         enabled: true,
         // Nobody can leave an organization without an owner by deleting
@@ -337,6 +378,9 @@ export function createAuth(options: CreateAuthOptions) {
         }
         if (ctx.path === "/organization/update-member-role") {
           await guardRoleUpdate(ctx);
+        }
+        if (ctx.path === "/change-email") {
+          await guardChangeEmail(ctx);
         }
         if (
           ctx.path === "/organization/create" ||

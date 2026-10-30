@@ -48,6 +48,20 @@ describe("content", () => {
     expect(email.text).not.toContain("sign up");
   });
 
+  it("the change-email approval goes to the old address and names the new one", async () => {
+    const url = "https://app.test/api/auth/verify-email?token=t3";
+    const email = await renderEmail("change-email-approval", {
+      name: "Ada",
+      newEmail: "ada <b>@kolalogistics.test",
+      url,
+    });
+    expect(email.subject).toBe("Approve the change to your email address");
+    expect(email.text).toContain("ada <b>@kolalogistics.test");
+    expect(email.html).toContain("ada &lt;b&gt;@kolalogistics.test");
+    expect(email.text).toContain(url);
+    expect(email.text).toContain("Change your password");
+  });
+
   it("invitation shows inviter, org, role and expiry, and escapes names", async () => {
     const email = await renderEmail("organization-invitation", {
       inviterName: "Tunde <script>alert(1)</script>",
