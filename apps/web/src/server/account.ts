@@ -48,7 +48,7 @@ export async function handleRevokeSession(
     return json(
       {
         error: "current_session",
-        message: "That's this device. Use Log out instead.",
+        message: "That's this device. Use Sign out instead.",
       },
       400
     );
