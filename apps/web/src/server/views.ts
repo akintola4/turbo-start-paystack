@@ -14,7 +14,10 @@ import {
   getPlanPrice,
   type PaystackEmailView,
   invoiceDate,
+  type PlanPrice,
+  planChangeKind,
   planPriceId,
+  upgradeChargeNow,
   formatPeriod,
 } from "@workspace/billing";
 import { schema } from "@workspace/db";
@@ -443,27 +446,18 @@ function annualSaving(plan: CatalogPlan, currency: Currency) {
   return `Save ${pct}%`;
 }
 
-function changeKind(
-  action: PlanOption["action"],
-  rank: number,
-  currentRank: number
-): PlanOption["change"] {
-  if (action !== "change-plan") {
-    return null;
-  }
-  if (rank === currentRank) {
-    return "switch";
-  }
-  return rank > currentRank ? "upgrade" : "downgrade";
-}
-
 /** One plan tile's data for an interval; `currentPriceId` is null when on Free. */
 function planOption(
   plan: CatalogPlan,
   interval: "monthly" | "annually",
   currency: Currency,
   currentPriceId: string | null,
-  currentRank: number
+  current: {
+    key: string;
+    rank: number;
+    price: PlanPrice;
+    sub: Subscription;
+  } | null
 ): PlanOption {
   const id = plan.prices.length
     ? planPriceId(plan.key, interval, currency)
@@ -476,6 +470,24 @@ function planOption(
   if (price && id && !isCurrent) {
     action = currentPriceId ? "change-plan" : "checkout";
   }
+  // The server's own rule: on the same plan, monthly to yearly is an
+  // upgrade that applies now (and is prorated outside a trial).
+  const change =
+    action === "change-plan" && current && price
+      ? planChangeKind(
+          { rank: current.rank, interval: current.price.interval },
+          { rank: plan.rank, interval: price.interval }
+        )
+      : null;
+  const chargeNow =
+    change === "upgrade" && current && price
+      ? upgradeChargeNow({
+          sub: current.sub,
+          current: current.price,
+          target: price,
+          now: new Date(),
+        })
+      : null;
   return {
     key: plan.key,
     name: plan.name,
@@ -496,7 +508,12 @@ function planOption(
     saving: interval === "annually" ? annualSaving(plan, currency) : null,
     isCurrent,
     action,
-    change: changeKind(action, plan.rank, currentRank),
+    change,
+    chargeNow:
+      chargeNow === null
+        ? null
+        : { subunit: chargeNow, label: formatMoney(chargeNow, currency) },
+    intervalOnly: action === "change-plan" && current?.key === plan.key,
   };
 }
 
@@ -573,17 +590,19 @@ export async function loadBilling(
       ? search.interval
       : (currentPrice?.interval ?? "monthly");
   const currentPlan = currentPrice ? getPlan(currentPrice.planKey) : undefined;
-  const currentRank = currentPlan?.rank ?? 0;
+  const current =
+    sub && currentPrice && currentPlan
+      ? {
+          key: currentPlan.key,
+          rank: currentPlan.rank,
+          price: currentPrice,
+          sub,
+        }
+      : null;
 
   const plansFor = (interval: "monthly" | "annually") =>
     catalog.map((plan) =>
-      planOption(
-        plan,
-        interval,
-        currency,
-        sub?.planPriceId ?? null,
-        currentRank
-      )
+      planOption(plan, interval, currency, sub?.planPriceId ?? null, current)
     );
   return {
     org: {

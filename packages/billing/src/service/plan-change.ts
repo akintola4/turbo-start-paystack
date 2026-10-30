@@ -1,10 +1,9 @@
 import { type DbOrTx, schema } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
-import { getPlan, getPlanPrice } from "../catalog";
+import { getPlan, getPlanPrice, planChangeKind } from "../catalog";
 import { BillingError, PaystackError } from "../errors";
-import { type Currency, TOKENIZATION_AMOUNT } from "../money";
-import { computeProration } from "../proration";
+import { upgradeChargeNow } from "../proration";
 import type { Actor } from "./checkout";
 import {
   audit,
@@ -152,10 +151,10 @@ export async function changePlan(
         });
 
       const isUpgrade =
-        targetPlan.rank > currentPlan.rank ||
-        (targetPlan.rank === currentPlan.rank &&
-          target.interval === "annually" &&
-          current.interval === "monthly");
+        planChangeKind(
+          { rank: currentPlan.rank, interval: current.interval },
+          { rank: targetPlan.rank, interval: target.interval }
+        ) === "upgrade";
 
       if (!isUpgrade) {
         if (input.memberCount > targetPlan.limits.members) {
@@ -237,25 +236,9 @@ export async function changePlan(
       }
 
       // Upgrade. Nothing is owed for unpaid trial time.
-      const now = deps.now();
-      const proration =
-        sub.status === "trialing" ||
-        !(sub.currentPeriodStart && sub.currentPeriodEnd)
-          ? { charge: 0 }
-          : computeProration({
-              oldAmount: current.amountSubunit,
-              oldInterval: current.interval,
-              newAmount: target.amountSubunit,
-              newInterval: target.interval,
-              periodStart: sub.currentPeriodStart,
-              periodEnd: sub.currentPeriodEnd,
-              now,
-            });
       // Below Paystack's minimum card charge the difference is waived.
-      const charge =
-        proration.charge >= TOKENIZATION_AMOUNT[sub.currency as Currency]
-          ? proration.charge
-          : 0;
+      const now = deps.now();
+      const charge = upgradeChargeNow({ sub, current, target, now });
 
       if (charge === 0) {
         await switchPlanNow(deps, tx, sub, {

@@ -120,6 +120,25 @@ export function getPlan(key: string): PlanDefinition | undefined {
   return catalog.find((plan) => plan.key === key);
 }
 
+/**
+ * Whether moving between two paid prices is an upgrade (applies now,
+ * prorated) or a downgrade (applies at period end). A bigger plan is an
+ * upgrade; on the same plan, monthly to yearly is an upgrade (it buys more)
+ * and yearly to monthly a downgrade. The billing service and the plan
+ * picker's copy both use this, so the dialog says what the server does.
+ */
+export function planChangeKind(
+  current: { rank: number; interval: Interval },
+  target: { rank: number; interval: Interval }
+): "upgrade" | "downgrade" {
+  if (target.rank !== current.rank) {
+    return target.rank > current.rank ? "upgrade" : "downgrade";
+  }
+  return target.interval === "annually" && current.interval === "monthly"
+    ? "upgrade"
+    : "downgrade";
+}
+
 const NOMINAL_DAYS: Record<Interval, number> = { monthly: 30, annually: 365 };
 
 export function nominalDays(interval: Interval): number {

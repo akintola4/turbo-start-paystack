@@ -188,7 +188,13 @@ export type PlanOption = {
   isCurrent: boolean;
   /** What pressing the plan's button does, or null when there is no button. */
   action: "checkout" | "change-plan" | null;
-  change: "upgrade" | "downgrade" | "switch" | null;
+  /** From `planChangeKind`, the rule the server applies. */
+  change: "upgrade" | "downgrade" | null;
+  /** For an upgrade: what `upgradeChargeNow` charges today (0 in a trial
+   *  or when nothing is owed). Null for anything else. */
+  chargeNow: { subunit: number; label: string } | null;
+  /** Same plan, other interval: the copy talks about billing, not plans. */
+  intervalOnly: boolean;
 };
 
 export type BillingData = {

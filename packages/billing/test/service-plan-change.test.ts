@@ -3,11 +3,15 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { chargeSuccess, subscriptionStatusEvent } from "../src/fixtures";
-import { computeProration } from "../src/proration";
+import { getPlanPrice, planChangeKind } from "../src/catalog";
+import { computeProration, upgradeChargeNow } from "../src/proration";
 import { staleUpgradeReason } from "../src/service/charge";
 import { type BillingHarness, planCode, setupBilling } from "./support";
 
 let h: BillingHarness;
+const fail = (): never => {
+  throw new Error("unknown plan price");
+};
 const START = new Date("2026-03-01T10:00:00Z");
 beforeAll(async () => {
   h = await setupBilling();
@@ -390,6 +394,112 @@ describe("upgrade (prorated, PLAN §2.3 #10)", () => {
         memberCount: 1,
       })
     ).rejects.toMatchObject({ code: "same_plan" });
+  });
+});
+
+describe("monthly to yearly on the same plan (planChangeKind)", () => {
+  it("classifies changes the way changePlan applies them", () => {
+    const pro = { rank: 2 };
+    const starter = { rank: 1 };
+    const m = "monthly" as const;
+    const y = "annually" as const;
+    expect(
+      planChangeKind({ ...pro, interval: m }, { ...pro, interval: y })
+    ).toBe("upgrade");
+    expect(
+      planChangeKind({ ...pro, interval: y }, { ...pro, interval: m })
+    ).toBe("downgrade");
+    expect(
+      planChangeKind({ ...starter, interval: y }, { ...pro, interval: m })
+    ).toBe("upgrade");
+    expect(
+      planChangeKind({ ...pro, interval: m }, { ...starter, interval: y })
+    ).toBe("downgrade");
+  });
+
+  it("switches now outside a trial, charging exactly what upgradeChargeNow quotes", async () => {
+    for (const [from, to] of [
+      ["pro-monthly-ngn", "pro-annually-ngn"],
+      ["starter-monthly-ngn", "pro-annually-ngn"],
+    ] as const) {
+      const { organizationId, actor, sub } = await h.subscribe(from);
+      h.clock.now = midPeriod(sub);
+      const quoted = upgradeChargeNow({
+        sub,
+        current: getPlanPrice(from) ?? fail(),
+        target: getPlanPrice(to) ?? fail(),
+        now: h.clock.now,
+      });
+      const result = await h.billing.changePlan({
+        organizationId,
+        actor,
+        planPriceId: to,
+        memberCount: 1,
+      });
+      expect(result).toEqual({ kind: "upgraded", charged: quoted });
+      // Not scheduled: the plan changes today.
+      expect(await h.billing.getSubscription(organizationId)).toMatchObject({
+        planPriceId: to,
+        scheduledPlanPriceId: null,
+      });
+    }
+    // Pro yearly costs less per day than Pro monthly: nothing to top up.
+    // Starter monthly to Pro yearly does owe a difference.
+    const pro = getPlanPrice("pro-monthly-ngn") ?? fail();
+    const sub = {
+      status: "active",
+      currency: "NGN",
+      currentPeriodStart: START,
+      currentPeriodEnd: new Date("2026-04-01T10:00:00Z"),
+    };
+    const now = new Date("2026-03-16T10:00:00Z");
+    expect(
+      upgradeChargeNow({
+        sub,
+        current: pro,
+        target: getPlanPrice("pro-annually-ngn") ?? fail(),
+        now,
+      })
+    ).toBe(0);
+    expect(
+      upgradeChargeNow({
+        sub,
+        current: getPlanPrice("starter-monthly-ngn") ?? fail(),
+        target: getPlanPrice("pro-annually-ngn") ?? fail(),
+        now,
+      })
+    ).toBeGreaterThan(0);
+    expect(
+      upgradeChargeNow({
+        sub: { ...sub, status: "trialing" },
+        current: getPlanPrice("starter-monthly-ngn") ?? fail(),
+        target: pro,
+        now,
+      })
+    ).toBe(0);
+  });
+
+  it("switches now and charges nothing during a trial", async () => {
+    const { organizationId, actor, sub } = await h.subscribe("pro-monthly-ngn");
+    await h.db
+      .update(schema.subscription)
+      .set({ status: "trialing", trialEndsAt: sub.currentPeriodEnd })
+      .where(eq(schema.subscription.id, sub.id));
+    h.clock.now = midPeriod(sub);
+    const before = h.fake.calls.length;
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-annually-ngn",
+      memberCount: 1,
+    });
+    expect(result).toEqual({ kind: "upgraded", charged: 0 });
+    expect(callIndex("POST", "/transaction/charge_authorization", before)).toBe(
+      -1
+    );
+    expect((await h.billing.getSubscription(organizationId))?.planPriceId).toBe(
+      "pro-annually-ngn"
+    );
   });
 });
 
