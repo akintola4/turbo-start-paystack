@@ -252,6 +252,11 @@ export const paymentIntent = pgTable(
     currency: char("currency", { length: 3 }).notNull(),
     accessCode: text("access_code"),
     status: paymentIntentStatus("status").notNull().default("created"),
+    // Upgrade and proration intents are priced for one billing period. A
+    // charge for one that arrives after the period moved on, or after it
+    // expired, is refunded instead of applied.
+    periodStart: timestamp("period_start", tz),
+    expiresAt: timestamp("expires_at", tz),
     createdByUserId: text("created_by_user_id").references(() => user.id, {
       onDelete: "set null",
     }),

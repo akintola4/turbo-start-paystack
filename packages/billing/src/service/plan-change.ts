@@ -36,6 +36,24 @@ export type ChangePlanResult =
     }
   | { kind: "downgrade_scheduled"; effectiveAt: Date };
 
+/** How long an upgrade checkout stays payable. The prorated amount is only
+ *  right for the moment it was priced, so it is kept short. */
+export const UPGRADE_INTENT_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** The billing period an upgrade intent was priced for, and when it stops
+ *  being payable: a day later, or the period end if that comes first. */
+function upgradeIntentWindow(
+  sub: { currentPeriodStart: Date | null; currentPeriodEnd: Date | null },
+  now: Date
+) {
+  const ttl = new Date(now.getTime() + UPGRADE_INTENT_TTL_MS);
+  const end = sub.currentPeriodEnd;
+  return {
+    periodStart: sub.currentPeriodStart,
+    expiresAt: end && end < ttl ? end : ttl,
+  };
+}
+
 /**
  * Upgrade: immediate, prorated. Charge the difference for the rest of the
  * period on the saved card (`charge_authorization`), then switch. If the card
@@ -244,6 +262,7 @@ export async function changePlan(
       }
 
       const reference = newReference();
+      const anchor = upgradeIntentWindow(sub, now);
       await tx.insert(schema.paymentIntent).values({
         id: reference,
         organizationId: sub.organizationId,
@@ -253,6 +272,7 @@ export async function changePlan(
         currency: sub.currency,
         createdByUserId: input.actor.userId,
         createdAt: deps.now(),
+        ...anchor,
       });
       const customer = await billingCustomer(tx, sub.organizationId);
       const email =
@@ -358,6 +378,7 @@ export async function changePlan(
         currency: sub.currency,
         createdByUserId: input.actor.userId,
         createdAt: deps.now(),
+        ...anchor,
       });
       const init = await deps.paystack.initializeTransaction({
         email,

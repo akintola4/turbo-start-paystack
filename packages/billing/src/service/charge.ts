@@ -17,6 +17,7 @@ import {
   type Outcome,
   type PaymentIntentRow,
   planPriceRow,
+  type SubscriptionRow,
   seal,
   TERMINAL_STATUSES,
   unseal,
@@ -301,6 +302,10 @@ async function finalizeUpgradeFromCharge(
 ): Promise<Outcome> {
   const sub = await liveSubscription(tx, intent.organizationId, { lock: true });
   const paidAt = data.paid_at ? new Date(data.paid_at) : deps.now();
+  const stale = staleUpgradeReason(intent, sub, paidAt);
+  if (stale) {
+    return refundStaleUpgrade(deps, tx, intent, data, sub, stale);
+  }
   await upsertInvoice(deps, tx, {
     source: "charge",
     organizationId: intent.organizationId,
@@ -352,6 +357,104 @@ async function finalizeUpgradeFromCharge(
     effectiveAt: paidAt,
   });
   return {};
+}
+
+/**
+ * Why an upgrade or proration charge must not be applied, or null if it can
+ * be. The amount was prorated for the period the intent was created in; paid
+ * after a renewal (or after it expired) it would buy the bigger plan for a
+ * whole new period at a few days' price.
+ */
+export function staleUpgradeReason(
+  intent: Pick<PaymentIntentRow, "createdAt" | "periodStart" | "expiresAt">,
+  sub: Pick<SubscriptionRow, "currentPeriodStart"> | null,
+  paidAt: Date
+): string | null {
+  if (!sub) {
+    return "no_subscription";
+  }
+  if (intent.expiresAt && paidAt > intent.expiresAt) {
+    return "expired";
+  }
+  const periodStart = sub.currentPeriodStart?.getTime();
+  if (periodStart === undefined) {
+    return null;
+  }
+  // Rows from before the period was recorded fall back to their creation
+  // time: an intent created before this period began belongs to an older one.
+  const anchor = intent.periodStart?.getTime();
+  if (
+    anchor === undefined
+      ? intent.createdAt.getTime() < periodStart
+      : anchor !== periodStart
+  ) {
+    return "period_changed";
+  }
+  return null;
+}
+
+/** The money for a stale upgrade goes back; the plan does not change. A
+ *  failed refund is left on the audit log (and the void invoice without a
+ *  refund date) for someone to settle, and is retried if the charge is
+ *  applied again. */
+async function refundStaleUpgrade(
+  deps: BillingDeps,
+  tx: DbOrTx,
+  intent: PaymentIntentRow,
+  data: PaystackTransaction,
+  sub: SubscriptionRow | null,
+  reason: string
+): Promise<Outcome> {
+  await tx
+    .update(schema.paymentIntent)
+    .set({ status: "failed" })
+    .where(eq(schema.paymentIntent.id, intent.id));
+  const [existing] = await tx
+    .select({ refundedAt: schema.invoice.refundedAt })
+    .from(schema.invoice)
+    .where(eq(schema.invoice.reference, data.reference));
+  if (existing?.refundedAt) {
+    return { error: `stale_upgrade:${reason}` };
+  }
+  let refundedAt: Date | null = null;
+  try {
+    await deps.paystack.refund({ transaction: data.reference });
+    refundedAt = deps.now();
+  } catch (error) {
+    deps.logger.error("refund of a stale upgrade charge failed", {
+      reference: data.reference,
+      error: String(error),
+    });
+    await audit(tx, {
+      organizationId: intent.organizationId,
+      action: "billing.refund_failed",
+      target: data.reference,
+      data: { reason: `stale_upgrade:${reason}` },
+    });
+  }
+  await upsertInvoice(deps, tx, {
+    source: "charge",
+    organizationId: intent.organizationId,
+    subscriptionId: sub?.id ?? null,
+    reference: data.reference,
+    amountSubunit: data.amount,
+    currency: data.currency,
+    status: "void",
+    paidAt: data.paid_at ? new Date(data.paid_at) : deps.now(),
+    description: "Plan upgrade (expired, refunded)",
+    kind: "proration",
+    planPriceId: intent.planPriceId,
+    card: data.authorization,
+    refundedAt,
+  });
+  await audit(tx, {
+    organizationId: intent.organizationId,
+    actorUserId: intent.createdByUserId,
+    action: "billing.stale_upgrade_refunded",
+    target: data.reference,
+    data: { reason, planPriceId: intent.planPriceId, refunded: !!refundedAt },
+  });
+  return { error: `stale_upgrade:${reason}` };
 }
 
 /**
