@@ -124,9 +124,16 @@ type Tools = {
   local: boolean;
 };
 
+// A Docker Desktop that is half started makes `docker info` hang forever,
+// so every probe gets a deadline and counts as missing when it runs out.
 function has(cmd: string, args: string[] = ["--version"]) {
-  const r = spawnSync(cmd, args, { stdio: "pipe", encoding: "utf8" });
-  return r.status === 0 ? r.stdout.trim() : null;
+  const r = spawnSync(cmd, args, {
+    stdio: "pipe",
+    encoding: "utf8",
+    timeout: 8000,
+    killSignal: "SIGKILL",
+  });
+  return r.status === 0 && !r.error ? r.stdout.trim() : null;
 }
 
 function checkTools(): Tools {

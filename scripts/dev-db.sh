@@ -14,8 +14,26 @@ DB="${PGDATABASE:-turbo_start_paystack}"
 CONTAINER=tsp-postgres
 MODE="${TSP_PG:-}"
 
+# True if the Docker daemon answers within 8 seconds. A half-started Docker
+# Desktop makes `docker info` hang, and macOS has no `timeout` command.
+docker_running() {
+  command -v docker >/dev/null 2>&1 || return 1
+  docker info >/dev/null 2>&1 &
+  local pid=$! i
+  for i in $(seq 1 16); do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      wait "$pid"
+      return $?
+    fi
+    sleep 0.5
+  done
+  kill -9 "$pid" 2>/dev/null
+  wait "$pid" 2>/dev/null
+  return 1
+}
+
 if [ -z "$MODE" ]; then
-  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  if docker_running; then
     MODE=docker
   elif command -v pg_ctl >/dev/null 2>&1 && command -v initdb >/dev/null 2>&1; then
     MODE=local

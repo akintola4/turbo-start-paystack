@@ -1,8 +1,20 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/hero-dark.png">
+  <img alt="The Turbo Start Paystack landing page: a forest-green panel headed 'Every price, in their money.', a price of ₦30,000 a month, and a row of currency tiles for naira, cedi, rand, shilling and dollar with two naira tiles lit in yellow" src="docs/images/readme/hero-light.png">
+</picture>
+
 # Turbo Start Paystack
+
+[![CI](https://github.com/akintola4/turbo-start-paystack/actions/workflows/ci.yml/badge.svg)](https://github.com/akintola4/turbo-start-paystack/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-0f3a25.svg)](LICENSE)
 
 Turbo Start Paystack is an open-source SaaS starter for teams that bill in
 Africa. It is a `pnpm` monorepo with Turborepo, a Next.js 16 app, Better Auth
 organizations and roles, and Paystack subscriptions.
+
+**Live demo:** <https://turbo-start-paystack.vercel.app>. It runs in Paystack
+test mode, so only Paystack's test cards work (for example
+`4084 0840 8408 4081`) and no real money moves.
 
 Billing state is written only by verified webhooks and server-side
 verification. The browser never sends a plan status, an amount or a
@@ -29,11 +41,22 @@ subscription code.
 - `scripts`: `pnpm setup` and `pnpm dev`, `billing:sync`, a local Paystack
   mock with a webhook simulator, and a webhook replay tool
 
+<table>
+  <tr>
+    <td width="50%"><img alt="Billing page on the Pro plan: ₦30,000 a month, active, next charge on 13 Jan, Visa ending 4081, 3 of 50 seats" src="docs/images/readme/billing.png"></td>
+    <td width="50%"><img alt="Members page: an invite form, a seats card showing 3 of 50 on Pro, and Ada (owner), Tunde (billing) and Chioma (member)" src="docs/images/readme/members.png"></td>
+  </tr>
+  <tr>
+    <td><img alt="The command palette over the overview page, searching 2026 and listing invoices INV-2026-000002 and INV-2026-000001 with a PDF shortcut" src="docs/images/readme/palette.png"></td>
+    <td align="center"><img alt="The billing page on a phone in dark mode: Pro plan, active, with the next charge, card and seats stacked" src="docs/images/readme/phone-dark.png" width="172"></td>
+  </tr>
+</table>
+
 ## Repo layout
 
 ```txt
 apps/
-  web/            Next.js app
+  web/            Next.js app (Playwright checks in apps/web/e2e)
 packages/
   auth/           Better Auth config, roles, requirePermission
   billing/        Paystack billing domain (most of the tests live here)
@@ -53,7 +76,9 @@ docs/             decisions, Paystack setup, Paystack test-mode checklist
 - Node.js 24 or newer
 - pnpm 11 (`corepack enable` picks up the version in `package.json`)
 - Postgres 15 or newer (Neon, Supabase, Railway or local)
-- Docker, or a local Postgres install (`initdb`/`pg_ctl`), for `pnpm setup`
+- For `pnpm setup`, one of: Docker, a local Postgres install
+  (`initdb`/`pg_ctl` on your `PATH`), or a Postgres that is already running
+  (see [Postgres you already run](#postgres-you-already-run))
 - A Paystack account for real payments. Not needed locally: `pnpm setup`
   uses a Paystack mock
 
@@ -71,15 +96,17 @@ pnpm dev
 
 Open the URL `pnpm setup` prints (usually `http://localhost:3000`) and sign
 in as `ada@kolalogistics.test` with the password `kola-demo-2026`. On
-Billing, start a trial, press "Pay" on the mock checkout, then use the
-**Simulate billing** panel to play renewals, failed payments and
-recoveries. From a warm pnpm store this takes a couple of minutes,
-most of it clicking.
+Billing, press "Start 14-day trial" on a plan, then "Pay with test card" on
+the mock checkout. You land back on Billing with the plan in trial. Open the
+**Simulate billing** card at the bottom of the page to end the trial and play
+renewals, failed payments and recoveries. On a clean clone `pnpm setup` takes
+about 15 seconds after `pnpm install`.
 
 `pnpm setup` is safe to run again. It:
 
 - checks Node 24+, pnpm, and Docker or a local Postgres (`initdb`/`pg_ctl`),
-  and prints the fix for anything missing;
+  and prints the fix for anything missing. If Docker is installed but its
+  daemon doesn't answer within 8 seconds, it counts as not running;
 - creates `apps/web/.env` from `.env.example`, generates
   `BETTER_AUTH_SECRET`, `BILLING_ENCRYPTION_KEY` and `CRON_SECRET`, and points
   Paystack at the local mock. It only fills blanks and the template's
@@ -88,9 +115,11 @@ most of it clicking.
 - picks free ports for the app (from 3000) and the mock (from 4010) and
   writes them into `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`,
   `PAYSTACK_API_URL`, `PAYSTACK_MOCK_PORT` and `PAYSTACK_MOCK_WEBHOOK_URL`;
-- reuses a Postgres on 127.0.0.1:54329 if one answers, otherwise starts one
-  with `scripts/dev-db.sh` (Docker if it is running, else `.pgdata/`),
-  creates the database and runs the migrations;
+- uses `DATABASE_URL` from `apps/web/.env` if you set one. Otherwise it
+  reuses a Postgres on 127.0.0.1:54329 that accepts the `postgres` user, or
+  starts one with `scripts/dev-db.sh` (Docker if it is running, else a local
+  server with its data in `.pgdata/`). Then it creates the database and runs
+  the migrations;
 - creates the plans on the mock (`billing:sync`) and seeds Kola Logistics:
   Ada (owner), Tunde (billing) and Chioma (member), all with verified email
   and the same demo password.
@@ -112,10 +141,26 @@ profile): use `corepack enable` to get the pnpm version in `package.json`.
 macOS and Linux are supported. On Windows, use WSL 2 (`dev-db.sh` is a bash
 script).
 
+### Postgres you already run
+
+`pnpm setup` doesn't look at port 5432. If you already run Postgres there
+(Postgres.app, a Homebrew service, a system package), or Docker isn't an
+option, point setup at it before the first run:
+
+```bash
+cp .env.example apps/web/.env
+# in apps/web/.env:
+# DATABASE_URL=postgres://<your-user>@127.0.0.1:5432/turbo_start_paystack
+pnpm setup
+```
+
+Setup creates the database if it is missing and fills in everything else.
+
 ### Simulate billing (development only)
 
-The billing page shows a dashed **Simulate billing** card to owners and
-billing managers when the app runs against the local mock. Each button asks
+The billing page ends with a dashed **Simulate billing** card, shown to
+owners and billing managers when the app runs against the local mock. It
+starts collapsed; click its header to open it. Each button asks
 the mock to emit what Paystack would send for the organization's
 subscription, signed with the secret key, to the real
 `/api/webhooks/paystack` route. The panel waits for the handlers to process
@@ -167,6 +212,7 @@ refuses to boot if a required one is missing or malformed.
 | Variable | Required | What it is |
 |---|---|---|
 | `DATABASE_URL` | yes | Postgres connection string |
+| `DATABASE_URL_UNPOOLED` | no | Direct (non-pooled) connection, used by `vercel-build` for migrations. Neon's Vercel integration sets it |
 | `BETTER_AUTH_SECRET` | yes | 32+ random characters (`openssl rand -base64 32`) |
 | `BETTER_AUTH_URL` | yes | Public URL of the app, e.g. `http://localhost:3000` |
 | `NEXT_PUBLIC_APP_URL` | no | Same as above, for the browser. Defaults to localhost |
@@ -228,9 +274,10 @@ Open `http://localhost:3000`, create an account, then an organization.
 `pnpm paystack:mock` runs a local stand-in for `api.paystack.co` on port 4010
 with a fake hosted checkout page. Set `PAYSTACK_API_URL=http://localhost:4010`
 and `PAYSTACK_SECRET_KEY=sk_test_local_mock`, run `pnpm billing:sync`, then
-subscribe from the billing page. The mock's "Pay" button sends signed
-`charge.success` and `subscription.create` webhooks to the app, like Paystack
-would. It is for development only and is not a Paystack simulator.
+subscribe from the billing page. The mock's "Pay with test card" button
+sends signed `charge.success` and `subscription.create` webhooks to the app,
+like Paystack would. It is for development only and is not a Paystack
+simulator.
 
 </details>
 
@@ -255,15 +302,17 @@ pnpm webhook:replay scripts/fixtures/charge-success.json
 
 ## Tests
 
-Most tests run against PGlite (Postgres in-process) with the Paystack API
-replaced by an in-memory fake behind msw. No keys or services are needed:
+There are 532 tests across the packages. Most run against PGlite (Postgres
+in-process) with the Paystack API replaced by an in-memory fake behind msw.
+No keys or services are needed:
 
 ```bash
 pnpm test
 ```
 
-Concurrency tests need a real Postgres server, because PGlite has a single
-connection. They are skipped unless `TEST_DATABASE_URL` is set (CI sets it):
+The 3 concurrency tests need a real Postgres server, because PGlite has a
+single connection. They are skipped unless `TEST_DATABASE_URL` is set (CI
+sets it):
 
 ```bash
 TEST_DATABASE_URL=postgres://postgres@localhost:5432/postgres pnpm test
@@ -273,22 +322,29 @@ Webhook tests use payloads built from Paystack's documented examples
 (`packages/billing/src/fixtures.ts`). Behaviour that still has to be confirmed
 against real Paystack test mode is listed in `docs/paystack-verification.md`.
 
+Browser checks live in `apps/web/e2e` (Playwright). They aren't part of
+`pnpm test`: start the app with the mock, then run
+`pnpm --filter web test:e2e` (it expects `http://localhost:3200`, or set
+`E2E_BASE_URL`).
+
 ## Paystack dashboard setup
 
 1. Settings → API Keys & Webhooks: copy the test secret and public keys into
    `PAYSTACK_SECRET_KEY` and `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY`.
-2. Set the webhook URL to `https://<your-domain>/api/webhooks/paystack`. For
-   local development use a tunnel (`cloudflared tunnel --url
-   http://localhost:3000` or `ngrok http 3000`) and paste its URL.
-3. Run `pnpm billing:sync` with the test key, then again with the live key
-   against your production database. Test and live plan codes differ.
+2. On the same page, set the webhook URL to
+   `https://<your-domain>/api/webhooks/paystack` and the callback URL to
+   `https://<your-domain>/billing/callback`. The app also sends the callback
+   URL with each transaction, built from `BETTER_AUTH_URL`. Test and live
+   mode have separate URLs; set both. For local development against real
+   Paystack, use a tunnel (`cloudflared tunnel --url http://localhost:3000`
+   or `ngrok http 3000`), paste its URL, and set `BETTER_AUTH_URL` to it.
+3. Create the plans with `pnpm billing:sync`: once with the test key against
+   your development database, once with the live key against production.
+   Test and live plan codes differ. On Vercel the build does this for you
+   (see [Deploying](#deploying)).
 4. Schedule `GET /api/cron/billing-reconcile` hourly with
-   `Authorization: Bearer $CRON_SECRET`. Vercel Hobby only runs crons daily,
-   so `apps/web/vercel.json` runs it once a day as a backup and
-   `.github/workflows/billing-reconcile.yml` calls it every hour: set the repo
-   secrets `APP_URL` and `CRON_SECRET`. On Vercel Pro, change the
-   `vercel.json` schedule to `0 * * * *` and drop the workflow. Elsewhere use
-   any scheduler.
+   `Authorization: Bearer $CRON_SECRET`. On Vercel this is already set up;
+   see [Deploying](#deploying). Elsewhere, use any scheduler.
 
 More detail, including a going-live checklist, is in `docs/paystack-setup.md`.
 
@@ -409,13 +465,15 @@ must be verified) and can be used once.
 - **Downgrade.** At the end of the period. The replacement subscription is
   created right away with a start date at period end, then the old one is
   disabled, so the old price cannot renew in between. Refused while the
-  organization has more members than the smaller plan allows.
+  organization has more members than the smaller plan allows. Until the
+  period ends, "Keep <plan>" on the billing page cancels the scheduled
+  downgrade and the current plan renews as before.
 - **Cancel / resume.** Cancel disables renewal on Paystack; access continues
   until the period ends. Resume re-enables it before then.
 - **Failed renewal.** `invoice.payment_failed` marks the subscription past due
   with a grace period that runs from the failed renewal's due date, emails
-  billing managers a Paystack link to update the card, and shows a banner. After the grace period access stops and the
-  subscription is disabled.
+  billing managers a Paystack link to update the card, and shows a banner.
+  After the grace period access stops and the subscription is disabled.
 - **Reconcile.** An hourly job retries failed webhooks, checks unpaid
   checkouts (failed payments send no webhook), resyncs subscriptions whose
   period ended without a renewal event, and applies scheduled downgrades.
@@ -468,27 +526,98 @@ In this version:
 - React Email templates for auth and billing email, with trial-ending
   reminders
 - Plan catalog and sync, subscribe, card-up-front trial, prorated upgrade,
-  scheduled downgrade, cancel and resume, failed-payment grace period,
-  reconcile cron, billing page with invoices
+  scheduled downgrade and keeping the current plan instead, cancel and
+  resume, failed-payment grace period, reconcile cron
+- Billing page with numbered invoices, an invoice page, and PDF invoices and
+  receipts
+- ⌘K command palette over pages, actions, members and invoices
 - Multi-currency catalog (NGN default; GHS, ZAR, KES and USD by config)
-- 190+ tests, CI with a real Postgres service
+- 532 tests, Playwright browser checks against the mock, CI with a real
+  Postgres service
 
 Later:
 
 - Magic link, email OTP, Google sign-in, two-factor auth, operator admin
-- Card-retry schedule for failed renewals, PDF receipts
-- Undoing a scheduled downgrade, organization soft delete
+- Card-retry schedule for failed renewals
+- Organization soft delete
 - Per-seat and usage-based pricing, coupons
-- Playwright tests against Paystack test mode, a docs site
+- Playwright tests against real Paystack test mode, a docs site
 - Flutterwave and Stripe adapters behind the billing interface
 
 ## Deploying
 
-The app has no Vercel-only parts. On Vercel, add the environment variables,
-point `DATABASE_URL` at Neon or Supabase, and run `pnpm db:migrate` as part of
-your release. Elsewhere (Railway, Fly, Docker), build with `pnpm build` and
-run `pnpm --filter web start`, and call the reconcile route hourly from a
-scheduler. Paystack needs a stable public URL for webhooks.
+The live demo runs on Vercel with a Neon database, set up as below.
+
+### Vercel and Neon
+
+1. Import the repo into Vercel and set the Root Directory to
+   `apps/web`. Leave the build command alone: Vercel runs the `vercel-build`
+   script in `apps/web/package.json`, which
+   - applies migrations using `DATABASE_URL_UNPOOLED` (falling back to
+     `DATABASE_URL`), because migrations need a direct connection, not the
+     pooler;
+   - runs `billing:sync` with the deployment's Paystack key, so the plans
+     exist before the new build serves traffic;
+   - runs `next build`.
+2. Add Neon from the Vercel Marketplace and connect it to the
+   project. The integration sets `DATABASE_URL` (pooled) and
+   `DATABASE_URL_UNPOOLED` (direct). `apps/web/vercel.json` pins functions
+   to `fra1` (Frankfurt), so create the Neon database in Frankfurt
+   (`aws-eu-central-1`), or change `regions` to sit next to your database.
+3. Set the Production environment variables:
+   - `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL`: the public domain, for
+     example `https://turbo-start-paystack.vercel.app`. Don't use a
+     deployment URL such as `…-git-main-<team>.vercel.app`. Those sit behind
+     Vercel's Deployment Protection, so the Paystack callback and the links
+     in emails would open a Vercel login page.
+   - `BETTER_AUTH_SECRET` (`openssl rand -base64 32`),
+     `BILLING_ENCRYPTION_KEY` (`openssl rand -hex 32`) and `CRON_SECRET`:
+     new values for production. Back up the encryption key.
+   - `PAYSTACK_SECRET_KEY` and `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY`. Leave
+     `PAYSTACK_API_URL` unset.
+   - `RESEND_API_KEY` and `EMAIL_FROM`, on a domain verified in Resend (see
+     [Resend setup](#resend-setup)). In production a send without a key
+     throws.
+   - Anything optional from the table in Manual setup (`BILLING_CURRENCY`,
+     `INVOICE_SELLER_*`, `EMAIL_BRAND_NAME`, …).
+
+   `NEXT_PUBLIC_*` values are inlined at build time; redeploy after changing
+   them.
+4. In the Paystack dashboard, set the webhook URL to
+   `https://<your-domain>/api/webhooks/paystack` and the callback URL to
+   `https://<your-domain>/billing/callback`, as in
+   [Paystack dashboard setup](#paystack-dashboard-setup).
+5. Reconcile has to run hourly. Vercel Hobby runs crons at most once a day, so
+   `apps/web/vercel.json` calls `/api/cron/billing-reconcile` daily at 03:00
+   UTC as a backup, and `.github/workflows/billing-reconcile.yml` calls it
+   every hour. Add two repository secrets on GitHub (Settings → Secrets and
+   variables → Actions): `APP_URL`, the public domain, and `CRON_SECRET`, the
+   same value as in Vercel. Until both are set the workflow skips. On
+   Vercel Pro, change the `vercel.json` schedule to `0 * * * *` and delete
+   the workflow.
+6. Preview deployments use their own set of variables in Vercel.
+   Without them a pull request's build stops at the migration or the env
+   check. Give Preview its own `DATABASE_URL` and
+   `DATABASE_URL_UNPOOLED` (Neon can create a branch per preview), its own
+   secrets and Paystack test keys. Never point a preview at the production
+   database: its build runs migrations. Preview URLs are protected by
+   default, so Paystack webhooks can't reach them; test billing locally with
+   the mock instead.
+
+### Other hosts
+
+Nothing in the app depends on Vercel. On Railway, Fly or Docker:
+
+```bash
+pnpm install --frozen-lockfile
+DATABASE_URL=<direct connection> pnpm db:migrate
+pnpm billing:sync
+pnpm build
+pnpm --filter web start
+```
+
+Set the same environment variables, call the reconcile route hourly from any
+scheduler, and give Paystack a stable public URL for webhooks.
 
 ## Contributing
 
