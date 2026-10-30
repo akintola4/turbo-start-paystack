@@ -32,6 +32,9 @@ type Sub = {
   plan: string;
   customer: string;
   authorization: string;
+  /** The card on the subscription, as `GET /subscription/:code` returns
+   *  it (an authorization object), once one is known. */
+  card?: Authorization;
   next_payment_date: string;
   /** Invoice of a failed renewal, until a later charge pays it. */
   open_invoice?: string;
@@ -119,8 +122,10 @@ export function createFakePaystack(options?: {
   }
 
   function subView(sub: Sub) {
+    const { card, ...rest } = sub;
     return {
-      ...sub,
+      ...rest,
+      authorization: card ?? sub.authorization,
       plan: { plan_code: sub.plan },
       customer: {
         customer_code: sub.customer,
@@ -444,6 +449,31 @@ export function createFakePaystack(options?: {
     },
     setChargeOutcome(outcome: "success" | "failed" | "paused") {
       chargeOutcome = outcome;
+    },
+    /**
+     * The customer updates the card on Paystack's manage page: Paystack
+     * charges the new card (a one-off transaction, no plan) and the
+     * subscription now carries that authorization. Returns the transaction
+     * for a `charge.success` payload.
+     */
+    updateCard(code: string, authorization: Authorization) {
+      const sub = subscriptions.get(code);
+      if (!sub) {
+        throw new Error(`fake paystack: unknown subscription ${code}`);
+      }
+      sub.authorization = authorization.authorization_code;
+      sub.card = authorization;
+      const customer = customerByCode(sub.customer);
+      return {
+        reference: id("T"),
+        amount: 5000,
+        currency: plans.get(sub.plan)?.currency ?? "NGN",
+        customer: {
+          customer_code: sub.customer,
+          email: customer?.email ?? "",
+        },
+        authorization,
+      };
     },
     /** Registers a plan without an HTTP call (seeding). */
     addPlan(plan: {
