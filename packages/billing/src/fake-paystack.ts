@@ -360,16 +360,28 @@ export function createFakePaystack(options?: {
       (path === "/subscription/disable" || path === "/subscription/enable")
     ) {
       const sub = subscriptions.get(String(body.code));
-      if (!sub || sub.email_token !== body.token) {
+      const disabling = path.endsWith("disable");
+      if (
+        !sub ||
+        sub.email_token !== body.token ||
+        (disabling && sub.status !== "active")
+      ) {
         return fail(
           400,
           "Subscription with code not found or already inactive"
         );
       }
-      sub.status = path.endsWith("disable") ? "non-renewing" : "active";
+      // As on Paystack: a disabled subscription is final.
+      if (!disabling && sub.status !== "active") {
+        return fail(
+          400,
+          "Subscription has been cancelled, and cannot be reactivated"
+        );
+      }
+      sub.status = disabling ? "non-renewing" : "active";
       return ok(
         null,
-        `Subscription ${path.endsWith("disable") ? "disabled" : "enabled"} successfully`
+        `Subscription ${disabling ? "disabled" : "enabled"} successfully`
       );
     }
 

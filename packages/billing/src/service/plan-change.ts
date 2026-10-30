@@ -2,7 +2,7 @@ import { schema } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 import { getPlan, getPlanPrice } from "../catalog";
-import { BillingError } from "../errors";
+import { BillingError, PaystackError } from "../errors";
 import { type Currency, TOKENIZATION_AMOUNT } from "../money";
 import { computeProration } from "../proration";
 import type { Actor } from "./checkout";
@@ -431,10 +431,7 @@ export async function cancelSubscription(
     if (!token) {
       throw new BillingError("invalid_state", "Missing Paystack email token.");
     }
-    await deps.paystack.disableSubscription({
-      code: sub.paystackSubscriptionCode,
-      token,
-    });
+    await disableOrConfirmDisabled(deps, sub.paystackSubscriptionCode, token);
     if (sub.scheduledSubscriptionCode) {
       await retireSubscription(
         deps,
@@ -475,7 +472,55 @@ export async function cancelSubscription(
   });
 }
 
-/** Undo a cancellation before the period ends. */
+/**
+ * Paystack's answer to disabling a subscription that is already off, or to
+ * a code and token that don't match.
+ */
+function isAlreadyInactive(error: unknown): boolean {
+  return (
+    error instanceof PaystackError &&
+    error.httpStatus < 500 &&
+    /not found or already inactive/i.test(error.message)
+  );
+}
+
+/**
+ * Disables a subscription, treating "already inactive" as done once
+ * Paystack confirms it won't renew. If it is still active the stored token
+ * was stale, so the disable is retried with the current one.
+ */
+async function disableOrConfirmDisabled(
+  deps: BillingDeps,
+  code: string,
+  token: string
+) {
+  try {
+    await deps.paystack.disableSubscription({ code, token });
+    return;
+  } catch (error) {
+    if (!isAlreadyInactive(error)) {
+      throw error;
+    }
+    const remote = await deps.paystack.fetchSubscription(code);
+    if (remote.status !== "active") {
+      return;
+    }
+    if (!remote.email_token || remote.email_token === token) {
+      throw error;
+    }
+    await deps.paystack.disableSubscription({
+      code,
+      token: remote.email_token,
+    });
+  }
+}
+
+/**
+ * Undo a cancellation before the period ends. Paystack can't re-enable a
+ * disabled subscription, so this creates a new one on the same plan and saved
+ * card, starting when the current period (or trial) ends. The old code is
+ * recorded as replaced so its closing webhooks are ignored.
+ */
 export async function resumeSubscription(
   deps: BillingDeps,
   input: { organizationId: string; actor: Actor }
@@ -486,28 +531,67 @@ export async function resumeSubscription(
     });
     const now = deps.now();
     if (
-      !(sub?.paystackSubscriptionCode && sub.status === "non_renewing") ||
-      (sub.currentPeriodEnd && now >= sub.currentPeriodEnd)
+      !(
+        sub?.paystackSubscriptionCode &&
+        sub.status === "non_renewing" &&
+        sub.currentPeriodEnd
+      ) ||
+      now >= sub.currentPeriodEnd
     ) {
       throw new BillingError("invalid_state", "Nothing to resume.");
     }
-    const token = await emailTokenFor(
-      deps,
-      sub.paystackSubscriptionCode,
-      sub.paystackEmailToken
-    );
-    if (!token) {
-      throw new BillingError("invalid_state", "Missing Paystack email token.");
+    const authorizationCode = unseal(deps, sub.authorizationCode);
+    if (!authorizationCode) {
+      throw new BillingError(
+        "no_card",
+        "No saved card to resume with. Choose a plan again when this one ends."
+      );
     }
-    await deps.paystack.enableSubscription({
-      code: sub.paystackSubscriptionCode,
-      token,
-    });
+    const row = await planPriceRow(tx, sub.planPriceId);
+    const customer = await billingCustomer(tx, sub.organizationId);
+    if (!(row?.paystackPlanCode && customer)) {
+      throw new BillingError("plan_not_synced", "This plan is not synced.");
+    }
+    const trialing = Boolean(sub.trialEndsAt && now < sub.trialEndsAt);
+    const startDate =
+      trialing && sub.trialEndsAt ? sub.trialEndsAt : sub.currentPeriodEnd;
+
+    let created: Awaited<ReturnType<typeof deps.paystack.createSubscription>>;
+    try {
+      created = await createOrAdoptSubscription(deps, tx, {
+        customer: customer.paystackCustomerCode,
+        plan: row.paystackPlanCode,
+        authorization: authorizationCode,
+        start_date: startDate.toISOString(),
+      });
+    } catch (error) {
+      deps.logger.error("resume could not create a subscription", {
+        organizationId: sub.organizationId,
+        error: String(error),
+      });
+      throw new BillingError(
+        "paystack_error",
+        "Paystack couldn't restart the subscription. Try again in a minute."
+      );
+    }
+
+    await tx
+      .insert(schema.replacedSubscription)
+      .values({
+        paystackSubscriptionCode: sub.paystackSubscriptionCode,
+        organizationId: sub.organizationId,
+        emailToken: sub.paystackEmailToken,
+        disabledAt: sub.canceledAt ?? now,
+      })
+      .onConflictDoNothing();
     await tx
       .update(schema.subscription)
       .set({
-        status:
-          sub.trialEndsAt && now < sub.trialEndsAt ? "trialing" : "active",
+        paystackSubscriptionCode: created.subscription_code,
+        paystackEmailToken: created.email_token
+          ? seal(deps, created.email_token)
+          : null,
+        status: trialing ? "trialing" : "active",
         cancelAtPeriodEnd: false,
         canceledAt: null,
       })
@@ -516,6 +600,7 @@ export async function resumeSubscription(
       organizationId: sub.organizationId,
       actorUserId: input.actor.userId,
       action: "billing.resumed",
+      data: { from: sub.paystackSubscriptionCode, to: created.subscription_code },
     });
   });
 }
