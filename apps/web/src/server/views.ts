@@ -96,6 +96,7 @@ function summarize(
     : undefined;
   return {
     planKey: price?.planKey ?? "free",
+    planPriceId: sub.planPriceId,
     planName: plan?.name ?? "Free",
     status: sub.status as SubscriptionStatus,
     priceLabel: price ? formatMoney(price.amountSubunit, price.currency) : "",

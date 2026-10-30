@@ -42,6 +42,7 @@ export type ShellData = {
 
 export type SubscriptionSummary = {
   planKey: string;
+  planPriceId: string;
   planName: string;
   status: SubscriptionStatus;
   /** Formatted, e.g. "₦30,000.00". */

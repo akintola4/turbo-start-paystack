@@ -1,4 +1,4 @@
-import { schema } from "@workspace/db";
+import { type DbOrTx, schema } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 import { getPlan, getPlanPrice } from "../catalog";
@@ -14,6 +14,7 @@ import {
   liveSubscription,
   newReference,
   planPriceRow,
+  type SubscriptionRow,
   seal,
   transactionWithNotifications,
   unseal,
@@ -35,7 +36,8 @@ export type ChangePlanResult =
       authorizationUrl: string;
       amountSubunit: number;
     }
-  | { kind: "downgrade_scheduled"; effectiveAt: Date };
+  | { kind: "downgrade_scheduled"; effectiveAt: Date }
+  | { kind: "downgrade_canceled" };
 
 /** How long an upgrade checkout stays payable. The prorated amount is only
  *  right for the moment it was priced, so it is kept short. */
@@ -101,7 +103,9 @@ export async function changePlan(
             : "Resume the subscription before changing plan."
         );
       }
-      if (sub.planPriceId === target.id) {
+      // Asking for the current plan while a downgrade is scheduled keeps it.
+      const keeping = sub.planPriceId === target.id;
+      if (keeping && !sub.scheduledSubscriptionCode) {
         throw new BillingError("same_plan", "Already on this plan.");
       }
       const current = getPlanPrice(sub.planPriceId);
@@ -122,6 +126,14 @@ export async function changePlan(
       const authorizationCode = unseal(deps, sub.authorizationCode);
       if (!authorizationCode) {
         throw new BillingError("no_card", "No reusable card on file.");
+      }
+      if (keeping) {
+        await keepCurrentPlan(deps, tx, sub, {
+          paystackPlanCode: row.paystackPlanCode,
+          authorizationCode,
+          actorUserId: input.actor.userId,
+        });
+        return { kind: "downgrade_canceled" };
       }
 
       const notifyChange = (input: {
@@ -407,6 +419,96 @@ export async function changePlan(
   return outcome;
 }
 
+/**
+ * Undo a scheduled downgrade. Scheduling it disabled the current Paystack
+ * subscription, and Paystack can't re-enable a disabled one, so (as with
+ * resume) this creates a new subscription on the current plan and saved card,
+ * starting when the current period or trial ends, then retires the scheduled
+ * one. Created first, so a Paystack failure leaves the downgrade in place.
+ */
+async function keepCurrentPlan(
+  deps: BillingDeps,
+  tx: DbOrTx,
+  sub: SubscriptionRow,
+  input: {
+    paystackPlanCode: string;
+    authorizationCode: string;
+    actorUserId: string;
+  }
+) {
+  const now = deps.now();
+  const customer = await billingCustomer(tx, sub.organizationId);
+  if (!customer) {
+    throw new BillingError("no_subscription", "No billing customer");
+  }
+  const trialing = Boolean(sub.trialEndsAt && now < sub.trialEndsAt);
+  const startDate = (trialing ? sub.trialEndsAt : sub.currentPeriodEnd) ?? now;
+  let created: Awaited<ReturnType<typeof deps.paystack.createSubscription>>;
+  try {
+    created = await createOrAdoptSubscription(deps, tx, {
+      customer: customer.paystackCustomerCode,
+      plan: input.paystackPlanCode,
+      authorization: input.authorizationCode,
+      start_date: startDate.toISOString(),
+    });
+  } catch (error) {
+    deps.logger.error("keeping the plan could not create a subscription", {
+      organizationId: sub.organizationId,
+      error: String(error),
+    });
+    throw new BillingError(
+      "paystack_error",
+      "Paystack couldn't keep the plan. The downgrade is still scheduled."
+    );
+  }
+  if (sub.scheduledSubscriptionCode) {
+    await retireSubscription(
+      deps,
+      tx,
+      sub.organizationId,
+      sub.scheduledSubscriptionCode,
+      sub.scheduledEmailToken
+    );
+  }
+  // Normally already retired when the downgrade was scheduled; if that
+  // disable failed, retire it now so it can't renew beside its replacement.
+  const currentRetired =
+    sub.paystackSubscriptionCode &&
+    (await isReplacedCode(tx, sub.paystackSubscriptionCode))?.disabledAt;
+  if (sub.paystackSubscriptionCode && !currentRetired) {
+    await retireSubscription(
+      deps,
+      tx,
+      sub.organizationId,
+      sub.paystackSubscriptionCode,
+      sub.paystackEmailToken
+    );
+  }
+  await tx
+    .update(schema.subscription)
+    .set({
+      paystackSubscriptionCode: created.subscription_code,
+      paystackEmailToken: created.email_token
+        ? seal(deps, created.email_token)
+        : null,
+      scheduledPlanPriceId: null,
+      scheduledSubscriptionCode: null,
+      scheduledEmailToken: null,
+    })
+    .where(eq(schema.subscription.id, sub.id));
+  await audit(tx, {
+    organizationId: sub.organizationId,
+    actorUserId: input.actorUserId,
+    action: "billing.downgrade_canceled",
+    data: {
+      kept: sub.planPriceId,
+      dropped: sub.scheduledPlanPriceId,
+      from: sub.paystackSubscriptionCode,
+      to: created.subscription_code,
+    },
+  });
+}
+
 /** Cancel at period end. Codes and tokens come from our DB, never the
  *  request (PLAN §2.3 #11). Access continues until `current_period_end`. */
 export async function cancelSubscription(
@@ -431,7 +533,12 @@ export async function cancelSubscription(
     if (!token) {
       throw new BillingError("invalid_state", "Missing Paystack email token.");
     }
-    await disableOrConfirmDisabled(deps, sub.paystackSubscriptionCode, token);
+    // A scheduled downgrade already disabled the current subscription.
+    const retired = (await isReplacedCode(tx, sub.paystackSubscriptionCode))
+      ?.disabledAt;
+    if (!retired) {
+      await disableOrConfirmDisabled(deps, sub.paystackSubscriptionCode, token);
+    }
     if (sub.scheduledSubscriptionCode) {
       await retireSubscription(
         deps,

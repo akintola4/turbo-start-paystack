@@ -97,6 +97,50 @@ function nextCharge(sub: SubscriptionSummary) {
   };
 }
 
+/**
+ * A downgrade waiting for the period end, and the way to undo it: asking for
+ * the current plan again keeps it.
+ */
+function ScheduledChange({
+  data,
+  sub,
+}: {
+  data: BillingData;
+  sub: SubscriptionSummary;
+}) {
+  const scheduled = sub.scheduled;
+  if (!scheduled) {
+    return null;
+  }
+  const when = formatDate(sub.currentPeriodEnd);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <p className="text-panel-muted text-sm">
+        Moves to {scheduled.planName} ({intervalAdverb(scheduled.interval)}) on{" "}
+        {when}.
+      </p>
+      {data.canManage ? (
+        <BillingAction
+          action="change-plan"
+          confirm={{
+            title: `Keep ${sub.planName}?`,
+            description: `${data.org.name} stays on ${sub.planName} after ${when} instead of moving to ${scheduled.planName}. Nothing is charged today; ${sub.priceLabel} is charged on ${when}.`,
+            confirmLabel: `Keep ${sub.planName}`,
+            cancelLabel: "Not now",
+          }}
+          orgId={data.org.id}
+          planPriceId={sub.planPriceId}
+          size="sm"
+          successMessage={`${data.org.name} stays on ${sub.planName}`}
+          variant="outline"
+        >
+          Keep {sub.planName}
+        </BillingAction>
+      ) : null}
+    </div>
+  );
+}
+
 /** Cancel sits apart from the panel's actions, with its own confirm. */
 function CancelRow({
   data,
@@ -255,13 +299,7 @@ function CurrentPlan({ data }: { data: BillingData }) {
             <AnimatedNumber value={data.seats.used} /> of {data.seats.limit}
           </Meta>
         </dl>
-        {sub.scheduled ? (
-          <p className="text-panel-muted text-sm">
-            Moves to {sub.scheduled.planName} (
-            {intervalAdverb(sub.scheduled.interval)}) on{" "}
-            {formatDate(sub.currentPeriodEnd)}.
-          </p>
-        ) : null}
+        {sub.scheduled ? <ScheduledChange data={data} sub={sub} /> : null}
       </Panel>
       <CancelRow data={data} sub={sub} />
     </div>
