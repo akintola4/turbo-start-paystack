@@ -58,6 +58,7 @@ import type {
   SubscriptionSummary,
 } from "@/lib/view-models";
 import { getServerContext } from "./context";
+import { orgSeats } from "./seats";
 import { isDevToolsEnabled } from "./dev-context";
 import {
   listMyOrganizations,
@@ -564,7 +565,7 @@ export async function loadBilling(
     sub,
     entitlement,
     invoices,
-    [seatRow],
+    seats,
     cardChecks,
     details,
     buyer,
@@ -576,10 +577,9 @@ export async function loadBilling(
       limit: INVOICE_PAGE_SIZE,
       offset: (paging.page - 1) * INVOICE_PAGE_SIZE,
     }),
-    getServerContext()
-      .db.select({ n: count() })
-      .from(schema.member)
-      .where(eq(schema.member.organizationId, organization.id)),
+    billing
+      .getEntitlement(organization.id)
+      .then((e) => orgSeats(db, organization.id, e.plan.limits.members)),
     billing.listCardChecks(organization.id),
     billing.getBillingDetails(organization.id),
     currentBuyer(db, organization.id),
@@ -632,7 +632,8 @@ export async function loadBilling(
       buyer,
       paystackEmail
     ),
-    seats: { used: seatRow?.n ?? 1, limit: entitlement.plan.limits.members },
+    // Pending invitations hold a seat, as on Overview and Members.
+    seats: { used: seats.used, limit: seats.max },
     publicKey: clientEnv.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
     devTools: can("billing:manage") && isDevToolsEnabled(),
   };
