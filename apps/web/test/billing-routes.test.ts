@@ -19,6 +19,7 @@ import {
 } from "../src/server/billing-routes";
 
 const SECRET = "sk_test_routes";
+const KEY = "f".repeat(64);
 let ctx: Awaited<ReturnType<typeof setup>>;
 
 async function setup() {
@@ -32,7 +33,7 @@ async function setup() {
   const billing = createBillingService({
     db,
     paystack,
-    encryptionKey: "f".repeat(64),
+    encryptionKey: KEY,
     callbackUrl: "http://localhost:3000/billing/callback",
     graceDays: 7,
     logger: { info() {}, warn() {}, error() {} },
@@ -226,6 +227,7 @@ describe("webhook route", () => {
       const res = await handlePaystackWebhook(ctx, {
         request: request(raw, sig),
         secretKey: SECRET,
+        encryptionKey: KEY,
         enforceIpAllowlist: false,
         schedule,
       });
@@ -286,6 +288,7 @@ describe("webhook route", () => {
       const res = await handlePaystackWebhook(ctx, {
         request: request(raw, signPaystackPayload(raw, SECRET)),
         secretKey: SECRET,
+        encryptionKey: KEY,
         enforceIpAllowlist: false,
         schedule: (t) => tasks.push(t),
       });
@@ -297,6 +300,7 @@ describe("webhook route", () => {
       const dup = await handlePaystackWebhook(ctx, {
         request: request(raw, signPaystackPayload(raw, SECRET)),
         secretKey: SECRET,
+        encryptionKey: KEY,
         enforceIpAllowlist: false,
         schedule: (t) => again.push(t),
       });

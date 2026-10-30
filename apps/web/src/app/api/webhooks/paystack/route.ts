@@ -8,6 +8,7 @@ export async function POST(request: Request) {
   return handlePaystackWebhook(getServerContext(), {
     request,
     secretKey: env.PAYSTACK_SECRET_KEY,
+    encryptionKey: env.BILLING_ENCRYPTION_KEY,
     enforceIpAllowlist: env.PAYSTACK_WEBHOOK_IP_ALLOWLIST,
     // Respond 200 first; process once the response is sent. Failures are
     // recorded on the event and retried by /api/cron/billing-reconcile.

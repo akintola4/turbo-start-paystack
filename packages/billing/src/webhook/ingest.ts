@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { type Database, schema } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
+import { sealSecrets } from "./redact";
 import { isPaystackIp, verifyPaystackSignature } from "./verify";
 
 export type IngestResult =
@@ -20,6 +21,8 @@ export async function ingestWebhook(input: {
   rawBody: string;
   signature: string | null;
   secretKey: string;
+  /** Seals authorization codes and email tokens inside the stored payload. */
+  encryptionKey: string;
   ip?: string | null;
   enforceIpAllowlist?: boolean;
 }): Promise<IngestResult> {
@@ -43,6 +46,7 @@ export async function ingestWebhook(input: {
   }
 
   // Paystack retries resend the identical body, so its hash is a stable key.
+  // Hashed before the secrets are sealed: sealing is randomised.
   const dedupeKey = createHash("sha256").update(input.rawBody).digest("hex");
   const inserted = await input.db
     .insert(schema.webhookEvent)
@@ -51,7 +55,7 @@ export async function ingestWebhook(input: {
       provider: "paystack",
       eventType: payload.event,
       dedupeKey,
-      payload,
+      payload: sealSecrets(payload, input.encryptionKey),
     })
     .onConflictDoNothing({ target: schema.webhookEvent.dedupeKey })
     .returning({ id: schema.webhookEvent.id });

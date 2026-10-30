@@ -123,6 +123,7 @@ export async function setupBilling(
       rawBody,
       signature: signPaystackPayload(rawBody, SECRET),
       secretKey: SECRET,
+      encryptionKey: KEY,
     });
     if (result.status !== 200) {
       throw new Error(`webhook rejected: ${result.status}`);

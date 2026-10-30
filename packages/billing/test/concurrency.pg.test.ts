@@ -58,6 +58,7 @@ describe.skipIf(!url)("concurrent webhook processing on real Postgres", () => {
       rawBody: raw,
       signature: signPaystackPayload(raw, SECRET),
       secretKey: SECRET,
+      encryptionKey: "c".repeat(64),
     });
     if (res.status !== 200) {
       throw new Error("rejected");

@@ -239,6 +239,7 @@ export async function handlePaystackWebhook(
   input: {
     request: Request;
     secretKey: string;
+    encryptionKey: string;
     enforceIpAllowlist: boolean;
     schedule: (task: () => Promise<unknown>) => void;
   }
@@ -250,6 +251,7 @@ export async function handlePaystackWebhook(
     rawBody,
     signature: input.request.headers.get("x-paystack-signature"),
     secretKey: input.secretKey,
+    encryptionKey: input.encryptionKey,
     ip: forwarded?.split(",")[0]?.trim() ?? null,
     enforceIpAllowlist: input.enforceIpAllowlist,
   });

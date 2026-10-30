@@ -7,6 +7,7 @@ import {
   transactionWithNotifications,
 } from "../service/context";
 import { dispatchEvent } from "./handlers";
+import { unsealSecrets } from "./redact";
 
 export const MAX_EVENT_ATTEMPTS = 10;
 
@@ -29,7 +30,10 @@ export async function processEvent(
       if (!event || event.processedAt) {
         return { skipped: true };
       }
-      const payload = event.payload as { event: string; data: unknown };
+      const payload = unsealSecrets(
+        event.payload as { event: string; data: unknown },
+        deps.encryptionKey
+      );
       const outcome = await dispatchEvent(
         scoped,
         tx,
