@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 
+import { postAuthLanding, safeCallback } from "@/lib/safe-callback";
+
 import { getServerContext } from "./context";
 
 export async function requireSession(callbackPath = "/app") {
@@ -29,6 +31,29 @@ export async function isSignedIn() {
     headers: requestHeaders,
   });
   return session !== null;
+}
+
+/**
+ * Sign-in and sign-up: a verified session skips the form and goes where the
+ * form would have sent it, the safe `callbackURL` or the dashboard.
+ * An unverified session stays on the form, where signing in resends its link.
+ * `/app` only sends you here without a session, so the two can't loop.
+ */
+export async function redirectIfSignedIn(
+  callbackURL: string | string[] | undefined
+) {
+  const requestHeaders = await headers();
+  const { authService } = getServerContext();
+  const session = await authService.auth.api.getSession({
+    headers: requestHeaders,
+  });
+  if (session?.user.emailVerified) {
+    redirect(
+      postAuthLanding(
+        safeCallback(typeof callbackURL === "string" ? callbackURL : null)
+      )
+    );
+  }
 }
 
 /** Membership for `/app/[orgSlug]`. Non-members get a 404 so slugs of other

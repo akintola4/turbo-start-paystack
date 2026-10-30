@@ -12,7 +12,7 @@ import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { useMarkSignals } from "@/components/auth/mark-signals";
 import { authClient } from "@/lib/auth-client";
 import { type AuthFormError, authFormError } from "@/lib/auth-errors";
-import { safeCallback } from "@/lib/safe-callback";
+import { postAuthLanding, safeCallback } from "@/lib/safe-callback";
 import { toast } from "@/lib/toast";
 
 export function useAuthLinks(mode: "sign-in" | "sign-up") {
@@ -185,8 +185,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   } | null>(null);
   const signal = useMarkSignals();
 
-  // Plain /app may skip the picker after sign-in (see app/app/page.tsx).
-  const landing = callbackURL === "/app" ? "/app?from=sign-in" : callbackURL;
+  const landing = postAuthLanding(callbackURL);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
