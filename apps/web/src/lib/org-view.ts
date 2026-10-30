@@ -1,6 +1,10 @@
 /** Org picker layout preference, read on the server so SSR renders it. */
 export const ORG_VIEW_COOKIE = "tsp-org-view";
 
+/** Sidebar open or collapsed, written by the sidebar and read on the
+ *  server so a collapsed sidebar stays collapsed on reload. */
+export const SIDEBAR_COOKIE = "sidebar_state";
+
 /** The organization last opened in this browser: where sign-in lands. */
 export const LAST_ORG_COOKIE = "tsp-last-org";
 

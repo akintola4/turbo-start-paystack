@@ -1,9 +1,11 @@
+import { cn } from "@workspace/tailwind-config/utils";
 import { Button } from "@workspace/ui/components/button";
 
 import { Monogram } from "@/components/avatars";
 import { NewOrgDialog } from "@/components/orgs/new-org-dialog";
 import { OrgCollection } from "@/components/orgs/org-collection";
 import { VerifyCallout } from "@/components/orgs/verify-callout";
+import { CONTENT, TopBarRow } from "@/components/app-shell/top-bar";
 import { UserMenu } from "@/components/app-shell/user-menu";
 import type { OrgPickerData } from "@/lib/view-models";
 import { PageHeader, Tile, Wordmark } from "@/components/primitives";
@@ -12,7 +14,7 @@ export function OrgPicker({ data }: { data: OrgPickerData }) {
   const first = data.user.name.split(" ")[0] ?? data.user.name;
   return (
     <div className="min-h-dvh bg-background">
-      <header className="mx-auto flex h-16 max-w-[1120px] items-center justify-between gap-4 px-4 pt-[env(safe-area-inset-top)] sm:h-20 sm:px-8">
+      <TopBarRow className="justify-between gap-4">
         <Wordmark href="/app" />
         <UserMenu align="end" contentClassName="w-60" user={data.user}>
           <Button
@@ -24,11 +26,8 @@ export function OrgPicker({ data }: { data: OrgPickerData }) {
             <span className="hidden text-sm sm:inline">{first}</span>
           </Button>
         </UserMenu>
-      </header>
-      <main
-        className="mx-auto grid max-w-[1120px] gap-8 px-4 pt-6 pb-24 sm:px-8 sm:pt-10"
-        id="content"
-      >
+      </TopBarRow>
+      <main className={cn(CONTENT, "grid gap-8")} id="content">
         <PageHeader
           actions={<NewOrgDialog defaultOpen={data.orgs.length === 0} />}
           title="Organizations"

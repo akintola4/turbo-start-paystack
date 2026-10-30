@@ -38,7 +38,7 @@ export default async function InvoicePage({ params }: Props) {
   const invoice = await load(orgSlug, invoiceId);
   const billingHref = `/app/${orgSlug}/settings/billing#invoices`;
   return (
-    <div className="mx-auto grid w-full max-w-[860px] animate-content gap-6">
+    <div className="grid w-full max-w-[860px] animate-content gap-6">
       <div
         className="flex flex-wrap items-center justify-between gap-3"
         data-print="hide"

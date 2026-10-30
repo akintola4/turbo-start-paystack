@@ -19,6 +19,7 @@ import Link from "next/link";
 import type { HTMLAttributes, ReactNode } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
+import { opticalEdge } from "@/components/landing/display";
 import { formatDate, splitMoney } from "@/lib/format";
 import { spokenMoney } from "@/lib/money";
 import type { InvoiceRow, SubscriptionStatus } from "@/lib/view-models";
@@ -315,6 +316,14 @@ export function Amount({
   );
 }
 
+/**
+ * Title and actions share the first row; the actions box is one title line
+ * tall (44px at 40/1.1), so they centre on the title's line, not on the
+ * title plus description. A long title wraps under its own column and the
+ * actions stay on its first line. Below sm the actions follow the
+ * description. String titles take an optical left edge, so the first
+ * letter's ink, not its side bearing, sits on the content edge.
+ */
 export function PageHeader({
   title,
   description,
@@ -325,17 +334,28 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div className="grid gap-2">
-        <h1 className="font-display font-semibold text-[32px] leading-[1.1] tracking-[-0.02em] sm:text-[40px]">
-          {title}
-        </h1>
-        {description ? (
-          <div className="text-muted-foreground">{description}</div>
-        ) : null}
-      </div>
+    <header
+      className="grid gap-x-6 gap-y-2 sm:grid-cols-[minmax(0,1fr)_auto]"
+      data-page-header
+    >
+      <h1
+        className="text-balance font-display font-semibold text-[32px] leading-[1.1] tracking-[-0.02em] sm:text-[40px]"
+        style={typeof title === "string" ? opticalEdge(title) : undefined}
+      >
+        {title}
+      </h1>
+      {description ? (
+        <div className="text-muted-foreground sm:col-start-1">
+          {description}
+        </div>
+      ) : null}
       {actions ? (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+        <div
+          className="mt-2 flex flex-wrap items-center gap-2 sm:col-start-2 sm:row-start-1 sm:mt-0 sm:h-11"
+          data-page-actions
+        >
+          {actions}
+        </div>
       ) : null}
     </header>
   );

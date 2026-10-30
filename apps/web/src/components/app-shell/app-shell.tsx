@@ -5,7 +5,6 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
 } from "@workspace/ui/components/sidebar";
 import { ChevronsUpDownIcon } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
@@ -17,13 +16,16 @@ import { UserMenu } from "@/components/app-shell/user-menu";
 import type { ShellData } from "@/lib/view-models";
 import { roleLabel } from "@/lib/format";
 import { ShellNav } from "@/components/app-shell/shell-nav";
+import { CONTENT, TopBar } from "@/components/app-shell/top-bar";
 import { statusLabel } from "@/components/primitives";
 
 export function AppShell({
   data,
+  sidebarOpen,
   children,
 }: {
   data: ShellData;
+  sidebarOpen: boolean;
   children: ReactNode;
 }) {
   const { plan } = data;
@@ -34,17 +36,22 @@ export function AppShell({
   return (
     <SidebarProvider
       className="bg-background"
+      defaultOpen={sidebarOpen}
       style={{ "--sidebar-width": "18rem" } as CSSProperties}
     >
       <Sidebar className="border-r-0" collapsible="offcanvas" variant="sidebar">
-        <SidebarHeader className="px-4 pt-6 pb-2">
+        {/* The org row (52px) is centred on the 64px top bar: (64 − 52) / 2
+            = 6px above it, plus the notch inset the top bar also takes. 22px
+            below puts the first nav row (44px) on the page title's line box
+            (64 + 24). */}
+        <SidebarHeader className="px-4 pt-[calc(env(safe-area-inset-top)+6px)] pb-[22px]">
           <OrgSwitcherMenu
             current={data.org.slug}
             monogramTone="solid"
             orgs={data.orgs}
           >
             <button
-              className="flex min-h-12 w-full items-center gap-3 rounded-control p-2 text-left transition-colors duration-(--dur-fast) hover:bg-surface-2 data-[popup-open]:bg-surface-3"
+              className="flex h-13 w-full items-center gap-3 rounded-control px-2 text-left transition-colors duration-(--dur-fast) hover:bg-surface-2 data-[popup-open]:bg-surface-3"
               type="button"
             >
               <Monogram
@@ -101,34 +108,8 @@ export function AppShell({
       </Sidebar>
       <RememberOrg slug={data.org.slug} />
       <SidebarInset className="bg-background">
-        <header
-          className="sticky top-0 z-10 flex min-h-14 items-center gap-3 border-b bg-background px-4 pt-[env(safe-area-inset-top)] md:hidden"
-          data-print="hide"
-        >
-          <SidebarTrigger
-            aria-label="Open navigation"
-            className="-ml-2 size-11"
-          />
-          <Monogram
-            className="size-7 text-[11px]"
-            name={data.org.name}
-            tone="solid"
-          />
-          <span className="truncate font-semibold">{data.org.name}</span>
-        </header>
-        {/* Desktop: the only visible way to collapse the sidebar (⌘B / Ctrl+B
-            also works). Sits in the gutter, clear of the content column. */}
-        <SidebarTrigger
-          aria-keyshortcuts="Meta+B Control+B"
-          aria-label="Toggle sidebar"
-          className="absolute top-12 left-1 z-10 hidden md:inline-flex"
-          size="icon-xs"
-          data-print="hide"
-        />
-        <main
-          className="mx-auto w-full max-w-[1120px] px-4 pt-8 pb-24 sm:px-8 md:pt-10"
-          id="content"
-        >
+        <TopBar org={data.org} />
+        <main className={CONTENT} id="content">
           {children}
         </main>
       </SidebarInset>
