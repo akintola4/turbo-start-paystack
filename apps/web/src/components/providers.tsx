@@ -5,6 +5,7 @@ import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 
+import { FocusModality } from "@/components/focus-modality";
 import { PressFeedback } from "@/components/press-feedback";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -19,6 +20,7 @@ export function Providers({ children }: { children: ReactNode }) {
         {children}
         <Toaster />
         <PressFeedback />
+        <FocusModality />
       </TooltipProvider>
     </ThemeProvider>
   );

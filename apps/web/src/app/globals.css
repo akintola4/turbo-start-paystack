@@ -73,6 +73,17 @@
 
 /* Work in progress with no known end: constant speed, so linear. */
 /*
+ * Focus rings are for keyboard focus only. Unlayered, so it beats the
+ * focus-visible utilities. Text fields keep theirs: a click there is where
+ * typing will go.
+ */
+html[data-modality="pointer"]
+:focus-visible:not(input, textarea, select, [contenteditable="true"]) {
+  outline-color: transparent;
+  --tw-ring-shadow: 0 0 #0000;
+}
+
+/*
  * The app top bar: flush on load, a hairline once the page scrolls under it
  * (scroll-linked, so it tracks the scroll position rather than playing).
  */
