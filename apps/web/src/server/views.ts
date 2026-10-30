@@ -12,6 +12,7 @@ import {
   getPlan,
   currentBuyer,
   getPlanPrice,
+  type PaystackEmailView,
   invoiceDate,
   planPriceId,
   formatPeriod,
@@ -184,7 +185,8 @@ function billingDetailsData(
     email: string | null;
   } | null,
   orgName: string,
-  buyer: { email?: string | null }
+  buyer: { email?: string | null },
+  paystack: PaystackEmailView | null
 ): BillingData["billingDetails"] {
   return {
     legalName: details?.legalName ?? null,
@@ -196,6 +198,13 @@ function billingDetailsData(
       name: orgName,
       email: details?.email ? null : (buyer.email ?? null),
     },
+    paystackEmail: paystack
+      ? {
+          email: paystack.email,
+          locked: paystack.locked,
+          source: paystack.locked ? null : paystack.source,
+        }
+      : null,
   };
 }
 
@@ -521,7 +530,7 @@ export async function loadBilling(
   orgSlug: string,
   search: { payment?: string; interval?: string; page?: string }
 ): Promise<BillingData> {
-  const { organization, can } = await requireOrgBySlug(orgSlug);
+  const { organization, session, can } = await requireOrgBySlug(orgSlug);
   if (!can("billing:view")) {
     notFound();
   }
@@ -531,22 +540,31 @@ export async function loadBilling(
     await billing.countInvoices(organization.id),
     search.page
   );
-  const [sub, entitlement, invoices, [seatRow], cardChecks, details, buyer] =
-    await Promise.all([
-      billing.getSubscription(organization.id),
-      billing.getEntitlement(organization.id),
-      billing.listInvoices(organization.id, {
-        limit: INVOICE_PAGE_SIZE,
-        offset: (paging.page - 1) * INVOICE_PAGE_SIZE,
-      }),
-      getServerContext()
-        .db.select({ n: count() })
-        .from(schema.member)
-        .where(eq(schema.member.organizationId, organization.id)),
-      billing.listCardChecks(organization.id),
-      billing.getBillingDetails(organization.id),
-      currentBuyer(db, organization.id),
-    ]);
+  const [
+    sub,
+    entitlement,
+    invoices,
+    [seatRow],
+    cardChecks,
+    details,
+    buyer,
+    paystackEmail,
+  ] = await Promise.all([
+    billing.getSubscription(organization.id),
+    billing.getEntitlement(organization.id),
+    billing.listInvoices(organization.id, {
+      limit: INVOICE_PAGE_SIZE,
+      offset: (paging.page - 1) * INVOICE_PAGE_SIZE,
+    }),
+    getServerContext()
+      .db.select({ n: count() })
+      .from(schema.member)
+      .where(eq(schema.member.organizationId, organization.id)),
+    billing.listCardChecks(organization.id),
+    billing.getBillingDetails(organization.id),
+    currentBuyer(db, organization.id),
+    billing.paystackEmail(organization.id, session.user.email),
+  ]);
   const currency = (sub?.currency ?? env.BILLING_CURRENCY) as Currency;
   const currentPrice = sub ? getPlanPrice(sub.planPriceId) : undefined;
   const interval =
@@ -586,7 +604,12 @@ export async function loadBilling(
     invoices: invoices.map((i) => invoiceRow(i, orgSlug)),
     invoicePage: paging,
     cardChecks: cardChecks.map((i) => cardCheckRow(i, orgSlug)),
-    billingDetails: billingDetailsData(details, organization.name, buyer),
+    billingDetails: billingDetailsData(
+      details,
+      organization.name,
+      buyer,
+      paystackEmail
+    ),
     seats: { used: seatRow?.n ?? 1, limit: entitlement.plan.limits.members },
     publicKey: clientEnv.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
     devTools: can("billing:manage") && isDevToolsEnabled(),

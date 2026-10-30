@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { freeTileCopy, paymentOutcome } from "../src/lib/payment-copy";
+import {
+  billingEmailHint,
+  freeTileCopy,
+  paymentOutcome,
+  paystackEmailNote,
+} from "../src/lib/payment-copy";
 
 const sub = {
   planName: "Pro",
@@ -60,5 +65,69 @@ describe("freeTileCopy", () => {
     expect(
       freeTileCopy({ ...base, status: "active", cancelAtPeriodEnd: true })
     ).toMatch(/already ends/);
+  });
+});
+
+describe("paystackEmailNote", () => {
+  it("names the tagged address the first checkout will use", () => {
+    const note = paystackEmailNote(
+      {
+        email: "ada+3f9a2c1b@kolalogistics.test",
+        locked: false,
+        source: "tagged",
+      },
+      false
+    );
+    expect(note).toContain(
+      "Paystack will bill this organization as ada+3f9a2c1b@kolalogistics.test"
+    );
+    expect(note).toContain("Set a billing email in Billing details");
+  });
+
+  it("names the billing email without suggesting one", () => {
+    const note = paystackEmailNote(
+      {
+        email: "accounts@lagosbakery.test",
+        locked: false,
+        source: "billing_email",
+      },
+      false
+    );
+    expect(note).toBe(
+      "Paystack will bill this organization as accounts@lagosbakery.test and send receipts there."
+    );
+  });
+
+  it("states a locked address and says nothing once subscribed", () => {
+    const locked = {
+      email: "ada@kolalogistics.test",
+      locked: true,
+      source: null,
+    };
+    expect(paystackEmailNote(locked, false)).toBe(
+      "Paystack bills this organization as ada@kolalogistics.test and sends receipts there."
+    );
+    expect(paystackEmailNote(locked, true)).toBeNull();
+    expect(paystackEmailNote(null, false)).toBeNull();
+  });
+});
+
+describe("billingEmailHint", () => {
+  it("explains the billing email before the first payment", () => {
+    expect(billingEmailHint(null)).toContain(
+      "before the first payment to give this organization its own Paystack address"
+    );
+  });
+
+  it("says the Paystack address no longer changes after it", () => {
+    expect(
+      billingEmailHint({
+        email: "ada@kolalogistics.test",
+        locked: true,
+        source: null,
+      })
+    ).toBe(
+      "Paystack keeps billing ada@kolalogistics.test. The billing email only changes what invoices show."
+    );
   });
 });

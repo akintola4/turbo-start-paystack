@@ -34,6 +34,7 @@ import {
   intervalLabel,
 } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
+import { paystackEmailNote } from "@/lib/payment-copy";
 import type { BillingData, SubscriptionSummary } from "@/lib/view-models";
 
 /** One meta well on the money panel: icon, label, value. */
@@ -141,23 +142,33 @@ function CancelRow({
   );
 }
 
+/** No subscription yet: the Free plan, and which address Paystack bills. */
+function FreePlan({ data }: { data: BillingData }) {
+  const paystackNote = data.canManage
+    ? paystackEmailNote(data.billingDetails.paystackEmail, false)
+    : null;
+  return (
+    <Panel className="grid gap-6">
+      <div className="flex items-center gap-2">
+        <h2 className="font-semibold text-xl">Free</h2>
+      </div>
+      <Money label={formatMoney(0, data.currency)} per="month" size="xl" />
+      <p className="max-w-[52ch] text-panel-muted">
+        Up to {data.seats.limit} members. Paid plans start with a 14-day trial;
+        we check the card with a small charge that is refunded straight away.
+      </p>
+      {paystackNote ? (
+        <p className="max-w-[52ch] text-panel-muted text-sm">{paystackNote}</p>
+      ) : null}
+    </Panel>
+  );
+}
+
 function CurrentPlan({ data }: { data: BillingData }) {
   const sub = data.subscription;
 
   if (!sub) {
-    return (
-      <Panel className="grid gap-6">
-        <div className="flex items-center gap-2">
-          <h2 className="font-semibold text-xl">Free</h2>
-        </div>
-        <Money label={formatMoney(0, data.currency)} per="month" size="xl" />
-        <p className="max-w-[52ch] text-panel-muted">
-          Up to {data.seats.limit} members. Paid plans start with a 14-day
-          trial; we check the card with a small charge that is refunded straight
-          away.
-        </p>
-      </Panel>
-    );
+    return <FreePlan data={data} />;
   }
 
   const grace = daysUntil(sub.graceUntil);

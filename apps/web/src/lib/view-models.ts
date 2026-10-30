@@ -86,6 +86,17 @@ export type CardCheckRow = {
   href: string;
 };
 
+/**
+ * The address Paystack bills the organization at. Before its first checkout
+ * (`locked: false`) this is the one that checkout would pick: the billing
+ * email, the viewer's own, or the viewer's tagged with the organization.
+ */
+export type PaystackEmailData = {
+  email: string;
+  locked: boolean;
+  source: "billing_email" | "personal" | "tagged" | null;
+};
+
 export type BillingDetailsData = {
   legalName: string | null;
   address: string | null;
@@ -93,6 +104,7 @@ export type BillingDetailsData = {
   email: string | null;
   /** What invoices use when a field is blank. */
   fallback: { name: string; email: string | null };
+  paystackEmail: PaystackEmailData | null;
 };
 
 export type MemberRow = {
