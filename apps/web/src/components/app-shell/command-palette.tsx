@@ -12,36 +12,36 @@ import {
   CommandShortcut,
 } from "@workspace/ui/components/command";
 import {
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from "@workspace/ui/components/sidebar";
-import {
   Building2Icon,
   CircleUserIcon,
+  KeyRoundIcon,
+  LayoutGridIcon,
+  LockKeyholeIcon,
+  MonitorSmartphoneIcon,
+  PencilIcon,
+  ReceiptTextIcon,
+  Trash2Icon,
   ClockIcon,
   CornerDownLeftIcon,
   CreditCardIcon,
   FileTextIcon,
   HouseIcon,
-  KeyRoundIcon,
-  LayoutGridIcon,
   Loader2Icon,
-  LockKeyholeIcon,
   LogOutIcon,
   type LucideIcon,
-  MonitorSmartphoneIcon,
-  PencilIcon,
-  ReceiptTextIcon,
   RepeatIcon,
   SearchIcon,
   SettingsIcon,
   SunMoonIcon,
-  Trash2Icon,
   UserIcon,
   UserPlusIcon,
   UsersIcon,
 } from "lucide-react";
+import {
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@workspace/ui/components/sidebar";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {

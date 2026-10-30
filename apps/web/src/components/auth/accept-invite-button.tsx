@@ -3,9 +3,9 @@
 import { Button } from "@workspace/ui/components/button";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "@/lib/toast";
 
 import { authClient } from "@/lib/auth-client";
-import { toast } from "@/lib/toast";
 
 export function AcceptInviteButton({
   invitationId,

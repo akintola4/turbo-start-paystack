@@ -8,7 +8,7 @@ import { type FormEvent, type ReactNode, useState } from "react";
 
 import { FormAlert, inlineLinkClass } from "@/components/auth/auth-form";
 import { authClient } from "@/lib/auth-client";
-import { slugInput, slugify } from "@/lib/org-settings";
+import { slugify, slugInput } from "@/lib/org-settings";
 import { toast } from "@/lib/toast";
 
 /**

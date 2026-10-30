@@ -1,6 +1,5 @@
 "use client";
 
-import { cn } from "@workspace/tailwind-config/utils";
 import { Button } from "@workspace/ui/components/button";
 import {
   Dialog,
@@ -18,14 +17,6 @@ import {
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 import { Input } from "@workspace/ui/components/input";
-import { Label } from "@workspace/ui/components/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select";
 import {
   Sheet,
   SheetContent,
@@ -34,18 +25,27 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@workspace/ui/components/sheet";
+import { Label } from "@workspace/ui/components/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select";
+import { cn } from "@workspace/tailwind-config/utils";
 import { MoreHorizontalIcon, UserMinusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, type ReactElement, useState } from "react";
+import { toast } from "@/lib/toast";
 
+import type { MemberRow, Role } from "@/lib/view-models";
 import { Confirm } from "@/components/confirm";
 import { useRowPresenceActions } from "@/components/motion";
 import { authClient } from "@/lib/auth-client";
-import { roleLabel } from "@/lib/format";
-import { toast } from "@/lib/toast";
 import { toastFailure } from "@/lib/toast-error";
 import { useNarrow } from "@/lib/use-narrow";
-import type { MemberRow, Role } from "@/lib/view-models";
+import { roleLabel } from "@/lib/format";
 
 /* ------------------------------------------------------------------ invite */
 

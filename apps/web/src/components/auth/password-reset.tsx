@@ -7,6 +7,7 @@ import { MailCheckIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
+import { toast } from "@/lib/toast";
 
 import { FormAlert, inlineLinkClass } from "@/components/auth/auth-form";
 import { useMarkSignals } from "@/components/auth/mark-signals";
@@ -16,7 +17,6 @@ import {
   authFormError,
   RATE_LIMITED,
 } from "@/lib/auth-errors";
-import { toast } from "@/lib/toast";
 
 /**
  * Asks for the address and always answers the same way, so the page never

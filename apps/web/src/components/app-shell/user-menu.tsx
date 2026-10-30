@@ -24,8 +24,8 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import type { ReactElement } from "react";
 
-import { authClient } from "@/lib/auth-client";
 import type { UserRef } from "@/lib/view-models";
+import { authClient } from "@/lib/auth-client";
 
 export function useSignOut() {
   const router = useRouter();

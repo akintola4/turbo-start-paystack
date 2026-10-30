@@ -3,9 +3,9 @@
 import { Button } from "@workspace/ui/components/button";
 import { MailIcon } from "lucide-react";
 import { useState } from "react";
+import { toast } from "@/lib/toast";
 
 import { authClient } from "@/lib/auth-client";
-import { toast } from "@/lib/toast";
 
 /** Unverified email: one callout with the address and a resend action. */
 export function VerifyCallout({ email }: { email: string }) {
