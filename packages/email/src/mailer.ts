@@ -101,10 +101,17 @@ export function createMailer(options: MailerOptions) {
   return {
     theme,
 
-    verifyEmail: async (input: Recipient & { name?: string; url: string }) =>
+    verifyEmail: async (
+      input: Recipient & {
+        name?: string;
+        url: string;
+        purpose?: "sign-up" | "change-email";
+      }
+    ) =>
       send("verify-email", input, {
         name: input.name,
         url: requireAppOrigin(input.url, appUrl),
+        purpose: input.purpose,
       }),
 
     resetPassword: async (input: Recipient & { name?: string; url: string }) =>
