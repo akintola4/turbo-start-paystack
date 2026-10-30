@@ -1,7 +1,7 @@
 "use client";
 
-import { TableRow } from "@workspace/ui/components/table";
 import { cn } from "@workspace/tailwind-config/utils";
+import { TableRow } from "@workspace/ui/components/table";
 import {
   createContext,
   type ReactNode,

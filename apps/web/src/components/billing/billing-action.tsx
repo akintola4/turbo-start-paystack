@@ -3,9 +3,9 @@
 import { Button } from "@workspace/ui/components/button";
 import { useRouter } from "next/navigation";
 import { type ComponentProps, type ReactNode, useState } from "react";
-import { toast } from "@/lib/toast";
 
 import { Confirm } from "@/components/confirm";
+import { toast } from "@/lib/toast";
 
 type CheckoutLike = {
   reference: string;

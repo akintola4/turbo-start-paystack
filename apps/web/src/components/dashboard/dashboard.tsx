@@ -1,6 +1,6 @@
+import { cn } from "@workspace/tailwind-config/utils";
 import { buttonVariants } from "@workspace/ui/components/button";
 import { Progress } from "@workspace/ui/components/progress";
-import { cn } from "@workspace/tailwind-config/utils";
 import {
   CalendarIcon,
   CreditCardIcon,
@@ -11,8 +11,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
-import { Monogram } from "@/components/avatars";
 import { BillingAction } from "@/components/billing/billing-action";
+import { MarkAvatar } from "@/components/mark-avatar";
 import { InviteDialog } from "@/components/members/member-actions";
 import {
   Amount,
@@ -194,7 +194,7 @@ function TeamTile({ data }: { data: DashboardData }) {
       <ul className="grid gap-3">
         {data.members.recent.slice(0, 5).map((m) => (
           <li className="flex items-center gap-3 text-sm" key={m.id}>
-            <Monogram className="size-8" name={m.name} shape="circle" />
+            <MarkAvatar seed={m.email} />
             <span className="min-w-0 flex-1 truncate font-medium">
               {m.name}
             </span>

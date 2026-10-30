@@ -9,6 +9,7 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
+import { cn } from "@workspace/tailwind-config/utils";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -27,7 +28,6 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import { cn } from "@workspace/tailwind-config/utils";
 import {
   ArrowDownIcon,
   ArrowUpDownIcon,
@@ -36,11 +36,11 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import type { MemberRow, Role } from "@/lib/view-models";
-import { formatDate, roleLabel } from "@/lib/format";
-import { PresenceTableRow } from "@/components/motion";
-import { Monogram } from "@/components/avatars";
+import { MarkAvatar } from "@/components/mark-avatar";
 import { MemberRowMenu, RoleSelect } from "@/components/members/member-actions";
+import { PresenceTableRow } from "@/components/motion";
+import { formatDate, roleLabel } from "@/lib/format";
+import type { MemberRow, Role } from "@/lib/view-models";
 
 export type MembersTableProps = {
   organizationId: string;
@@ -115,7 +115,7 @@ export function MembersTable({
           const m = row.original;
           return (
             <div className="flex min-w-0 items-center gap-3">
-              <Monogram className="size-8" name={m.name} shape="circle" />
+              <MarkAvatar seed={m.email} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2 truncate font-medium">
                   <span className="truncate">{m.name}</span>

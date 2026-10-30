@@ -17,7 +17,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { AnimatedNumber } from "@/components/animated-number";
 import { useLanding } from "@/components/landing/currency-context";
 import { nextRadioIndex } from "@/components/landing/radio";
-import { type SegmentOption, Segmented } from "@/components/landing/segmented";
+import { Segmented, type SegmentOption } from "@/components/landing/segmented";
 import { StatusBadge } from "@/components/primitives";
 import { CURRENCY_SYMBOL, formatMoney } from "@/lib/money";
 

@@ -1,12 +1,6 @@
 import { buttonVariants } from "@workspace/ui/components/button";
 import { Progress } from "@workspace/ui/components/progress";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@workspace/ui/components/tabs";
-import {
   Table,
   TableBody,
   TableCell,
@@ -14,18 +8,24 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/tabs";
 import { MailIcon } from "lucide-react";
 import Link from "next/link";
 
-import { InviteForm } from "@/components/members/member-actions";
-import { MembersTable } from "@/components/members/members-table";
-import type { MembersData } from "@/lib/view-models";
-import { daysUntil, formatDate, roleLabel } from "@/lib/format";
-import { InvitationMenu } from "@/components/members/invitation-menu";
 import { AnimatedNumber } from "@/components/animated-number";
+import { InvitationMenu } from "@/components/members/invitation-menu";
+import { InviteForm } from "@/components/members/member-actions";
 import { MemberCards } from "@/components/members/member-cards";
+import { MembersTable } from "@/components/members/members-table";
 import { PresenceTableRow, RowPresenceProvider } from "@/components/motion";
 import { Chip, PageHeader, Tile } from "@/components/primitives";
+import { daysUntil, formatDate, roleLabel } from "@/lib/format";
+import type { MembersData } from "@/lib/view-models";
 
 // Inactive labels at 75% ink: muted-foreground on surface-3 is 4.2:1, under AA.
 const TAB =

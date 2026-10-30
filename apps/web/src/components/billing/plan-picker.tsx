@@ -1,7 +1,7 @@
 "use client";
 
-import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/tailwind-config/utils";
+import { Badge } from "@workspace/ui/components/badge";
 import { CheckIcon } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
 

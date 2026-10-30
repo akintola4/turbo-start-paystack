@@ -1,11 +1,11 @@
 "use client";
 
+import { cn } from "@workspace/tailwind-config/utils";
 import { Input } from "@workspace/ui/components/input";
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@workspace/ui/components/toggle-group";
-import { cn } from "@workspace/tailwind-config/utils";
 import {
   ChevronRightIcon,
   LayoutGridIcon,

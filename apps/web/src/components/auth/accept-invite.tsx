@@ -6,9 +6,9 @@ import {
   SwitchAccountButton,
 } from "@/components/auth/accept-invite-button";
 import { Monogram } from "@/components/avatars";
-import type { AcceptInviteData } from "@/lib/view-models";
-import { roleLabel } from "@/lib/format";
 import { Tile, Wordmark } from "@/components/primitives";
+import { roleLabel } from "@/lib/format";
+import type { AcceptInviteData } from "@/lib/view-models";
 
 const PROBLEM: Record<
   NonNullable<AcceptInviteData["unusable"]>,

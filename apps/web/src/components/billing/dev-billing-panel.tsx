@@ -28,9 +28,9 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "@/lib/toast";
 
 import { toastKindFor } from "@/lib/dev-log";
+import { toast } from "@/lib/toast";
 import type { SubscriptionStatus } from "@/lib/view-models";
 
 type Action =
