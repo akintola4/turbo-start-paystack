@@ -1,5 +1,6 @@
 import "./globals.css";
 
+import { env } from "@workspace/env/client";
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import Script from "next/script";
@@ -65,6 +66,11 @@ const currencySymbols = localFont({
 const INTRO_GATE = `try{if(location.pathname==="/"&&!matchMedia("(prefers-reduced-motion: reduce)").matches&&!sessionStorage.getItem("tsp-intro")){sessionStorage.setItem("tsp-intro","1");var h=document.documentElement;h.setAttribute("data-intro","play");setTimeout(function(){h.removeAttribute("data-intro")},2500)}}catch(e){}`;
 
 export const metadata: Metadata = {
+  // Absolute URLs for the generated OG and Twitter images. Unset only when
+  // env validation is skipped (CI builds), where Next's own fallback is fine.
+  metadataBase: env.NEXT_PUBLIC_APP_URL
+    ? new URL(env.NEXT_PUBLIC_APP_URL)
+    : undefined,
   title: {
     default: "Turbo Start Paystack",
     template: "%s | Turbo Start Paystack",
