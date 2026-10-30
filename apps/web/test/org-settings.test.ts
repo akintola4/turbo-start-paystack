@@ -7,6 +7,7 @@ import {
   deleteBlock,
   deleteBlockMessage,
   slugInput,
+  slugTypingProblem,
 } from "../src/lib/org-settings";
 
 describe("slugs", () => {
@@ -14,6 +15,20 @@ describe("slugs", () => {
     expect(slugInput("Kola-")).toBe("kola-");
     expect(slugInput("Kola  NG!")).toBe("kola-ng-");
     expect(slugInput("--kola")).toBe("kola");
+  });
+
+  it("gives the typed reason, not the hyphen a symbol became", () => {
+    const typed = "Bad Slug!";
+    const slug = slugInput(typed);
+    expect(slug).toBe("bad-slug-");
+    expect(slugTypingProblem(typed, slug)).toBe(
+      "Use only letters, numbers and hyphens."
+    );
+    // A hyphen the person typed themselves is still the reason.
+    expect(slugTypingProblem("kola-", "kola-")).toMatch(
+      /start or end with a hyphen/
+    );
+    expect(slugTypingProblem("Kola NG", slugInput("Kola NG"))).toBeNull();
   });
 
   it("accepts lowercase words joined by single hyphens", () => {

@@ -1,6 +1,5 @@
 "use client";
 
-import { slugProblem } from "@workspace/auth/org-rules";
 import { cn } from "@workspace/tailwind-config/utils";
 import { Button, buttonVariants } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -32,7 +31,7 @@ import { SettingsRow, SettingsSection } from "@/components/settings/section";
 import { TypeToConfirm } from "@/components/settings/type-to-confirm";
 import { authClient } from "@/lib/auth-client";
 import { roleLabel } from "@/lib/format";
-import { slugInput } from "@/lib/org-settings";
+import { slugInput, slugTypingProblem } from "@/lib/org-settings";
 import { toast } from "@/lib/toast";
 import type { OrgSettingsData } from "@/lib/view-models";
 
@@ -47,14 +46,18 @@ type SlugStatus =
   | { state: "invalid"; message: string };
 
 /** Asks Better Auth whether a slug is free, 350ms after typing stops. */
-function useSlugStatus(slug: string, current: string): SlugStatus {
+function useSlugStatus(
+  slug: string,
+  current: string,
+  typed: string
+): SlugStatus {
   const [status, setStatus] = useState<SlugStatus>({ state: "same" });
   useEffect(() => {
     if (slug === current) {
       setStatus({ state: "same" });
       return;
     }
-    const problem = slugProblem(slug);
+    const problem = slugTypingProblem(typed, slug);
     if (problem) {
       setStatus({ state: "invalid", message: problem });
       return;
@@ -83,7 +86,7 @@ function useSlugStatus(slug: string, current: string): SlugStatus {
       live = false;
       clearTimeout(timer);
     };
-  }, [slug, current]);
+  }, [slug, current, typed]);
   return status;
 }
 
@@ -140,9 +143,12 @@ function GeneralSection({ data }: { data: OrgSettingsData }) {
   const router = useRouter();
   const [name, setName] = useState(data.org.name);
   const [slug, setSlug] = useState(data.org.slug);
+  // What was typed, before slugInput tidied it: the reason a slug is
+  // invalid can be a character that's no longer visible.
+  const [typed, setTyped] = useState(data.org.slug);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const status = useSlugStatus(slug, data.org.slug);
+  const status = useSlugStatus(slug, data.org.slug, typed);
   const hintId = useId();
   const changed = name.trim() !== data.org.name || slug !== data.org.slug;
   const slugBad = status.state === "taken" || status.state === "invalid";
@@ -245,7 +251,10 @@ function GeneralSection({ data }: { data: OrgSettingsData }) {
                 data-1p-ignore
                 id="org-slug"
                 maxLength={48}
-                onChange={(e) => setSlug(slugInput(e.target.value))}
+                onChange={(e) => {
+                  setTyped(e.target.value);
+                  setSlug(slugInput(e.target.value));
+                }}
                 spellCheck={false}
                 value={slug}
               />

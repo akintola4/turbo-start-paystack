@@ -1,4 +1,4 @@
-import { SLUG_MAX } from "@workspace/auth/org-rules";
+import { SLUG_MAX, slugProblem } from "@workspace/auth/org-rules";
 
 import { formatDate } from "@/lib/format";
 
@@ -30,6 +30,20 @@ export function slugInput(value: string) {
     .replace(/-{2,}/g, "-")
     .replace(/^-+/, "")
     .slice(0, SLUG_MAX);
+}
+
+/**
+ * Why the address field's value can't be used, given what was typed.
+ * `slugInput` turns spaces and symbols into hyphens as you type, so "Bad
+ * Slug!" shows as "bad-slug-"; the reason to give is the "!", not the
+ * trailing hyphen it became.
+ */
+export function slugTypingProblem(typed: string, slug: string) {
+  const problem = slugProblem(slug);
+  if (problem && /[^a-z0-9-]/.test(typed.toLowerCase())) {
+    return "Use only letters, numbers and hyphens.";
+  }
+  return problem;
 }
 
 export type SubscriptionForDelete = {
