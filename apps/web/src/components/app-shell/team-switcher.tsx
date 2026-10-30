@@ -15,7 +15,12 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@workspace/ui/components/sidebar";
-import { CheckIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react";
+import {
+  CheckIcon,
+  ChevronsUpDownIcon,
+  LayoutGridIcon,
+  PlusIcon,
+} from "lucide-react";
 import Link from "next/link";
 
 import { initials } from "@/lib/format";
@@ -81,6 +86,17 @@ export function TeamSwitcher({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              <DropdownMenuItem
+                className="gap-2 p-2"
+                render={<Link href="/app" />}
+              >
+                <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                  <LayoutGridIcon className="size-4" />
+                </div>
+                <div className="font-medium text-muted-foreground">
+                  All organizations
+                </div>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="gap-2 p-2"
                 render={<Link href="/app#new" />}

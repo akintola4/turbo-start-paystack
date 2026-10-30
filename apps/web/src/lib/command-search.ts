@@ -109,6 +109,13 @@ export function staticItems(orgSlug: string): PaletteItem[] {
       href: "/app/account",
     },
     {
+      id: "page:organizations",
+      group: "Pages",
+      title: "All organizations",
+      keywords: ["switch", "organizations", "workspaces"],
+      href: "/app",
+    },
+    {
       id: "action:rename-org",
       group: "Actions",
       title: "Rename organization",
