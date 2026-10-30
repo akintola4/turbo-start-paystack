@@ -937,6 +937,17 @@ describe("cancel and resume (PLAN §2.3 #11)", () => {
     });
   });
 
+  it("refuses a card update link for a cancelled plan, and says why", async () => {
+    const { organizationId, actor } = await h.subscribe("pro-monthly-ngn");
+    await h.billing.cancel({ organizationId, actor });
+    await expect(
+      h.billing.getManageCardLink(organizationId)
+    ).rejects.toMatchObject({
+      code: "invalid_state",
+      message: "This plan is cancelled. Resume it to update the card.",
+    });
+  });
+
   it("returns Paystack's manage link for card updates", async () => {
     const { organizationId } = await h.subscribe("pro-monthly-ngn");
     expect(await h.billing.getManageCardLink(organizationId)).toContain(

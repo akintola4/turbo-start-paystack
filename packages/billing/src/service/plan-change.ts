@@ -705,7 +705,16 @@ export async function getManageCardLink(
 ) {
   const sub = await liveSubscription(deps.db, organizationId);
   if (!sub?.paystackSubscriptionCode) {
-    throw new BillingError("no_subscription", "No subscription.");
+    throw new BillingError(
+      "no_subscription",
+      "There's no card on file: the organization is on the Free plan."
+    );
+  }
+  if (sub.status === "non_renewing" || sub.cancelAtPeriodEnd) {
+    throw new BillingError(
+      "invalid_state",
+      "This plan is cancelled. Resume it to update the card."
+    );
   }
   const { link } = await deps.paystack.getManageLink(
     sub.paystackSubscriptionCode
