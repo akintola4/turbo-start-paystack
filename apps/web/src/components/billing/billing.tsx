@@ -354,11 +354,13 @@ export function Billing({ data }: { data: BillingData }) {
       </section>
       <div className="grid gap-4">
         <InvoiceList data={data} />
-        <BillingDetails
-          canManage={data.canManage}
-          details={data.billingDetails}
-          orgId={data.org.id}
-        />
+        <div className="scroll-mt-20" id="billing-details">
+          <BillingDetails
+            canManage={data.canManage}
+            details={data.billingDetails}
+            orgId={data.org.id}
+          />
+        </div>
       </div>
       {data.devTools ? (
         <DevBillingPanel orgId={data.org.id} status={sub?.status ?? null} />

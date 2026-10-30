@@ -108,7 +108,7 @@ export function AppShell({
       </Sidebar>
       <RememberOrg slug={data.org.slug} />
       <SidebarInset className="bg-background">
-        <TopBar org={data.org} />
+        <TopBar org={data.org} role={data.role} />
         <main className={CONTENT} id="content">
           {children}
         </main>

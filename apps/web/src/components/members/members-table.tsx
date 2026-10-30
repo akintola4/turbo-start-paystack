@@ -271,7 +271,12 @@ export function MembersTable({
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <PresenceTableRow id={row.original.id} key={row.id}>
+                <PresenceTableRow
+                  anchor={`member-${row.original.id}`}
+                  className="scroll-mt-24 target:bg-surface-2"
+                  id={row.original.id}
+                  key={row.id}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       className={cn(

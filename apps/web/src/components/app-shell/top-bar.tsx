@@ -2,6 +2,7 @@ import { SidebarTrigger } from "@workspace/ui/components/sidebar";
 import { cn } from "@workspace/tailwind-config/utils";
 import type { ReactNode } from "react";
 
+import { CommandPalette } from "@/components/app-shell/command-palette";
 import { Monogram } from "@/components/avatars";
 
 /*
@@ -38,7 +39,13 @@ export function TopBarRow({
   );
 }
 
-export function TopBar({ org }: { org: { name: string } }) {
+export function TopBar({
+  org,
+  role,
+}: {
+  org: { id: string; name: string; slug: string };
+  role: string;
+}) {
   return (
     <TopBarRow>
       {/* The negative margin puts the icon's ink, not the button box, on
@@ -58,6 +65,9 @@ export function TopBar({ org }: { org: { name: string } }) {
         />
         <span className="truncate font-semibold">{org.name}</span>
       </span>
+      <div className="ml-auto max-sm:-mr-1.5">
+        <CommandPalette org={org} role={role} />
+      </div>
     </TopBarRow>
   );
 }
