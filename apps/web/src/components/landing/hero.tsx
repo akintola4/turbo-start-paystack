@@ -16,7 +16,8 @@ import { currencyMeta, REPO, rippleDelay, WALL } from "@/lib/landing";
 import { formatMoney } from "@/lib/money";
 
 const NAV = [
-  { label: "How billing works", href: "#webhooks" },
+  // Hidden with the webhooks section (landing.tsx); restore together.
+  // { label: "How billing works", href: "#webhooks" },
   { label: "Features", href: "#features" },
   { label: "Pricing page", href: "#pricing" },
   { label: "Docs", href: `${REPO}#readme` },
@@ -201,7 +202,10 @@ export function Hero({ prices }: { prices: PriceTable }) {
         </header>
 
         <div className="grid gap-6 pt-[clamp(8px,4vh,56px)] lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-end lg:gap-8">
-          <h1 className="display-xl" data-hero-title>
+          {/* Flex column: the intro's line masks carry a padding and an equal
+              negative margin, and block siblings would collapse those margins
+              into one, growing the title 9px and pushing the wall down. */}
+          <h1 className="display-xl flex flex-col" data-hero-title>
             {LINES.map((line) => (
               <span
                 className="block"

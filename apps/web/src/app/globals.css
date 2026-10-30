@@ -43,6 +43,20 @@
   animation: content-in 160ms var(--motion-ease-out) both;
 }
 
+/*
+ * A line of code typing in, left to right: a stepped clip, so it reads as
+ * keystrokes. Only after a file is picked in the features editor.
+ */
+@keyframes type-line {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+.animate-type-line {
+  display: inline-block;
+  animation: type-line 180ms steps(12, end) both;
+}
+
 /* Table and list rows that arrive or leave after an action. */
 @keyframes row-in {
   from {
@@ -65,6 +79,7 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-swap,
   .animate-content,
+  .animate-type-line,
   [data-presence="entering"] {
     animation: none;
   }
