@@ -1,7 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { Database } from "../src/client";
+import { eq } from "drizzle-orm";
+
 import {
+  invoice,
   organization,
   planPrice,
   subscription,
@@ -73,5 +76,39 @@ describe("schema invariants", () => {
   it("stores money as exact integers", async () => {
     const [row] = await db.select().from(planPrice);
     expect(row?.amountSubunit).toBe(1_500_000);
+  });
+
+  it("keeps an organization's invoices when it is deleted", async () => {
+    await db
+      .insert(organization)
+      .values({ id: "org_gone", name: "Gone Ltd", slug: "gone" });
+    await db.insert(subscription).values(sub("s_gone", "org_gone", "active"));
+    await db.insert(invoice).values({
+      id: "inv_gone",
+      organizationId: "org_gone",
+      subscriptionId: "s_gone",
+      amountSubunit: 1_500_000,
+      currency: "NGN",
+      status: "paid",
+      number: "INV-2026-000042",
+      buyer: { name: "Gone Ltd" },
+    });
+
+    await db.delete(organization).where(eq(organization.id, "org_gone"));
+
+    const [kept] = await db
+      .select()
+      .from(invoice)
+      .where(eq(invoice.id, "inv_gone"));
+    expect(kept).toMatchObject({
+      organizationId: "org_gone",
+      subscriptionId: null,
+      number: "INV-2026-000042",
+      amountSubunit: 1_500_000,
+      buyer: { name: "Gone Ltd" },
+    });
+    expect(
+      await db.select().from(subscription).where(eq(subscription.id, "s_gone"))
+    ).toHaveLength(0);
   });
 });

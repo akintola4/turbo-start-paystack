@@ -284,3 +284,15 @@ can be revisited.
     panel never receives the password, its length or which field failed: a
     failed sign-in looks the same whether the email is unknown or the
     password is wrong, so it can't be used to find out who has an account.
+
+### Organizations
+
+40. **Invoices outlive the organization.** An issued invoice is an
+    accounting record: the seller has to keep it, and the buyer may need it
+    for their own books long after they leave. So `invoice.organization_id`
+    has no foreign key (it keeps the id it was issued to; ids are never
+    reused) and `invoice.subscription_id` is set to null when the
+    subscription goes with its organization. Everything else billing-related
+    (customer, subscription, invoice details) is deleted with the
+    organization. After a delete nobody can open those invoices in the app,
+    so the delete dialog tells owners to download what they need first.

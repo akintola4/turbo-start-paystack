@@ -483,7 +483,7 @@ function DeleteOrganization({ data }: { data: OrgSettingsData }) {
 
   return (
     <SettingsRow
-      description="Removes everyone's access and deletes its billing history and invoices. Download any invoices you need first."
+      description="Removes everyone's access. Issued invoices are kept for accounting, but no one can open them here afterwards, so download any you need first."
       title="Delete organization"
     >
       <Button
@@ -498,7 +498,7 @@ function DeleteOrganization({ data }: { data: OrgSettingsData }) {
         Delete…
       </Button>
       <SettingsDialog
-        description={`This deletes ${data.org.name} for all ${data.memberCount} ${data.memberCount === 1 ? "member" : "members"}, with its invoices and billing history. It can't be undone.`}
+        description={`This deletes ${data.org.name} for all ${data.memberCount} ${data.memberCount === 1 ? "member" : "members"}, and nobody can open its invoices here afterwards. Issued invoices are kept for accounting. It can't be undone.`}
         onOpenChange={setOpen}
         open={open}
         title="Delete organization"
