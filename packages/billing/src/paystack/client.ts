@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { PaystackError } from "../errors";
 import {
+  customerDetailSchema,
   customerSchema,
   initializeSchema,
   manageLinkSchema,
@@ -94,6 +95,13 @@ export function createPaystackClient(options: PaystackClientOptions) {
       metadata?: Record<string, unknown>;
     }) => request("POST", "/customer", customerSchema, input),
 
+    fetchCustomer: (code: string) =>
+      request(
+        "GET",
+        `/customer/${encodeURIComponent(code)}`,
+        customerDetailSchema
+      ),
+
     initializeTransaction: (input: {
       email: string;
       amount: number;
@@ -147,6 +155,15 @@ export function createPaystackClient(options: PaystackClientOptions) {
         "GET",
         `/subscription/${encodeURIComponent(code)}`,
         subscriptionSchema
+      ),
+
+    /** A customer's subscriptions. Paystack filters by the numeric customer
+     *  id, not the customer code. */
+    listSubscriptions: (input: { customer: number | string }) =>
+      request(
+        "GET",
+        `/subscription?customer=${encodeURIComponent(String(input.customer))}&perPage=100`,
+        subscriptionSchema.array()
       ),
 
     disableSubscription: (input: { code: string; token: string }) =>

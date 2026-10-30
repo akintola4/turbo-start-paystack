@@ -81,22 +81,24 @@ export async function reconcile(deps: BillingDeps): Promise<ReconcileReport> {
     .limit(100);
   for (const intent of staleIntents) {
     await step(`intent ${intent.id}`, async () => {
-      let status: string;
-      try {
-        const tx = await deps.paystack.verifyTransaction(intent.id);
-        status = tx.status;
-        if (tx.status === "success") {
-          await transactionWithNotifications(deps, (t, scoped) =>
-            applyChargeSuccess(scoped, t, tx)
-          );
-          report.intentsConfirmed += 1;
-          return;
-        }
-      } catch (error) {
-        if (!(error instanceof PaystackError && error.httpStatus < 500)) {
+      const tx = await deps.paystack
+        .verifyTransaction(intent.id)
+        .catch((error: unknown) => {
+          if (error instanceof PaystackError && error.httpStatus < 500) {
+            return null;
+          }
           throw error;
-        }
-        status = "not_found";
+        });
+      const status = tx?.status ?? "not_found";
+      if (tx?.status === "success") {
+        // A Paystack 4xx while applying a paid charge (creating the
+        // subscription, say) is an error to retry, never "not found":
+        // the customer paid.
+        await transactionWithNotifications(deps, (t, scoped) =>
+          applyChargeSuccess(scoped, t, tx)
+        );
+        report.intentsConfirmed += 1;
+        return;
       }
       if (["abandoned", "failed", "reversed", "not_found"].includes(status)) {
         await deps.db

@@ -1,5 +1,4 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
 import { MarkImage } from "@/components/brand-image";
@@ -10,22 +9,27 @@ export const alt =
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const geist = join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans");
-const local = join(process.cwd(), "src/app/fonts");
-
 // Satori takes static TTFs. Geist has no static 800 and no ₦/₵, so both
 // come from small files cut from the variable fonts (see fonts/).
-const fonts = Promise.all([
-  readFile(join(geist, "Geist-Regular.ttf")),
-  readFile(join(geist, "Geist-Bold.ttf")),
-  readFile(join(local, "geist-800-latin.ttf")),
-  readFile(join(local, "currency-symbols-700.ttf")),
-]);
+//
+// The fonts sit next to this file and are referenced with
+// `new URL(..., import.meta.url)`, which the bundler and file tracer follow,
+// so they ship with the deployment. They are read inside the handler, not at
+// module scope: page routes import this module for its metadata, and a
+// missing font must fail this image only, never crash the server.
+function loadFonts() {
+  return Promise.all([
+    readFile(new URL("./fonts/geist-400.ttf", import.meta.url)),
+    readFile(new URL("./fonts/geist-700.ttf", import.meta.url)),
+    readFile(new URL("./fonts/geist-800-latin.ttf", import.meta.url)),
+    readFile(new URL("./fonts/currency-symbols-700.ttf", import.meta.url)),
+  ]);
+}
 
 const WALL = ["₦", "₵", "R", "KSh", "$"];
 
 export default async function OpengraphImage() {
-  const [regular, bold, extraBold, currency] = await fonts;
+  const [regular, bold, extraBold, currency] = await loadFonts();
   return new ImageResponse(
     <div
       style={{

@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, isNull, notInArray } from "drizzle-orm";
 import { z } from "zod";
 
 import {
+  paystackDate,
   planCodeOf,
   subscriptionSchema,
   transactionSchema,
@@ -27,14 +28,22 @@ import { applyScheduledSwap } from "../service/sync-remote";
 
 const invoiceSchema = z.looseObject({
   invoice_code: z.string(),
-  amount: z.number(),
+  amount: z.number().int(),
   status: z.string().optional(),
-  paid: z.boolean().optional(),
-  period_start: z.string().nullish(),
-  period_end: z.string().nullish(),
-  paid_at: z.string().nullish(),
+  // Documented as a boolean; tolerate 0/1.
+  paid: z
+    .union([z.boolean(), z.number()])
+    .optional()
+    .transform((paid) => (paid === undefined ? undefined : Boolean(paid))),
+  period_start: paystackDate,
+  period_end: paystackDate,
+  paid_at: paystackDate,
   subscription: z.looseObject({ subscription_code: z.string() }),
-  transaction: z.looseObject({ reference: z.string().optional() }).nullish(),
+  // `{}` until a charge is attempted.
+  transaction: z
+    .looseObject({ reference: z.string().optional() })
+    .nullish()
+    .catch(null),
 });
 
 const date = (value: string | null | undefined) =>
