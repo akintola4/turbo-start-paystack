@@ -37,14 +37,16 @@ export const CURRENCY_COOKIE = "tsp-currency";
 export function LandingProvider({
   children,
   initialCurrency = "NGN",
+  initialInterval = "monthly",
 }: {
   children: ReactNode;
   initialCurrency?: Currency;
+  initialInterval?: Interval;
 }) {
   const [currency, setCurrencyState] = useState<Currency>(initialCurrency);
   const [previewed, setPreviewed] = useState<Currency | null>(null);
   const [origin, setOrigin] = useState<CurrencyOrigin>({ source: "other" });
-  const [interval, setInterval] = useState<Interval>("monthly");
+  const [interval, setInterval] = useState<Interval>(initialInterval);
   const setCurrency = (
     code: Currency,
     from: CurrencyOrigin = { source: "other" }

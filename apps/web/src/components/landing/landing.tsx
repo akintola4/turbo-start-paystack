@@ -1,8 +1,12 @@
 import { CURRENCIES, catalog } from "@workspace/billing";
 import type { Currency } from "@workspace/billing/money";
 
-import { LandingProvider } from "@/components/landing/currency-context";
+import {
+  type Interval,
+  LandingProvider,
+} from "@/components/landing/currency-context";
 import { opticalEdge } from "@/components/landing/display";
+import { Faq } from "@/components/landing/faq";
 import { CodeOutcome } from "@/components/landing/features/code-outcome";
 import { Hero } from "@/components/landing/hero";
 import { Pricing } from "@/components/landing/pricing";
@@ -67,10 +71,19 @@ const FEATURES_TITLE = "The Paystack billing you’d otherwise write yourself.";
  * the features), the pricing page the starter ships with, and the close
  * (nothing to pay, one command). The footer holds every link.
  */
-export function Landing({ initialCurrency }: { initialCurrency: Currency }) {
+export function Landing({
+  initialCurrency,
+  initialInterval,
+}: {
+  initialCurrency: Currency;
+  initialInterval?: Interval;
+}) {
   const prices = priceTable();
   return (
-    <LandingProvider initialCurrency={initialCurrency}>
+    <LandingProvider
+      initialCurrency={initialCurrency}
+      initialInterval={initialInterval}
+    >
       {/* Padding, not the hero's margin: a top margin would collapse
           through <body> and shift the page once hydration settles. */}
       <div className="pt-(--edge)">
@@ -126,6 +139,8 @@ export function Landing({ initialCurrency }: { initialCurrency: Currency }) {
         </section>
 
         <Pricing plans={PLANS} prices={prices} />
+
+        <Faq />
 
         <ReceiptSection version={BUILD.version} />
       </main>

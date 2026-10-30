@@ -1,5 +1,8 @@
 @import "@workspace/ui/globals.css";
 
+/* Without JavaScript: hide controls that only work with it (`no-js:hidden`). */
+@custom-variant no-js (@media (scripting: none));
+
 /* One-shot entrance for the landing hero; nothing else animates on load. */
 @keyframes rise {
   from {
@@ -141,6 +144,44 @@ number-flow-react::part(symbol) {
   font-weight: 400;
   letter-spacing: 0;
   color: var(--muted-foreground);
+}
+
+/*
+ * Landing FAQ: native <details>. Where ::details-content is supported the
+ * answer's height animates (interpolate-size lets `auto` transition);
+ * elsewhere it just opens. The plus turns into a close mark.
+ */
+.faq {
+  interpolate-size: allow-keywords;
+}
+.faq-summary {
+  list-style: none;
+}
+.faq-summary::-webkit-details-marker {
+  display: none;
+}
+.faq-item::details-content {
+  height: 0;
+  overflow: clip;
+  transition:
+    height var(--dur-fast) var(--motion-ease-out),
+    content-visibility var(--dur-fast) allow-discrete;
+}
+.faq-item[open]::details-content {
+  height: auto;
+  transition-duration: var(--dur-base);
+}
+.faq-icon {
+  transition: transform var(--dur-base) var(--motion-ease-out);
+}
+.faq-item[open] .faq-icon {
+  transform: rotate(45deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .faq-item::details-content,
+  .faq-icon {
+    transition: none;
+  }
 }
 
 /* On a forest panel the mark's tile lifts a step so it reads against the ground. */

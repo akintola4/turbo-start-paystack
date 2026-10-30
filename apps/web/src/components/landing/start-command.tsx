@@ -3,9 +3,9 @@
 import { cn } from "@workspace/tailwind-config/utils";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "@/lib/toast";
 
 import { INSTALL_COMMAND, INSTALL_STEPS } from "@/lib/landing";
+import { toast } from "@/lib/toast";
 
 /** How long the button says "Copied" before it goes back to "Copy". */
 const COPIED_MS = 1600;
@@ -96,7 +96,7 @@ export function InstallCommand() {
         </span>
         <button
           aria-label={copied ? "Copied" : "Copy the install command"}
-          className="pressable grid h-11 shrink-0 place-items-center rounded-control bg-highlight px-4 font-semibold text-highlight-foreground hover:bg-highlight-hover"
+          className="pressable grid h-11 shrink-0 place-items-center rounded-control bg-highlight px-4 font-semibold text-highlight-foreground hover:bg-highlight-hover no-js:hidden"
           data-copy
           onClick={copy}
           type="button"

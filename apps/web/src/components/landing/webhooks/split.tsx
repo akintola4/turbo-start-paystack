@@ -1,7 +1,7 @@
 "use client";
 
-import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/tailwind-config/utils";
+import { Badge } from "@workspace/ui/components/badge";
 import {
   CopyCheckIcon,
   PlayIcon,
@@ -197,7 +197,7 @@ export function WebhookSplit({ prices }: { prices: PriceTable }) {
             : `Three requests: a forged upgrade, a real payment, then Paystack retrying it. One app gave away Pro and counted ${price} twice.`}
         </p>
         <button
-          className="pressable inline-flex h-11 items-center gap-2 rounded-control bg-primary px-4 font-semibold text-[15px] text-primary-foreground hover:bg-primary-hover disabled:opacity-60"
+          className="pressable inline-flex h-11 items-center gap-2 rounded-control bg-primary px-4 font-semibold text-[15px] text-primary-foreground hover:bg-primary-hover disabled:opacity-60 no-js:hidden"
           disabled={playing}
           onClick={play}
           type="button"
