@@ -24,6 +24,17 @@ export const env = createEnv({
     // Override only to point at scripts/paystack-mock.ts in local dev/tests.
     PAYSTACK_API_URL: z.url().default("https://api.paystack.co"),
     PAYSTACK_WEBHOOK_IP_ALLOWLIST: booleanString,
+    // Header the hosting platform's proxy writes the client IP into. Only
+    // its right-most entry is trusted. Vercel: x-vercel-forwarded-for.
+    // Behind another proxy: x-forwarded-for (if it appends), x-real-ip,
+    // cf-connecting-ip, and so on.
+    CLIENT_IP_HEADER: z
+      .string()
+      .regex(/^[a-z0-9-]+$/i)
+      .transform((value) => value.toLowerCase())
+      .default(
+        process.env.VERCEL ? "x-vercel-forwarded-for" : "x-forwarded-for"
+      ),
 
     // 32 bytes as 64 hex chars. Encrypts email_token and authorization_code.
     BILLING_ENCRYPTION_KEY: z.string().regex(/^[0-9a-f]{64}$/i),

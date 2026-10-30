@@ -16,6 +16,9 @@ import {
   handleBillingAction,
   handlePaystackWebhook,
   isAuthorizedCron,
+  readBodyWithin,
+  trustedClientIp,
+  WEBHOOK_MAX_BYTES,
 } from "../src/server/billing-routes";
 
 const SECRET = "sk_test_routes";
@@ -214,6 +217,89 @@ describe("webhook route", () => {
       body: raw,
       headers: signature ? { "x-paystack-signature": signature } : {},
     });
+
+  it("413s a body over 1 MB before verifying or storing it (audit #9)", async () => {
+    const big = JSON.stringify({
+      event: "charge.success",
+      data: { pad: "x".repeat(WEBHOOK_MAX_BYTES) },
+    });
+    const tasks: (() => Promise<unknown>)[] = [];
+    const res = await handlePaystackWebhook(ctx, {
+      request: request(big, signPaystackPayload(big, SECRET)),
+      secretKey: SECRET,
+      encryptionKey: KEY,
+      enforceIpAllowlist: false,
+      schedule: (t) => tasks.push(t),
+    });
+    expect(res.status).toBe(413);
+    expect(tasks).toHaveLength(0);
+    // Chunked, with no Content-Length to go by.
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < 20; i++) {
+          controller.enqueue(encoder.encode("y".repeat(64 * 1024)));
+        }
+        controller.close();
+      },
+    });
+    expect(
+      await readBodyWithin(
+        new Request("http://localhost/", {
+          method: "POST",
+          body: stream,
+          duplex: "half",
+        } as RequestInit),
+        WEBHOOK_MAX_BYTES
+      )
+    ).toBeNull();
+  });
+
+  it("checks the allow-list against the proxy's client IP, not the first forwarded hop (audit #9)", async () => {
+    const raw = JSON.stringify({ event: "charge.success", data: { n: 9 } });
+    const send = (headers: Record<string, string>, clientIpHeader?: string) =>
+      handlePaystackWebhook(ctx, {
+        request: new Request("http://localhost/api/webhooks/paystack", {
+          method: "POST",
+          body: raw,
+          headers: {
+            "x-paystack-signature": signPaystackPayload(raw, SECRET),
+            ...headers,
+          },
+        }),
+        secretKey: SECRET,
+        encryptionKey: KEY,
+        enforceIpAllowlist: true,
+        clientIpHeader,
+        schedule: () => undefined,
+      });
+    // A forged first hop with Paystack's IP, appended to by the real proxy.
+    expect(
+      (await send({ "x-forwarded-for": "52.31.139.75, 203.0.113.9" })).status
+    ).toBe(401);
+    expect(
+      (await send({ "x-forwarded-for": "203.0.113.9, 52.31.139.75" })).status
+    ).toBe(200);
+    // On Vercel the platform header wins over anything in x-forwarded-for.
+    expect(
+      (
+        await send(
+          {
+            "x-forwarded-for": "52.31.139.75",
+            "x-vercel-forwarded-for": "203.0.113.9",
+          },
+          "x-vercel-forwarded-for"
+        )
+      ).status
+    ).toBe(401);
+    expect(
+      trustedClientIp(
+        new Headers({ "x-real-ip": " 52.31.139.75 " }),
+        "x-real-ip"
+      )
+    ).toBe("52.31.139.75");
+    expect(trustedClientIp(new Headers(), "x-forwarded-for")).toBeNull();
+  });
 
   it("401s an unsigned or badly signed body", async () => {
     const raw = JSON.stringify({ event: "charge.success", data: {} });
