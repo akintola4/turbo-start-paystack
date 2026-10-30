@@ -1,5 +1,4 @@
-import path from "node:path";
-import type { InvoiceDocument } from "@workspace/billing";
+import { readFile } from "node:fs/promises";
 import {
   Document,
   Font,
@@ -11,6 +10,7 @@ import {
   Text,
   View,
 } from "@react-pdf/renderer";
+import type { InvoiceDocument } from "@workspace/billing";
 
 import { type InvoiceView, invoiceView } from "../lib/invoice-view";
 
@@ -24,36 +24,60 @@ import { type InvoiceView, invoiceView } from "../lib/invoice-view";
  * three weights used and scaled to 97.6% so ₦ shares Geist's cap height.
  */
 
-const root = process.cwd();
-const geist = (file: string) =>
-  path.join(root, "node_modules/geist/dist/fonts", file);
-const currency = (weight: number) =>
-  path.join(root, `src/server/pdf-fonts/currency-symbols-${weight}.ttf`);
+/*
+ * The fonts sit next to this file and are referenced with
+ * `new URL(..., import.meta.url)`, which the bundler and file tracer follow,
+ * so they ship with the deployment (a path into the geist package does not:
+ * pnpm symlinks it and the function never gets the file). They are read inside
+ * the request, never at module scope, and handed to react-pdf as data URLs,
+ * so react-pdf never touches the disk. A missing font rejects this request
+ * only, as a normal error, and the next request tries again.
+ */
+function fontFiles() {
+  return Promise.all([
+    readFile(new URL("./pdf-fonts/geist-400.ttf", import.meta.url)),
+    readFile(new URL("./pdf-fonts/geist-500.ttf", import.meta.url)),
+    readFile(new URL("./pdf-fonts/geist-600.ttf", import.meta.url)),
+    readFile(new URL("./pdf-fonts/geist-mono-400.ttf", import.meta.url)),
+    readFile(new URL("./pdf-fonts/currency-symbols-400.ttf", import.meta.url)),
+    readFile(new URL("./pdf-fonts/currency-symbols-500.ttf", import.meta.url)),
+    readFile(new URL("./pdf-fonts/currency-symbols-600.ttf", import.meta.url)),
+  ]);
+}
 
-let registered = false;
-function registerFonts() {
-  if (registered) {
-    return;
-  }
-  Font.register({
-    family: "Geist",
-    fonts: [
-      { src: geist("geist-sans/Geist-Regular.ttf"), fontWeight: 400 },
-      { src: geist("geist-sans/Geist-Medium.ttf"), fontWeight: 500 },
-      { src: geist("geist-sans/Geist-SemiBold.ttf"), fontWeight: 600 },
-    ],
-  });
-  Font.register({
-    family: "Currency",
-    fonts: [400, 500, 600].map((w) => ({ src: currency(w), fontWeight: w })),
-  });
-  Font.register({
-    family: "GeistMono",
-    src: geist("geist-mono/GeistMono-Regular.ttf"),
-  });
-  // Invoice text is short; never hyphenate names, references or amounts.
-  Font.registerHyphenationCallback((word) => [word]);
-  registered = true;
+const dataUrl = (font: Buffer) =>
+  `data:font/ttf;base64,${font.toString("base64")}`;
+
+let registering: Promise<void> | null = null;
+function registerFonts(): Promise<void> {
+  registering ??= fontFiles().then(
+    ([sans4, sans5, sans6, mono, cur4, cur5, cur6]) => {
+      Font.register({
+        family: "Geist",
+        fonts: [
+          { src: dataUrl(sans4), fontWeight: 400 },
+          { src: dataUrl(sans5), fontWeight: 500 },
+          { src: dataUrl(sans6), fontWeight: 600 },
+        ],
+      });
+      Font.register({
+        family: "Currency",
+        fonts: [
+          { src: dataUrl(cur4), fontWeight: 400 },
+          { src: dataUrl(cur5), fontWeight: 500 },
+          { src: dataUrl(cur6), fontWeight: 600 },
+        ],
+      });
+      Font.register({ family: "GeistMono", src: dataUrl(mono) });
+      // Invoice text is short; never hyphenate names, references or amounts.
+      Font.registerHyphenationCallback((word) => [word]);
+    },
+    (error: unknown) => {
+      registering = null;
+      throw error;
+    }
+  );
+  return registering;
 }
 
 /** Light "Market" palette (docs/design-system.md): paper is always light. */
@@ -401,6 +425,6 @@ export function InvoicePdf({ view }: { view: InvoiceView }) {
 }
 
 export async function renderInvoicePdf(doc: InvoiceDocument): Promise<Buffer> {
-  registerFonts();
+  await registerFonts();
   return renderToBuffer(<InvoicePdf view={invoiceView(doc)} />);
 }
