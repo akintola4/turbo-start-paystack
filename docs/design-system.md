@@ -615,7 +615,7 @@ Since `ab4c3ac` the tokens live in **`packages/ui/src/styles/globals.css`** (`th
   --muted: var(--surface-2);
   --muted-foreground: oklch(0.74 0.016 163);
   --subtle-foreground: oklch(0.64 0.015 163);
-  --accent: var(--surface-2);
+  --accent: oklch(0.33 0.018 163); /* own step over the popover (surface-2): 1.33:1, text 9.9:1 */
   --accent-foreground: var(--foreground);
   --link: var(--forest-300);
   --border: oklch(0.29 0.015 163);

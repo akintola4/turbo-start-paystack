@@ -11,8 +11,10 @@
  * - The list doesn't filter itself. Pass `items` (flat or grouped) to
  *   <Command> and filter them yourself, or pass Base UI's `filter`.
  * - <CommandItem> takes `value` (the item) and `onSelect`, run on click
- *   and on Enter. Highlight is `data-highlighted`, mapped to cmdk's
- *   `data-selected` look.
+ *   and on Enter. Highlight (keyboard and pointer) is Base UI's
+ *   `data-highlighted`, in place of cmdk's `data-selected`, on bg-accent
+ *   (shadcn's bg-muted equals the popover surface in this theme's dark
+ *   mode and would be invisible).
  * - <CommandGroup> takes `items` for its group when the list is grouped.
  */
 
@@ -207,7 +209,7 @@ function CommandItem({
   return (
     <Autocomplete.Item
       className={cn(
-        "group/command-item relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden in-data-[slot=dialog-content]:rounded-lg! data-disabled:pointer-events-none data-highlighted:bg-muted data-highlighted:text-foreground data-disabled:opacity-50 [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0 data-highlighted:**:[svg]:text-foreground",
+        "group/command-item relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden in-data-[slot=dialog-content]:rounded-lg! data-disabled:pointer-events-none scroll-my-1 data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-50 [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0 data-highlighted:**:[svg]:text-foreground",
         className
       )}
       data-slot="command-item"

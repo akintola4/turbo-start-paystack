@@ -289,7 +289,10 @@
   --muted: var(--surface-2);
   --muted-foreground: oklch(0.74 0.016 163);
   --subtle-foreground: oklch(0.64 0.015 163);
-  --accent: var(--surface-2);
+  /* Highlight in menus, selects and the command list, which sit on the
+     popover (surface-2): it must be its own step, about 1.33:1 against the
+     popover, with text still 9.9:1. Equal to surface-2 it was invisible. */
+  --accent: oklch(0.33 0.018 163);
   --accent-foreground: var(--foreground);
   --link: var(--forest-300);
   --border: oklch(0.29 0.015 163);
