@@ -60,7 +60,14 @@ const fileName = (path: string) => path.split("/").at(-1) ?? path;
 function CodeLines({ feature, typing }: { feature: Feature; typing: boolean }) {
   const lines = feature.code.split("\n");
   return (
-    <pre className="overflow-x-auto px-5 py-5 font-mono text-(--code-text) text-[14px] leading-[22px]">
+    // biome-ignore lint/a11y/useSemanticElements: the excerpt stays a <pre>; the region names it.
+    <pre
+      aria-label={`${fileName(feature.path)} excerpt`}
+      className="overflow-x-auto px-5 py-5 font-mono text-(--code-text) text-[14px] leading-[22px]"
+      role="region"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: focusable, so the excerpt can be scrolled sideways from the keyboard.
+      tabIndex={0}
+    >
       <code className="grid grid-cols-[2.25rem_minmax(0,1fr)]">
         {lines.map((line, i) => (
           <Fragment key={`${feature.id}-${i}`}>

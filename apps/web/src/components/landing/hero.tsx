@@ -64,6 +64,12 @@ export function Hero({ prices }: { prices: PriceTable }) {
   const playIntro = useRef<boolean | null>(null);
   const columns = useColumns(wall);
 
+  // The wall repeats each currency, but a radio group has one checked radio:
+  // the focused tile when it shows the currency, else its first tile. It is
+  // also the group's tab stop.
+  const checked =
+    WALL[focusIndex] === currency ? focusIndex : WALL.indexOf(currency);
+
   const pro = prices[shown].pro.monthly;
   const from = Math.max(
     0,
@@ -120,6 +126,9 @@ export function Hero({ prices }: { prices: PriceTable }) {
         const split = SplitText.create("[data-hero-line]", {
           type: "lines",
           mask: "lines",
+          // Line wrappers keep the text readable as is. The default puts
+          // aria-label on each role-less span, which ARIA doesn't allow.
+          aria: "none",
         });
         gsap.set(split.masks, {
           paddingBlock: "0.06em 0.14em",
@@ -282,7 +291,7 @@ export function Hero({ prices }: { prices: PriceTable }) {
               return (
                 // biome-ignore lint/a11y/useSemanticElements: ARIA radio group with roving focus over a grid of tiles.
                 <button
-                  aria-checked={code === currency}
+                  aria-checked={i === checked}
                   aria-label={meta.word}
                   className={cn(
                     "wall-tile pressable pressable-sm grid aspect-square select-none place-items-center rounded-card font-bold sm:rounded-tile",
@@ -318,7 +327,7 @@ export function Hero({ prices }: { prices: PriceTable }) {
                       "--ripple": `${rippleDelay(i, from, columns)}ms`,
                     } as React.CSSProperties
                   }
-                  tabIndex={i === focusIndex ? 0 : -1}
+                  tabIndex={i === checked ? 0 : -1}
                   type="submit"
                   value={code}
                 >

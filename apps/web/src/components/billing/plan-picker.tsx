@@ -251,7 +251,8 @@ function IntervalSwitch({
               "pressable relative z-10 flex items-center justify-center rounded-chip px-4 font-semibold text-sm transition-colors duration-(--dur-fast) before:absolute before:-inset-y-1 before:inset-x-0",
               value === o.key
                 ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                : // muted-foreground on surface-3 is 4.2:1, under AA.
+                  "text-foreground/75 hover:text-foreground dark:text-muted-foreground"
             )}
             key={o.key}
             onClick={() => onChange(o.key)}

@@ -327,6 +327,7 @@ export function ProrationDemo() {
           <span className="font-semibold tabular-nums">day {day} of 30</span>
         </span>
         <input
+          aria-valuetext={`day ${day} of 30`}
           className="h-11 w-full cursor-pointer touch-manipulation accent-[var(--highlight)]"
           id={id}
           max={29}
