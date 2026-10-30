@@ -28,7 +28,9 @@ export function AuthScreen({
   return (
     <div className="grid min-h-dvh grid-rows-[auto_1fr] bg-background lg:h-dvh lg:grid-cols-2 lg:grid-rows-1 lg:overflow-hidden">
       <div className="flex flex-col px-4 py-6 sm:px-10 sm:py-8 lg:overflow-y-auto">
-        <Wordmark className="self-start" />
+        <header className="flex self-start">
+          <Wordmark />
+        </header>
         <main
           className="flex flex-1 items-center py-12 outline-none"
           id="content"

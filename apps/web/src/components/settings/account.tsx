@@ -318,8 +318,9 @@ function PasswordSection({ email }: { email: string }) {
       <form className="grid gap-5" onSubmit={onSubmit}>
         {/* Password managers pair the new password with this account. */}
         <input
+          aria-label="Email"
           autoComplete="username"
-          className="sr-only"
+          className="sr-only text-base"
           readOnly
           tabIndex={-1}
           type="email"
@@ -329,6 +330,9 @@ function PasswordSection({ email }: { email: string }) {
           <div className="grid gap-2">
             <Label htmlFor="account-current-password">Current password</Label>
             <Input
+              aria-describedby={
+                invalid("current") ? "account-password-error" : undefined
+              }
               aria-invalid={invalid("current")}
               autoComplete="current-password"
               id="account-current-password"
@@ -341,6 +345,9 @@ function PasswordSection({ email }: { email: string }) {
           <div className="grid gap-2">
             <Label htmlFor="account-new-password">New password</Label>
             <Input
+              aria-describedby={
+                invalid("new") ? "account-password-error" : undefined
+              }
               aria-invalid={invalid("new")}
               autoComplete="new-password"
               id="account-new-password"
@@ -352,14 +359,18 @@ function PasswordSection({ email }: { email: string }) {
             />
           </div>
         </div>
-        <Label className="flex w-fit cursor-pointer items-center gap-3 font-normal">
+        <Label className="flex min-h-11 w-fit cursor-pointer items-center gap-3 font-normal">
           <Checkbox
             checked={signOutOthers}
             onCheckedChange={(checked) => setSignOutOthers(checked === true)}
           />
           Sign out of my other devices
         </Label>
-        {error ? <FormAlert>{error.message}</FormAlert> : null}
+        {error ? (
+          <div id="account-password-error">
+            <FormAlert>{error.message}</FormAlert>
+          </div>
+        ) : null}
         <div>
           <Button pending={pending} type="submit">
             Change password

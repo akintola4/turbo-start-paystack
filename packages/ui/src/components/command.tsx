@@ -80,10 +80,6 @@ function CommandDialog({
 }) {
   return (
     <Dialog {...props}>
-      <DialogHeader className="sr-only">
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-      </DialogHeader>
       <DialogContent
         className={cn(
           "top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0",
@@ -92,6 +88,12 @@ function CommandDialog({
         finalFocus={finalFocus}
         showCloseButton={showCloseButton}
       >
+        {/* Inside the popup, so the title labels the dialog and is not left
+            in the page while the palette is closed. */}
+        <DialogHeader className="sr-only">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
         {children}
       </DialogContent>
     </Dialog>
@@ -134,7 +136,7 @@ function CommandList({
   return (
     <Autocomplete.List
       className={cn(
-        "no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none",
+        "no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto overscroll-contain outline-none",
         className
       )}
       data-slot="command-list"

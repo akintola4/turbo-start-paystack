@@ -143,7 +143,9 @@ export function Segmented<T extends string>({
           <button
             aria-checked={on}
             className={cn(
-              "pressable relative inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-chip px-2.5 font-semibold text-[13px]",
+              // A size container only with a note: containment zeroes the
+              // max-content width that a w-max track sizes from.
+              "pressable relative inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-chip px-2.5 font-semibold text-[13px] before:absolute before:-inset-y-1 before:inset-x-0 has-data-note:@container",
               on ? t.on : t.off
             )}
             data-segment={o.value}
@@ -168,7 +170,12 @@ export function Segmented<T extends string>({
             ) : null}
             {o.label}
             {o.note ? (
-              <span className="font-medium text-[11px] opacity-80">
+              // Dropped when the segment is too narrow for it (a 320px
+              // phone), rather than pushing the label into the edges.
+              <span
+                className="font-medium text-[11px] @max-[8.25rem]:hidden"
+                data-note
+              >
                 {o.note}
               </span>
             ) : null}

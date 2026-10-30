@@ -69,7 +69,7 @@ export function Pricing({
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <a
-            className="pressable pressable-sm inline-flex items-center gap-2 self-start rounded-chip py-1 text-panel-muted text-sm hover:text-panel-foreground"
+            className="pressable pressable-sm relative inline-flex items-center gap-2 self-start rounded-chip py-1 text-panel-muted text-sm before:absolute before:-inset-y-2 before:inset-x-0 hover:text-panel-foreground"
             href="#currency"
           >
             Priced in {currencyMeta(currency).word}. Pick another on the wall

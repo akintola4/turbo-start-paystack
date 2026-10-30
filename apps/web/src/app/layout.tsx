@@ -8,6 +8,7 @@ import Script from "next/script";
 import type { ReactNode } from "react";
 
 import { Providers } from "@/components/providers";
+import { THEME_COLOR } from "@/lib/brand";
 
 /**
  * Geist and Geist Mono, from the `geist` package's variable files. Next's
@@ -82,9 +83,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f3f8f6" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e1311" },
+    { media: "(prefers-color-scheme: light)", color: THEME_COLOR.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLOR.dark },
   ],
+  colorScheme: "light dark",
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
 };

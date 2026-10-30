@@ -79,8 +79,9 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
 const HEADING =
   "font-semibold text-[13px] text-panel-muted [text-box:trim-both_cap_alphabetic]";
 
+/** 34.5px tall for a mouse; a full 44px row on touch screens. */
 const link =
-  "pressable pressable-lg inline-flex items-center gap-1 rounded-chip py-1.5 text-[15px] underline-offset-4 transition-colors duration-(--dur-fast) hover:underline active:text-panel-muted";
+  "pressable pressable-lg inline-flex items-center gap-1 rounded-chip py-1.5 text-[15px] underline-offset-4 transition-colors duration-(--dur-fast) hover:underline active:text-panel-muted pointer-coarse:min-h-11";
 
 /**
  * Sets the wordmark's font size so it runs exactly from the content edge
@@ -123,12 +124,15 @@ function useFillWidth(
 function ThemeSwitch() {
   const { current, setTheme } = useThemeChoice();
   return (
-    <div className="grid justify-items-start gap-3 no-js:hidden">
+    // Full width on its own row until lg; then a fourth column sized to the
+    // control. The track is max-content: equal segments, each as wide as the
+    // longest label ("System" with its icon), so none of them ever clips.
+    <div className="col-span-2 grid content-start justify-items-start gap-3 no-js:hidden md:col-span-3 lg:col-span-1">
       <h3 className={HEADING} id="footer-theme">
         Theme
       </h3>
       <Segmented
-        className="w-full max-w-[16.5rem]"
+        className="w-max"
         label="Theme"
         onChange={setTheme}
         options={THEME_OPTIONS}
@@ -185,7 +189,7 @@ export function SiteFooter({ build }: { build: BuildInfo }) {
     <footer className="landing-bleed mt-3 mb-[max(var(--edge),env(safe-area-inset-bottom))]">
       <Panel as="div" className="px-0 pt-8 pb-0 sm:px-0 sm:pt-10 sm:pb-0">
         <div className="landing-inner" ref={root}>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4 xl:gap-x-8">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-3 lg:grid-cols-[repeat(3,minmax(0,1fr))_auto] xl:gap-x-8">
             {COLUMNS.map((col) => (
               <nav
                 aria-labelledby={`footer-${col.title.toLowerCase()}`}
@@ -233,7 +237,7 @@ export function SiteFooter({ build }: { build: BuildInfo }) {
               <span className="inline-flex items-center gap-2 whitespace-nowrap">
                 <span aria-hidden>·</span>
                 <a
-                  className="pressable pressable-sm rounded-chip underline-offset-4 transition-colors duration-(--dur-fast) hover:text-panel-foreground hover:underline"
+                  className="pressable pressable-sm relative rounded-chip underline-offset-4 transition-colors duration-(--dur-fast) before:absolute before:-inset-x-1 before:-inset-y-2.5 hover:text-panel-foreground hover:underline"
                   href={fileUrl("LICENSE")}
                 >
                   MIT licence

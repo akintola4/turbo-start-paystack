@@ -27,8 +27,9 @@ import { MemberCards } from "@/components/members/member-cards";
 import { PresenceTableRow, RowPresenceProvider } from "@/components/motion";
 import { Chip, PageHeader, Tile } from "@/components/primitives";
 
+// Inactive labels at 75% ink: muted-foreground on surface-3 is 4.2:1, under AA.
 const TAB =
-  "h-9 flex-1 gap-2 rounded-chip px-4 font-semibold before:absolute before:-inset-y-1 before:inset-x-0 data-[active]:bg-surface-1 data-[active]:shadow-tile dark:data-[active]:bg-surface-3 sm:flex-none";
+  "h-9 flex-1 gap-2 rounded-chip px-4 font-semibold text-foreground/75 before:absolute before:-inset-y-1 before:inset-x-0 data-[active]:bg-surface-1 data-[active]:shadow-tile dark:data-[active]:bg-surface-3 sm:flex-none";
 
 /** The invite form, or at the seat limit, the way to more seats. */
 function InviteTile({ data }: { data: MembersData }) {

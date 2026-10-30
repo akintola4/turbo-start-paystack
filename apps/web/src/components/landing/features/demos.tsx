@@ -327,6 +327,7 @@ export function ProrationDemo() {
           <span className="font-semibold tabular-nums">day {day} of 30</span>
         </span>
         <input
+          aria-valuetext={`day ${day} of 30`}
           className="h-11 w-full cursor-pointer touch-manipulation accent-[var(--highlight)]"
           id={id}
           max={29}
@@ -525,9 +526,11 @@ function Steps({ steps }: { steps: { label: string; state: StepState }[] }) {
   );
 }
 
+// Short labels: "Paystack answers" needs 133px a segment, and a 320px
+// phone gives it 108. The group's label names Paystack.
 const PAYSTACK: readonly SegmentOption<"answers" | "fails">[] = [
-  { value: "answers", label: "Paystack answers" },
-  { value: "fails", label: "Paystack fails" },
+  { value: "answers", label: "Answers" },
+  { value: "fails", label: "Fails" },
 ];
 
 const SWAP_STEP_MS = 450;

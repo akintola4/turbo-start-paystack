@@ -81,7 +81,7 @@ export function NotFoundPage() {
         <p>
           Turbo Start Paystack ·{" "}
           <a
-            className="pressable pressable-sm rounded-chip underline-offset-4 hover:text-foreground hover:underline"
+            className="pressable pressable-sm relative rounded-chip underline-offset-4 before:absolute before:-inset-x-1 before:-inset-y-3 hover:text-foreground hover:underline"
             href={fileUrl("LICENSE")}
           >
             MIT licence

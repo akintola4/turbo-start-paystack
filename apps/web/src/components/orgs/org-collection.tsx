@@ -172,14 +172,14 @@ export function ViewToggle({
     >
       <ToggleGroupItem
         aria-label="List view"
-        className="size-9 rounded-chip data-[pressed]:bg-surface-1 data-[pressed]:shadow-tile dark:data-[pressed]:bg-surface-3"
+        className="relative size-9 rounded-chip before:absolute before:-inset-y-1 before:inset-x-0 first:before:-left-1 last:before:-right-1 data-[pressed]:bg-surface-1 data-[pressed]:shadow-tile dark:data-[pressed]:bg-surface-3"
         value="list"
       >
         <ListIcon aria-hidden />
       </ToggleGroupItem>
       <ToggleGroupItem
         aria-label="Grid view"
-        className="size-9 rounded-chip data-[pressed]:bg-surface-1 data-[pressed]:shadow-tile dark:data-[pressed]:bg-surface-3"
+        className="relative size-9 rounded-chip before:absolute before:-inset-y-1 before:inset-x-0 first:before:-left-1 last:before:-right-1 data-[pressed]:bg-surface-1 data-[pressed]:shadow-tile dark:data-[pressed]:bg-surface-3"
         value="grid"
       >
         <LayoutGridIcon aria-hidden />
