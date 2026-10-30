@@ -32,7 +32,7 @@ export function changeEmailApprovalContent(
       [
         `Someone signed in to your ${theme.productName} account and asked to change its email to `,
         { strong: props.newEmail },
-        ". If that was you, approve it here. We then send a confirmation link to the new address, and the change happens when that link is used. This link works for one hour.",
+        ". If that was you, approve it here, then confirm it from the link we send to the new address. The link works for one hour.",
       ],
     ],
     cta: { label: "Approve the change", href: props.url, showUrl: true },
