@@ -49,11 +49,10 @@ function accountError(error: ClientError, fallback: string) {
   }
   switch (error.code) {
     case "SESSION_EXPIRED":
+    case "SESSION_NOT_FRESH":
       return "For your safety, sign out and back in, then try again.";
     case "INVALID_PASSWORD":
       return "That isn't your current password.";
-    case "SESSION_NOT_FRESH":
-      return "For your safety, sign out and back in, then try again.";
     case "PASSWORD_TOO_SHORT":
       return "Use at least 10 characters.";
     case "PASSWORD_TOO_LONG":
@@ -145,13 +144,10 @@ function EmailSection({ data }: { data: AccountData }) {
     const password = String(new FormData(form).get("password") ?? "");
     setPending(true);
     setError(null);
-    // `password` is checked by the server's change-email hook before
-    // Better Auth sends anything.
-    const result = await authClient.changeEmail({
-      newEmail: next,
-      callbackURL: "/app/account",
-      password,
-    } as { newEmail: string; callbackURL: string });
+    // Better Auth's client type has no `password`; the server's change-email
+    // hook requires it before anything is sent.
+    const body = { newEmail: next, callbackURL: "/app/account", password };
+    const result = await authClient.changeEmail(body);
     setPending(false);
     if (result.error) {
       setError(accountError(result.error, "The link wasn't sent. Try again."));

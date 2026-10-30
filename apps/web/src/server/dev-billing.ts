@@ -369,11 +369,10 @@ async function visibleOutbox(
     .from(schema.member)
     .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
     .where(eq(schema.member.organizationId, organizationId));
-  const allowed = new Set(
-    [...members.map((m) => m.email), session?.user.email ?? ""]
-      .filter(Boolean)
-      .map((e) => e.toLowerCase())
-  );
+  const allowed = new Set(members.map((m) => m.email.toLowerCase()));
+  if (session) {
+    allowed.add(session.user.email.toLowerCase());
+  }
   return deps.outbox().filter((e) => allowed.has(e.to.toLowerCase()));
 }
 
