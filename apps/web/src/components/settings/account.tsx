@@ -198,8 +198,8 @@ function EmailSection({ data }: { data: AccountData }) {
             <span className="font-semibold">{data.pendingEmail.email}</span>.
             Approve it from the link we sent to {data.user.email}, then confirm
             it from the new inbox. The links work for{" "}
-            {data.pendingEmail.expiresIn}. Until then you sign in with{" "}
-            {data.user.email}.
+            {data.pendingEmail.expiresIn}. Until then you sign in with your
+            current address.
           </p>
           <Button
             onClick={() => sendAgain(data.pendingEmail?.email ?? "")}
