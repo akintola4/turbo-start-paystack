@@ -41,13 +41,14 @@ export async function consumeRateLimit(
       },
     })
     .returning({ count: t.count, lastRequest: t.lastRequest });
-  const count = row?.count ?? 1;
-  const started = Number(row?.lastRequest ?? now);
+  if (!row) {
+    throw new Error("rate limit upsert did not return a row");
+  }
   return {
-    allowed: count <= rule.max,
+    allowed: row.count <= rule.max,
     retryAfter: Math.max(
       1,
-      Math.ceil((started + rule.window * 1000 - now) / 1000)
+      Math.ceil((row.lastRequest + rule.window * 1000 - now) / 1000)
     ),
   };
 }
