@@ -113,3 +113,23 @@ describe("fuzzy matching", () => {
     ]);
   });
 });
+
+describe("invoice items", () => {
+  it("write the date like the rest of the app, in UTC", async () => {
+    const { invoiceItem } = await import("../src/server/search");
+    const item = invoiceItem(
+      {
+        id: "inv_1",
+        number: "INV-2027-000009",
+        amountSubunit: 1_000_000,
+        currency: "NGN",
+        status: "paid",
+        description: "Starter plan renewal",
+        paidAt: new Date("2027-09-12T23:30:00Z"),
+        createdAt: new Date("2027-09-12T23:30:00Z"),
+      } as unknown as Parameters<typeof invoiceItem>[0],
+      "kola-logistics"
+    );
+    expect(item.subtitle).toBe("₦10,000.00 · Paid · 12 Sep 2027");
+  });
+});
