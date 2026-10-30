@@ -368,7 +368,10 @@ function SessionItem({ session }: { session: SessionRow }) {
   }
 
   return (
-    <li className="flex items-center gap-3 border-border border-t py-4 first:border-t-0 first:pt-0 last:pb-0">
+    <li
+      className="flex items-center gap-3 border-border border-t py-4 first:border-t-0 first:pt-0 last:pb-0"
+      data-session={session.id}
+    >
       <span className="grid size-10 shrink-0 place-items-center rounded-chip bg-surface-2">
         <Icon aria-hidden className="size-[18px] text-muted-foreground" />
       </span>
