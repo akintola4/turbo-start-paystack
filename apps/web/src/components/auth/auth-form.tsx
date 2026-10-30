@@ -215,7 +215,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       const formError = authFormError(result.error, mode);
       setPending(false);
       setError(formError);
-      signal({ type: "error", field: formError.field ?? null });
+      signal({ type: "error" });
       return;
     }
     signal({ type: "success" });

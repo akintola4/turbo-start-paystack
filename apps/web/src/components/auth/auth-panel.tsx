@@ -34,19 +34,19 @@ const EASE_SETTLE = "cubic-bezier(0.34, 1.36, 0.64, 1)";
 const COPY = {
   "sign-in": {
     label: "Your mark",
-    note: "Same email, same mark, on every device.",
+    note: "Decoration, drawn from your email in this browser.",
     empty: "Your mark draws itself from your email.",
-    done: "Recognise it? This one is yours.",
-    pending: "Checking it's you…",
-    error: "That mark doesn't match. Check the password.",
+    done: "Drawn from your email.",
+    pending: "Signing in…",
+    error: "Check your details and try again.",
   },
   "sign-up": {
     label: "Your workspace's mark",
-    note: "Drawn from your email, here in your browser.",
+    note: "Decoration, drawn from your email in this browser.",
     empty: "Every workspace gets a mark, drawn from your email.",
     done: "This is your workspace's mark.",
     pending: "Setting your mark…",
-    error: "Almost. Check the form and try again.",
+    error: "Check your details and try again.",
   },
 } as const;
 
@@ -120,9 +120,13 @@ function paint(el: HTMLElement, slot: MarkSlot, delay: number) {
 /**
  * The auth pages' panel, concept "Your mark". As the email is typed, a
  * mirrored 5×5 mark draws itself from a hash of it (lib/mark.ts): one shape
- * per keystroke, brand radii, currency glyphs, and one sunflower cell that
- * says "yours". A wrong password shakes it and turns that cell red; success
- * shrinks it into a workspace icon with the name below.
+ * per keystroke, brand radii, currency glyphs, and one sunflower cell. A
+ * failed attempt (any reason, the same way) shakes it and turns that cell
+ * red; success shrinks it into a workspace icon with the name below.
+ *
+ * Decoration, not a security indicator: anyone can draw the same mark from
+ * an email (docs/decisions.md), so the copy never presents it as proof
+ * that the site or account is genuine.
  *
  * Decoration only: aria-hidden, nothing focusable, no React state. It
  * listens to AuthForm's signals (mark-signals.ts) and paints with refs and

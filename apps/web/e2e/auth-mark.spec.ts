@@ -105,3 +105,34 @@ test("phones get a slim band with an 80px mark, and no sideways scroll", async (
     )
   ).toBe(0);
 });
+
+test("an unknown email and a wrong password fail the same way", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 800 });
+  const email = "ada@kolalogistics.test";
+  const attempt = async (password: string, as = email) => {
+    await page.goto("/sign-in");
+    await page.locator("#email").fill(as);
+    await page.locator("#password").fill(password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    const mark = page.locator(".auth-mosaic");
+    await expect(mark).toHaveAttribute("data-error", "");
+    const shakes = await mark.evaluate((el) => el.getAnimations().length);
+    await page.waitForTimeout(800);
+    return {
+      shakes,
+      caption: await page.locator(".auth-panel__line").innerText(),
+      alert: await page.locator("#auth-error").innerText(),
+    };
+  };
+  const wrongPassword = await attempt("not-the-password-123");
+  const unknownEmail = await attempt(
+    "not-the-password-123",
+    "nobody@kolalogistics.test"
+  );
+  expect(unknownEmail.caption).toBe(wrongPassword.caption);
+  expect(unknownEmail.shakes).toBe(wrongPassword.shakes);
+  expect(unknownEmail.alert).toBe(wrongPassword.alert);
+  expect(wrongPassword.caption).toBe("Check your details and try again.");
+});

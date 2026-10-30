@@ -6,7 +6,10 @@
  * The mark is mirrored around its centre column. Columns 0–2 hold 15
  * slots; each typed character redraws one slot (slot k is redrawn by
  * characters k, k + 15, …) and its mirror in columns 3–4. Once the input
- * is long enough, exactly one centre-column cell turns sunflower: "yours".
+ * is long enough, exactly one centre-column cell turns sunflower.
+ *
+ * Decorative only. The algorithm is public and uses nothing but the email,
+ * so it proves nothing about a site or an account (docs/decisions.md).
  */
 
 export const GRID = 5;

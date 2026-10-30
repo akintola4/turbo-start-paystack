@@ -4,12 +4,15 @@ import { useEffect, useRef } from "react";
 
 /**
  * What the auth form tells the decorative panel. In-memory and same-page
- * only: the email never leaves this module, and nothing is logged.
+ * only: the email never leaves this module, and nothing is logged. Never
+ * add the password, its length or which field failed (test/mark.test.ts).
  */
 export type MarkSignal =
   | { type: "input"; field: "email" | "name"; value: string }
   | { type: "submit" }
-  | { type: "error"; field: "email" | "password" | "confirm" | null }
+  /* No field: the panel reacts the same to every failure, so it can't
+     tell an unknown email from a wrong password. */
+  | { type: "error" }
   | { type: "clear" }
   | { type: "success" }
   | { type: "reset" };
