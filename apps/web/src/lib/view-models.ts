@@ -253,6 +253,8 @@ export type AcceptInviteData = {
   signedIn: boolean;
   signedInAs: string | null;
   invite: {
+    /** Seeds the organization's mark. */
+    orgId: string;
     orgName: string;
     role: string;
     inviter: string | null;

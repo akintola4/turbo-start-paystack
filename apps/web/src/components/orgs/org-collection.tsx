@@ -17,7 +17,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
-import { Monogram } from "@/components/avatars";
+import { MarkAvatar } from "@/components/mark-avatar";
 import { RowPresenceProvider, useRowPresence } from "@/components/motion";
 import { Amount, StatusBadge, statusLabel } from "@/components/primitives";
 import { formatDate, roleLabel } from "@/lib/format";
@@ -77,10 +77,9 @@ function OrgRow({ org }: { org: Org }) {
         className="grid min-h-16 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-3 transition-[background-color] duration-(--dur-fast) hover:bg-surface-2 active:bg-surface-3 sm:px-5 md:grid-cols-[2.5rem_minmax(0,1fr)_11.5rem_4.5rem_5.5rem_12rem_1.25rem] md:gap-x-4"
         href={`/app/${org.slug}`}
       >
-        <Monogram
-          className="row-span-2 size-10 rounded-control text-[13px] md:row-span-1"
-          name={org.name}
-          tone="solid"
+        <MarkAvatar
+          className="row-span-2 size-10 rounded-[11px] md:row-span-1"
+          seed={org.id}
         />
         <span className="grid min-w-0 gap-0.5">
           <span className="truncate font-semibold">{org.name}</span>
@@ -121,11 +120,7 @@ function OrgCard({ org }: { org: Org }) {
         href={`/app/${org.slug}`}
       >
         <div className="flex items-start justify-between gap-3">
-          <Monogram
-            className="size-10 rounded-control text-[13px]"
-            name={org.name}
-            tone="solid"
-          />
+          <MarkAvatar className="size-10 rounded-[11px]" seed={org.id} />
           <StatusBadge
             label={orgStatusLabel(org)}
             status={org.status ?? "free"}

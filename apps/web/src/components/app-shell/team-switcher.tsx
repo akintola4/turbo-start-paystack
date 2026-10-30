@@ -23,9 +23,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-import { initials } from "@/lib/format";
+import { MarkAvatar } from "@/components/mark-avatar";
 
-type Team = { name: string; slug: string };
+type Team = { id: string; name: string; slug: string };
 
 /** shadcn sidebar-07's team switcher, for the user's organizations. */
 export function TeamSwitcher({
@@ -48,9 +48,7 @@ export function TeamSwitcher({
               />
             }
           >
-            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary font-semibold text-sidebar-primary-foreground text-xs">
-              {initials(current.name)}
-            </div>
+            <MarkAvatar seed={current.id} />
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-medium">{current.name}</span>
               <span className="truncate text-xs">{current.plan}</span>
@@ -74,9 +72,10 @@ export function TeamSwitcher({
                   key={team.slug}
                   render={<Link href={`/app/${team.slug}`} />}
                 >
-                  <div className="flex size-6 items-center justify-center rounded-md border font-semibold text-[10px]">
-                    {initials(team.name)}
-                  </div>
+                  <MarkAvatar
+                    className="size-6 rounded-md p-[2px]"
+                    seed={team.id}
+                  />
                   {team.name}
                   {team.slug === current.slug ? (
                     <CheckIcon aria-label="Current" className="ml-auto" />
