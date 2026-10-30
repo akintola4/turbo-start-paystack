@@ -89,7 +89,9 @@ function useSlugStatus(slug: string, current: string): SlugStatus {
 /** One line under the address field. Always one line tall, so the form
  *  below never moves as the status changes. */
 function SlugHint({ status, id }: { status: SlugStatus; id: string }) {
-  const base = "flex min-h-5 items-center gap-1.5 text-sm";
+  // Icons sit on the first line (3px down a 20px line centres 14px), so a
+  // message that wraps doesn't drag its icon into the middle of the block.
+  const base = "flex min-h-5 items-start gap-1.5 text-sm";
   switch (status.state) {
     case "checking":
       return (
@@ -100,7 +102,7 @@ function SlugHint({ status, id }: { status: SlugStatus; id: string }) {
         >
           <Loader2Icon
             aria-hidden
-            className="size-3.5 animate-spin motion-reduce:animate-none"
+            className="mt-[3px] size-3.5 shrink-0 animate-spin motion-reduce:animate-none"
           />
           Checking…
         </p>
@@ -108,7 +110,7 @@ function SlugHint({ status, id }: { status: SlugStatus; id: string }) {
     case "available":
       return (
         <p aria-live="polite" className={cn(base, "text-success")} id={id}>
-          <CircleCheckIcon aria-hidden className="size-3.5" />
+          <CircleCheckIcon aria-hidden className="mt-[3px] size-3.5 shrink-0" />
           Available
         </p>
       );
@@ -116,7 +118,7 @@ function SlugHint({ status, id }: { status: SlugStatus; id: string }) {
     case "invalid":
       return (
         <p aria-live="polite" className={cn(base, "text-destructive")} id={id}>
-          <CircleAlertIcon aria-hidden className="size-3.5 shrink-0" />
+          <CircleAlertIcon aria-hidden className="mt-[3px] size-3.5 shrink-0" />
           {status.message}
         </p>
       );

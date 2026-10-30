@@ -119,10 +119,8 @@ function CheckEmail({
   return (
     <div className="grid gap-6" role="status">
       <div className="flex items-start gap-3 rounded-tile bg-surface-2 p-4">
-        <MailCheckIcon
-          aria-hidden
-          className="mt-0.5 size-5 shrink-0 text-success"
-        />
+        {/* 20px icon on a 20px line: no top margin, or it sits 2px low. */}
+        <MailCheckIcon aria-hidden className="size-5 shrink-0 text-success" />
         <p className="text-sm">
           {reason === "unverified"
             ? "This email isn't confirmed yet. We sent a new link to "

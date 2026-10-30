@@ -191,7 +191,12 @@ function EmailSection({ data }: { data: AccountData }) {
           data-presence={pendingAtLoad.current ? undefined : "entering"}
           role="status"
         >
-          <MailIcon aria-hidden className="hidden size-4 sm:block" />
+          {/* On the first line, not the middle of the block: 16px icon,
+              20px line. */}
+          <MailIcon
+            aria-hidden
+            className="mt-0.5 hidden size-4 sm:block sm:self-start"
+          />
           <p className="text-pretty text-foreground text-sm">
             Changing to{" "}
             <span className="font-semibold">{data.pendingEmail.email}</span>.
