@@ -282,8 +282,12 @@ against real Paystack test mode is listed in `docs/paystack-verification.md`.
 3. Run `pnpm billing:sync` with the test key, then again with the live key
    against your production database. Test and live plan codes differ.
 4. Schedule `GET /api/cron/billing-reconcile` hourly with
-   `Authorization: Bearer $CRON_SECRET`. `apps/web/vercel.json` does this on
-   Vercel; elsewhere use any scheduler.
+   `Authorization: Bearer $CRON_SECRET`. Vercel Hobby only runs crons daily,
+   so `apps/web/vercel.json` runs it once a day as a backup and
+   `.github/workflows/billing-reconcile.yml` calls it every hour: set the repo
+   secrets `APP_URL` and `CRON_SECRET`. On Vercel Pro, change the
+   `vercel.json` schedule to `0 * * * *` and drop the workflow. Elsewhere use
+   any scheduler.
 
 More detail, including a going-live checklist, is in `docs/paystack-setup.md`.
 

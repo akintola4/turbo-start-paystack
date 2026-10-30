@@ -1,0 +1,30 @@
+# Hourly billing reconcile. Vercel Hobby only runs crons once a day, so this
+# calls the same route every hour; the daily Vercel cron stays as a backup.
+# Repo secrets: APP_URL (e.g. https://turbo-start-paystack.vercel.app) and
+# CRON_SECRET (the same value as the app's). Until both are set, it skips.
+name: Billing reconcile
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the reconcile route
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "APP_URL or CRON_SECRET not set; skipping."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 120 \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "${APP_URL%/}/api/cron/billing-reconcile"
