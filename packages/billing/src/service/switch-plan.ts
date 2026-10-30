@@ -11,6 +11,7 @@ import {
   seal,
   unseal,
 } from "./context";
+import { createOrAdoptSubscription } from "./paystack-subscription";
 
 /** Email token for a subscription, fetched from Paystack if we never got
  *  the `subscription.create` webhook that carries it. */
@@ -100,7 +101,7 @@ export async function switchPlanNow(
 
   let created: Awaited<ReturnType<typeof deps.paystack.createSubscription>>;
   try {
-    created = await deps.paystack.createSubscription({
+    created = await createOrAdoptSubscription(deps, tx, {
       customer: customer.paystackCustomerCode,
       plan: row.paystackPlanCode,
       authorization: input.authorizationCode,

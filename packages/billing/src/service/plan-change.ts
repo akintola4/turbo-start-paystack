@@ -19,6 +19,7 @@ import {
   unseal,
 } from "./context";
 import { upsertInvoice } from "./invoices";
+import { createOrAdoptSubscription } from "./paystack-subscription";
 import {
   emailTokenFor,
   retireSubscription,
@@ -163,19 +164,17 @@ export async function changePlan(
         if (!customer) {
           throw new BillingError("no_subscription", "No billing customer");
         }
-        const created = await deps.paystack
-          .createSubscription({
-            customer: customer.paystackCustomerCode,
-            plan: row.paystackPlanCode,
-            authorization: authorizationCode,
-            start_date: effectiveAt.toISOString(),
-          })
-          .catch(() => {
-            throw new BillingError(
-              "downgrade_failed",
-              "Could not schedule the downgrade. Nothing was changed."
-            );
-          });
+        const created = await createOrAdoptSubscription(deps, tx, {
+          customer: customer.paystackCustomerCode,
+          plan: row.paystackPlanCode,
+          authorization: authorizationCode,
+          start_date: effectiveAt.toISOString(),
+        }).catch(() => {
+          throw new BillingError(
+            "downgrade_failed",
+            "Could not schedule the downgrade. Nothing was changed."
+          );
+        });
         // A different downgrade was already scheduled: its Paystack
         // subscription would still start (and charge) at period end, so it is
         // retired now that its replacement exists.

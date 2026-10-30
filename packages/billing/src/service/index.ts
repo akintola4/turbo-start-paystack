@@ -76,10 +76,31 @@ export function createBillingService(options: CreateBillingServiceOptions) {
         throw new BillingError("no_subscription", "Unknown payment reference");
       }
       if (intent.status === "created") {
-        const tx = await deps.paystack.verifyTransaction(reference);
-        if (tx.status === "success") {
-          await transactionWithNotifications(deps, (t, scoped) =>
-            applyChargeSuccess(scoped, t, tx)
+        // Never fails the callback page. The charge.success webhook and
+        // reconcile apply the same charge, so a Paystack hiccup here (or a
+        // race with the webhook) only delays the result; the page shows
+        // "confirming" and the billing page picks the plan up when it lands.
+        try {
+          const tx = await deps.paystack.verifyTransaction(reference);
+          if (tx.status === "success") {
+            const outcome = await transactionWithNotifications(
+              deps,
+              (t, scoped) => applyChargeSuccess(scoped, t, tx)
+            );
+            if (outcome.error) {
+              deps.logger.warn("checkout confirmation left work undone", {
+                reference,
+                error: outcome.error,
+              });
+            }
+          }
+        } catch (error) {
+          deps.logger.error(
+            "checkout confirmation failed; webhook and reconcile will finish it",
+            {
+              reference,
+              error: error instanceof Error ? error.message : String(error),
+            }
           );
         }
       }

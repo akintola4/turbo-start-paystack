@@ -23,6 +23,7 @@ import {
   unseal,
 } from "./context";
 import { upsertInvoice } from "./invoices";
+import { createOrAdoptSubscription } from "./paystack-subscription";
 import { switchPlanNow } from "./switch-plan";
 import { resyncSubscription } from "./sync-remote";
 
@@ -245,7 +246,7 @@ async function startTrialFromCharge(
     trialEndsAt,
     ...cardFields(deps, data.authorization, data.customer?.email),
   });
-  const created = await deps.paystack.createSubscription({
+  const created = await createOrAdoptSubscription(deps, tx, {
     customer: customer.paystackCustomerCode,
     plan: row.paystackPlanCode,
     authorization: data.authorization.authorization_code,

@@ -55,7 +55,10 @@ export function createFakePaystack(options?: {
   const now = options?.now ?? (() => new Date());
   const checkoutBaseUrl =
     options?.checkoutBaseUrl ?? "https://checkout.paystack.test";
-  const customers = new Map<string, { customer_code: string; email: string }>();
+  const customers = new Map<
+    string,
+    { customer_code: string; email: string; id?: number }
+  >();
   const transactions = new Map<string, Tx>();
   const subscriptions = new Map<string, Sub>();
   const plans = new Map<
@@ -66,8 +69,18 @@ export function createFakePaystack(options?: {
       amount: number;
       interval: string;
       currency: string;
+      id?: number;
     }
   >();
+  // Paystack's numeric ids, which some endpoints answer with instead of
+  // codes. Assigned lazily so snapshots from before they existed restore.
+  let nextNumericId = 1000;
+  const numericId = (record: { id?: number }) => {
+    record.id ??= nextNumericId++;
+    return record.id;
+  };
+  const customerByCode = (code: string) =>
+    [...customers.values()].find((c) => c.customer_code === code);
   const refunds: { transaction: string; amount?: number }[] = [];
   const calls: Call[] = [];
   const failures: Failure[] = [];
@@ -81,7 +94,7 @@ export function createFakePaystack(options?: {
   function customerFor(email: string) {
     let customer = customers.get(email);
     if (!customer) {
-      customer = { customer_code: id("CUS"), email };
+      customer = { customer_code: id("CUS"), email, id: nextNumericId++ };
       customers.set(email, customer);
     }
     return customer;
@@ -206,9 +219,14 @@ export function createFakePaystack(options?: {
         return fail(400, "Transaction reference not found");
       }
       const view = txView(tx);
+      // Shaped like the verify endpoint: `{}` for an unpaid authorization,
+      // and the paid date as both `paid_at` and `paidAt`.
       return ok({
         ...view,
         status: tx.status === "pending" ? "abandoned" : tx.status,
+        authorization: view.authorization ?? {},
+        paidAt: view.paid_at,
+        plan_object: view.plan ?? {},
       });
     }
 
@@ -256,22 +274,74 @@ export function createFakePaystack(options?: {
       return ok({ status: "pending" });
     }
 
+    const fetchCustomer = path.match(/^\/customer\/([^/]+)$/);
+    if (method === "GET" && fetchCustomer?.[1]) {
+      const customer = customerByCode(decodeURIComponent(fetchCustomer[1]));
+      return customer
+        ? ok({ ...customer, id: numericId(customer) })
+        : fail(404, "Customer not found");
+    }
+
+    if (method === "GET" && path === "/subscription") {
+      const customerId = Number(url.searchParams.get("customer"));
+      const customer = [...customers.values()].find(
+        (c) => numericId(c) === customerId
+      );
+      return ok(
+        [...subscriptions.values()]
+          .filter((sub) => sub.customer === customer?.customer_code)
+          .reverse()
+          .map(subView)
+      );
+    }
+
     if (method === "POST" && path === "/subscription") {
       const plan = String(body.plan);
-      if (!plans.has(plan)) {
+      const planRecord = plans.get(plan);
+      if (!planRecord) {
         return fail(400, "Plan not found");
+      }
+      const customerCode = String(body.customer);
+      // Paystack allows one live subscription per customer and plan.
+      if (
+        [...subscriptions.values()].some(
+          (s) =>
+            s.customer === customerCode &&
+            s.plan === plan &&
+            s.status === "active"
+        )
+      ) {
+        return fail(400, "This subscription is already in place.");
       }
       const sub: Sub = {
         subscription_code: id("SUB"),
         email_token: id("tok"),
         status: "active",
         plan,
-        customer: String(body.customer),
+        customer: customerCode,
         authorization: String(body.authorization ?? ""),
         next_payment_date: String(body.start_date ?? now().toISOString()),
       };
       subscriptions.set(sub.subscription_code, sub);
-      return ok(subView(sub));
+      // As documented: plan, customer and authorization come back as
+      // numeric ids, not objects or codes.
+      const customer = customerByCode(customerCode);
+      return ok({
+        customer: customer ? numericId(customer) : 0,
+        plan: numericId(planRecord),
+        integration: 100032,
+        domain: "test",
+        start: Math.floor(now().getTime() / 1000),
+        status: sub.status,
+        quantity: 1,
+        amount: planRecord.amount,
+        authorization: 0,
+        subscription_code: sub.subscription_code,
+        email_token: sub.email_token,
+        id: 9,
+        createdAt: now().toISOString(),
+        updatedAt: now().toISOString(),
+      });
     }
 
     const manage = path.match(/^\/subscription\/([^/]+)\/manage\/link$/);
