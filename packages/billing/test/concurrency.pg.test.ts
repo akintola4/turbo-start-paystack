@@ -79,7 +79,7 @@ describe.skipIf(!url)("concurrent webhook processing on real Postgres", () => {
         .values({ id: organizationId, name: "x", slug: `race-${i}` });
       const checkout = await billing.startCheckout({
         organizationId,
-        actor: { userId, email: `o${i}@race.test` },
+        actor: { userId, email: `o${i}@race.test`, emailVerified: true },
         planPriceId: "pro-monthly-ngn",
       });
       const { transaction, subscription } = fake.pay(checkout.reference);

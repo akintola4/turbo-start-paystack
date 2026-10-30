@@ -113,7 +113,10 @@ export async function setupBilling(
         currency: "NGN",
       });
     }
-    return { organizationId, actor: { userId, email } };
+    return {
+      organizationId,
+      actor: { userId, email, emailVerified: true },
+    };
   }
 
   async function deliver(payload: unknown) {

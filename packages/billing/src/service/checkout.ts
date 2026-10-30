@@ -13,7 +13,10 @@ import {
   planPriceRow,
 } from "./context";
 
-export type Actor = { userId: string; email: string };
+/** The signed-in user acting for the organization. `emailVerified` comes
+ *  from the session: an unverified address may not be the user's, so it is
+ *  never sent to Paystack as the paying customer's email. */
+export type Actor = { userId: string; email: string; emailVerified: boolean };
 
 export async function ensureCustomer(
   deps: BillingDeps,
@@ -64,6 +67,12 @@ export async function startCheckout(
   input: { organizationId: string; actor: Actor; planPriceId: string }
 ) {
   const { db } = deps;
+  if (!input.actor.emailVerified) {
+    throw new BillingError(
+      "email_unverified",
+      "Verify your email address before starting a checkout."
+    );
+  }
   const price = getPlanPrice(input.planPriceId);
   const plan = price && getPlan(price.planKey);
   if (!(price && plan)) {

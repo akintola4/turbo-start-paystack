@@ -80,7 +80,7 @@ function createServerContext(): ServerContext {
       if (sub?.status === "trialing") {
         await billing.cancel({
           organizationId,
-          actor: { userId: "system", email: "" },
+          actor: { userId: "system", email: "", emailVerified: false },
         });
       }
       return undefined;

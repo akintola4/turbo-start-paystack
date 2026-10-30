@@ -72,6 +72,11 @@ async function signUp(email: string) {
   await auth.api.signUpEmail({
     body: { email, password: "correct-horse-battery", name: email },
   });
+  // Sign-in needs a verified email.
+  await ctx.db
+    .update(schema.user)
+    .set({ emailVerified: true })
+    .where(eq(schema.user.email, email));
   const res = await auth.api.signInEmail({
     body: { email, password: "correct-horse-battery" },
     asResponse: true,
@@ -108,7 +113,7 @@ async function paidInvoice(orgId: string, email: string) {
     .where(eq(schema.user.email, email));
   const checkout = await ctx.billing.startCheckout({
     organizationId: orgId,
-    actor: { userId: user?.id ?? "", email },
+    actor: { userId: user?.id ?? "", email, emailVerified: true },
     planPriceId: "pro-monthly-ngn",
   });
   ctx.fake.pay(checkout.reference);

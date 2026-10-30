@@ -10,6 +10,7 @@ import { chargeSuccess, subscriptionCreate } from "@workspace/billing/fixtures";
 import { schema } from "@workspace/db";
 import { createTestDb } from "@workspace/db/testing";
 import { createMailer } from "@workspace/email";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -71,6 +72,11 @@ async function signUp(email: string) {
   await auth.api.signUpEmail({
     body: { email, password: "correct-horse-battery", name: email },
   });
+  // Sign-in needs a verified email.
+  await ctx.db
+    .update(schema.user)
+    .set({ emailVerified: true })
+    .where(eq(schema.user.email, email));
   const res = await auth.api.signInEmail({
     body: { email, password: "correct-horse-battery" },
     asResponse: true,
@@ -203,6 +209,19 @@ describe("billing routes: authentication and authorization", () => {
     const body = await res.json();
     expect(body).toMatchObject({ kind: "trial" });
     expect(body.accessCode).toBeTruthy();
+  });
+
+  it("refuses checkout while the caller's email is unverified (audit #13)", async () => {
+    const lapsed = await addMember(orgId, "lapsed@acme.test", "billing");
+    await ctx.db
+      .update(schema.user)
+      .set({ emailVerified: false })
+      .where(eq(schema.user.email, "lapsed@acme.test"));
+    const res = await call(lapsed, "checkout", {
+      planPriceId: "starter-monthly-ngn",
+    });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "email_unverified" });
   });
 
   it("returns 404 for unknown actions", async () => {

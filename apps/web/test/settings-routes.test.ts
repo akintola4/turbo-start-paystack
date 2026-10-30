@@ -61,6 +61,11 @@ async function signUp(email: string) {
   await ctx.authService.auth.api.signUpEmail({
     body: { email, password: PASSWORD, name: email.split("@")[0] ?? email },
   });
+  // Sign-in needs a verified email.
+  await ctx.db
+    .update(schema.user)
+    .set({ emailVerified: true })
+    .where(eq(schema.user.email, email));
   return signIn(email);
 }
 

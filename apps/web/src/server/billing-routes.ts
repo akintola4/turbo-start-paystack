@@ -92,7 +92,7 @@ export async function handleBillingAction(
   ) {
     return json({ error: "unsupported_media_type" }, 415);
   }
-  let actor: { userId: string; email: string };
+  let actor: { userId: string; email: string; emailVerified: boolean };
   try {
     actor = await deps.authService.requirePermission(
       input.headers,
@@ -122,7 +122,7 @@ export async function handleBillingAction(
 
 type ActionContext = {
   organizationId: string;
-  actor: { userId: string; email: string };
+  actor: { userId: string; email: string; emailVerified: boolean };
   body: unknown;
 };
 

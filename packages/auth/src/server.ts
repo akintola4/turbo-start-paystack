@@ -464,7 +464,12 @@ export function createAuth(options: CreateAuthOptions) {
     headers: Headers,
     organizationId: string,
     permission: Permission
-  ): Promise<{ userId: string; email: string; role: Role | string }> {
+  ): Promise<{
+    userId: string;
+    email: string;
+    emailVerified: boolean;
+    role: Role | string;
+  }> {
     const session = await auth.api.getSession({ headers });
     if (!session) {
       throw new AuthError(401, "Not signed in");
@@ -479,6 +484,7 @@ export function createAuth(options: CreateAuthOptions) {
     return {
       userId: session.user.id,
       email: session.user.email,
+      emailVerified: session.user.emailVerified,
       role: me.role,
     };
   }
