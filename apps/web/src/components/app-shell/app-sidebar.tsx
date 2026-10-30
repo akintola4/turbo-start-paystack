@@ -17,7 +17,7 @@ import {
 import type { ComponentProps } from "react";
 
 import { SearchButton } from "@/components/app-shell/command-palette";
-import { NavMain, type NavItem } from "@/components/app-shell/nav-main";
+import { type NavItem, NavMain } from "@/components/app-shell/nav-main";
 import { NavUser } from "@/components/app-shell/nav-user";
 import { TeamSwitcher } from "@/components/app-shell/team-switcher";
 import { statusLabel } from "@/components/primitives";
@@ -72,7 +72,7 @@ export function AppSidebar({
       : null;
   const planLabel = `${plan.name} plan${status ? ` · ${status}` : ""}`;
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible="icon" variant="inset" {...props}>
       <SidebarHeader>
         <TeamSwitcher
           current={{ ...data.org, plan: planLabel }}

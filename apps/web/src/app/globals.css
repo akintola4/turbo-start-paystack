@@ -98,7 +98,8 @@ html[data-modality="pointer"]
 @supports (animation-timeline: scroll()) {
   [data-topbar] {
     animation: topbar-edge linear both;
-    animation-timeline: scroll(root);
+    /* The page, or the inset card where it scrolls (desktop app shell). */
+    animation-timeline: scroll(nearest);
     animation-range: 0 12px;
   }
 }
@@ -838,6 +839,15 @@ number-flow-react::part(symbol) {
     --muted-foreground: oklch(0.47 0.016 163);
     --subtle-foreground: oklch(0.56 0.014 163);
     --border: oklch(0.9 0.012 163);
+  }
+  /* The inset card scrolls on screen; on paper the page flows. */
+  [data-slot="sidebar-wrapper"],
+  [data-scroller] {
+    height: auto;
+    overflow: visible;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
   [data-slot="sidebar"],
   [data-slot="sidebar-gap"],

@@ -38,21 +38,22 @@ function pageTitle(pathname: string, orgSlug: string) {
 /**
  * sidebar-07's header: trigger, separator, breadcrumb (org / page). 64px,
  * 48px with the sidebar in icon mode, as in the block, so its centre stays
- * on the team switcher's (which shrinks from 48px to 32px). It sits on the
- * page column, so the trigger's ink starts on the content edge.
+ * on the team switcher's (which shrinks from 48px to 32px). It spans the
+ * inset like the block's, so the trigger stays beside the sidebar.
  */
 export function SiteHeader({ org }: { org: { name: string; slug: string } }) {
   const pathname = usePathname();
   const { isMobile, open, openMobile } = useSidebar();
   return (
-    <TopBarRow className="gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 motion-reduce:transition-none">
-      {/* (36 − 16) / 2 + 1.33 (the glyph's inset in its 24px box) puts the
-          icon's ink, not the button box, on the content edge. */}
+    <TopBarRow
+      className="gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 motion-reduce:transition-none"
+      edge
+    >
       <SidebarTrigger
         aria-expanded={isMobile ? openMobile : open}
         aria-keyshortcuts="Meta+B Control+B"
         aria-label="Toggle sidebar"
-        className="-ml-[11.33px] aria-expanded:not-hover:bg-transparent"
+        className="-ml-1 aria-expanded:not-hover:bg-transparent"
       />
       <Separator
         className="mr-2 data-vertical:h-4 data-vertical:self-auto"
