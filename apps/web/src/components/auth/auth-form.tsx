@@ -79,17 +79,19 @@ function inboxLinks(email: string) {
 }
 
 /**
- * After sign-up: the form gives way to "check your inbox". The account
- * exists and is signed in, so carrying on without verifying is allowed;
- * inviting people waits for the verified email.
+ * After sign-up, or a sign-in with an unconfirmed address: the form gives
+ * way to "check your inbox". There is no session until the link is opened
+ * (it signs the user in), so this is the only way forward.
  */
 function CheckEmail({
   email,
   callbackURL,
+  reason,
   onChangeEmail,
 }: {
   email: string;
   callbackURL: string;
+  reason: "sign-up" | "unverified";
   onChangeEmail: () => void;
 }) {
   const cooldown = useCooldown();
@@ -122,9 +124,11 @@ function CheckEmail({
           className="mt-0.5 size-5 shrink-0 text-success"
         />
         <p className="text-sm">
-          We sent a verification link to{" "}
+          {reason === "unverified"
+            ? "This email isn't confirmed yet. We sent a new link to "
+            : "We sent a verification link to "}
           <span className="break-all font-semibold">{email}</span>. Open it on
-          this device to finish.
+          this device to {reason === "unverified" ? "sign in" : "finish"}.
         </p>
       </div>
       <div className="grid gap-3">
@@ -161,11 +165,10 @@ function CheckEmail({
           onClick={onChangeEmail}
           type="button"
         >
-          Use a different email
+          {reason === "unverified"
+            ? "Back to sign in"
+            : "Use a different email"}
         </button>
-        <Link className={inlineLinkClass} href={callbackURL}>
-          Continue to your account
-        </Link>
       </div>
     </div>
   );
@@ -178,7 +181,10 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<AuthFormError | null>(null);
   const [email, setEmail] = useState("");
-  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<{
+    email: string;
+    reason: "sign-up" | "unverified";
+  } | null>(null);
   const signal = useMarkSignals();
 
   // Plain /app may skip the picker after sign-in (see app/app/page.tsx).
@@ -205,6 +211,13 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             callbackURL: landing,
           });
     if (result.error) {
+      // Better Auth has just sent a fresh link (sendOnSignIn).
+      if (mode === "sign-in" && result.error.code === "EMAIL_NOT_VERIFIED") {
+        setPending(false);
+        setSentTo({ email, reason: "unverified" });
+        signal({ type: "reset" });
+        return;
+      }
       const formError = authFormError(result.error, mode);
       setPending(false);
       setError(formError);
@@ -214,7 +227,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     signal({ type: "success" });
     if (mode === "sign-up") {
       setPending(false);
-      setSentTo(email);
+      setSentTo({ email, reason: "sign-up" });
       return;
     }
     // Stays pending through the navigation, so the button doesn't flicker.
@@ -225,11 +238,12 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     return (
       <CheckEmail
         callbackURL={callbackURL}
-        email={sentTo}
+        email={sentTo.email}
         onChangeEmail={() => {
           setSentTo(null);
           signal({ type: "reset" });
         }}
+        reason={sentTo.reason}
       />
     );
   }

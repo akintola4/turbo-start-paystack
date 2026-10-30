@@ -138,6 +138,7 @@ describe("invitations (PLAN §2.3 #3, #4, #5)", () => {
         name: "u",
       },
     });
+    // Unverified, there is no session to accept with: sign-in is refused.
     const res = await ctx.auth.api.signInEmail({
       body: {
         email: "unverified@acme.test",
@@ -145,15 +146,14 @@ describe("invitations (PLAN §2.3 #3, #4, #5)", () => {
       },
       asResponse: true,
     });
-    const headers = new Headers({
-      cookie: res.headers
-        .getSetCookie()
-        .map((c) => c.split(";")[0])
-        .join("; "),
-    });
+    expect(res.status).toBe(403);
+    expect(res.headers.getSetCookie()).toEqual([]);
     await expect(
-      ctx.auth.api.acceptInvitation({ headers, body: { invitationId: inv.id } })
-    ).rejects.toMatchObject({ statusCode: 403 });
+      ctx.auth.api.acceptInvitation({
+        headers: new Headers(),
+        body: { invitationId: inv.id },
+      })
+    ).rejects.toMatchObject({ statusCode: 401 });
   });
 
   it("members without invite rights cannot see invitation tokens", async () => {

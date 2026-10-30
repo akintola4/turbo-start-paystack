@@ -33,7 +33,7 @@ export function authFormError(
       };
     case "EMAIL_NOT_VERIFIED":
       return {
-        message: "Verify your email first. Check your inbox for the link.",
+        message: "Confirm your email first. We sent a new link to your inbox.",
         field: "email",
       };
     case "USER_ALREADY_EXISTS":

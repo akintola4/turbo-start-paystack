@@ -261,12 +261,20 @@ export function createAuth(options: CreateAuthOptions) {
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 10,
+      // No session until the address is confirmed; sign-up and sign-in
+      // (re)send the link.
+      requireEmailVerification: true,
+      // A reset signs out every other device, including whoever had the
+      // old password.
+      revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
         await mailer.resetPassword({ to: user.email, name: user.name, url });
       },
     },
     emailVerification: {
       sendOnSignUp: true,
+      // An unverified sign-in gets a fresh link instead of a session.
+      sendOnSignIn: true,
       autoSignInAfterVerification: true,
       expiresIn: CHANGE_EMAIL_EXPIRES_IN_SECONDS,
       // A verified user here is changing address: Better Auth passes the

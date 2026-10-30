@@ -84,3 +84,47 @@ export async function addMember(
   });
   return headers;
 }
+
+export const PASSWORD = "correct-horse-battery";
+export const ORIGIN = "http://localhost:3000";
+
+/** A request through Better Auth's HTTP handler, where rate limits apply. */
+export function post(
+  ctx: Ctx,
+  path: string,
+  body: unknown,
+  options: { ip: string; cookie?: string }
+) {
+  return ctx.auth.handler(
+    new Request(`${ORIGIN}/api/auth${path}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: {
+        "content-type": "application/json",
+        origin: ORIGIN,
+        "x-forwarded-for": options.ip,
+        ...(options.cookie ? { cookie: options.cookie } : {}),
+      },
+    })
+  );
+}
+
+export const cookieOf = (res: Response) =>
+  res.headers
+    .getSetCookie()
+    .map((c) => c.split(";")[0])
+    .join("; ");
+
+export const mailTo = (ctx: Ctx, to: string) =>
+  ctx.outbox.filter((m) => m.to === to);
+
+/** The first Better Auth link to `path` in an email's text. */
+export function linkIn(text: string, path: string) {
+  const match = text.match(
+    new RegExp(`http://localhost:3000/api/auth${path}\\S+`)
+  );
+  if (!match) {
+    throw new Error(`no ${path} link in the email`);
+  }
+  return match[0];
+}
