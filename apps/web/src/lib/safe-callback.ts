@@ -13,3 +13,9 @@ export function safeCallback(value: string | null): string {
   }
   return "/app";
 }
+
+/** Where a signed-in user lands. Plain `/app` may skip the org picker (see
+ *  app/app/page.tsx). */
+export function postAuthLanding(callbackURL: string): string {
+  return callbackURL === "/app" ? "/app?from=sign-in" : callbackURL;
+}

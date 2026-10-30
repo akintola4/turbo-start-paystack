@@ -1,6 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import { safeCallback } from "../src/lib/safe-callback";
+import { postAuthLanding, safeCallback } from "../src/lib/safe-callback";
+
+describe("postAuthLanding", () => {
+  it("lets plain /app skip the org picker", () => {
+    expect(postAuthLanding("/app")).toBe("/app?from=sign-in");
+  });
+
+  it("keeps any other safe callback as is", () => {
+    expect(postAuthLanding("/app/kola-logistics/members")).toBe(
+      "/app/kola-logistics/members"
+    );
+    expect(postAuthLanding("/accept-invite/abc")).toBe("/accept-invite/abc");
+  });
+
+  it("sends an unsafe callback to the dashboard", () => {
+    expect(postAuthLanding(safeCallback("//evil.example"))).toBe(
+      "/app?from=sign-in"
+    );
+  });
+});
 
 describe("safeCallback (audit #10)", () => {
   it("keeps same-origin paths", () => {

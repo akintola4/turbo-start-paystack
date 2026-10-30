@@ -4,10 +4,16 @@ import { Suspense } from "react";
 import { AuthForm, AuthSwitch } from "@/components/auth/auth-form";
 import { AuthScreen } from "@/components/auth/auth-screen";
 import { currencyFromAcceptLanguage } from "@/lib/locale-currency";
+import { redirectIfSignedIn } from "@/server/session";
 
 export const metadata = { title: "Create account" };
 
-export default async function SignUpPage() {
+export default async function SignUpPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ callbackURL?: string | string[] }>;
+}) {
+  await redirectIfSignedIn((await searchParams).callbackURL);
   const currency = currencyFromAcceptLanguage(
     (await headers()).get("accept-language")
   );
