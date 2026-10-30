@@ -456,13 +456,25 @@ export function createFakePaystack(options?: {
      * subscription now carries that authorization. Returns the transaction
      * for a `charge.success` payload.
      */
-    updateCard(code: string, authorization: Authorization) {
+    /**
+     * The customer replaces the card on the manage page. Paystack charges the
+     * new card with `transaction_type: "update_card"`; `adopt: false` leaves
+     * the subscription on its old card, as test mode does, and `adoptCard`
+     * moves it later.
+     */
+    updateCard(
+      code: string,
+      authorization: Authorization,
+      opts: { adopt?: boolean } = {}
+    ) {
       const sub = subscriptions.get(code);
       if (!sub) {
         throw new Error(`fake paystack: unknown subscription ${code}`);
       }
-      sub.authorization = authorization.authorization_code;
-      sub.card = authorization;
+      if (opts.adopt !== false) {
+        sub.authorization = authorization.authorization_code;
+        sub.card = authorization;
+      }
       const customer = customerByCode(sub.customer);
       return {
         reference: id("T"),
@@ -473,7 +485,19 @@ export function createFakePaystack(options?: {
           email: customer?.email ?? "",
         },
         authorization,
+        metadata: {
+          transaction_type: "update_card",
+          referrer: `https://paystack.com/manage/subscriptions/${code.replace(/^SUB_/, "")}`,
+        },
       };
+    },
+    adoptCard(code: string, authorization: Authorization) {
+      const sub = subscriptions.get(code);
+      if (!sub) {
+        throw new Error(`fake paystack: unknown subscription ${code}`);
+      }
+      sub.authorization = authorization.authorization_code;
+      sub.card = authorization;
     },
     /** Registers a plan without an HTTP call (seeding). */
     addPlan(plan: {
