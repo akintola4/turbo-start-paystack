@@ -106,3 +106,46 @@ export function ConfirmingPayment() {
     </main>
   );
 }
+
+/** Settings column: one tile per section, at the owner's heights. */
+function SettingsColumn({ heights }: { heights: string[] }) {
+  return (
+    <div className="grid max-w-3xl gap-6">
+      {heights.map((h) => (
+        <Skeleton className={`rounded-tile ${h}`} key={h} />
+      ))}
+    </div>
+  );
+}
+
+export function OrgSettingsLoading() {
+  return (
+    <Loading>
+      <SettingsColumn
+        heights={[
+          "h-[476px] sm:h-[378px]",
+          "h-[375px] sm:h-[275px]",
+          "h-[248px] sm:h-[188px]",
+          "h-[423px] sm:h-[295px]",
+        ]}
+      />
+    </Loading>
+  );
+}
+
+export function AccountLoading() {
+  return (
+    <Loading>
+      <SettingsColumn
+        heights={[
+          "h-[362px] sm:h-[350px]",
+          "h-[354px] sm:h-[342px]",
+          "h-[384px] sm:h-[286px]",
+          "h-[592px] sm:h-[552px]",
+          "h-[176px] sm:h-[164px]",
+          "h-[308px] sm:h-[208px]",
+        ]}
+      />
+    </Loading>
+  );
+}

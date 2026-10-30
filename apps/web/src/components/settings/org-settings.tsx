@@ -395,7 +395,7 @@ function TransferOwnership({ data }: { data: OrgSettingsData }) {
             >
               {data.transferTargets.map((t) => (
                 <option key={t.memberId} value={t.memberId}>
-                  {t.name} ({roleLabel(t.role)}) · {t.email}
+                  {t.name} · {roleLabel(t.role)}
                 </option>
               ))}
             </NativeSelect>
