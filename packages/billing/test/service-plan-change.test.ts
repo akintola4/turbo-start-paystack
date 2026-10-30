@@ -371,6 +371,96 @@ describe("downgrade (end of period)", () => {
   });
 });
 
+describe("a second downgrade (audit #1: no orphaned scheduled subscription)", () => {
+  const live = () =>
+    [...h.fake.subscriptions.values()].filter((s) => s.status === "active");
+
+  it("retires the earlier scheduled subscription when another downgrade is chosen", async () => {
+    const { organizationId, actor, sub } =
+      await h.subscribe("pro-annually-ngn");
+    const first = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 1,
+    });
+    expect(first.kind).toBe("downgrade_scheduled");
+    const afterFirst = await h.billing.getSubscription(organizationId);
+    const firstCode = afterFirst?.scheduledSubscriptionCode ?? "";
+    expect(firstCode).not.toBe("");
+
+    const before = h.fake.calls.length;
+    await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "starter-monthly-ngn",
+      memberCount: 1,
+    });
+    const afterSecond = await h.billing.getSubscription(organizationId);
+    const secondCode = afterSecond?.scheduledSubscriptionCode ?? "";
+    expect(afterSecond?.scheduledPlanPriceId).toBe("starter-monthly-ngn");
+    expect(secondCode).not.toBe(firstCode);
+
+    // The first scheduled subscription is disabled and on record as replaced.
+    expect(h.fake.subscriptions.get(firstCode)?.status).toBe("non-renewing");
+    const [replaced] = await h.db
+      .select()
+      .from(schema.replacedSubscription)
+      .where(
+        eq(schema.replacedSubscription.paystackSubscriptionCode, firstCode)
+      );
+    expect(replaced?.disabledAt).not.toBeNull();
+    // The already-retired current subscription is not disabled a second time.
+    const disables = h.fake.calls
+      .slice(before)
+      .filter((c) => c.method === "POST" && c.path === "/subscription/disable");
+    expect(disables.map((c) => (c.body as { code: string }).code)).toEqual([
+      firstCode,
+    ]);
+    expect(
+      h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "")?.status
+    ).toBe("non-renewing");
+
+    // Exactly one subscription for this customer will still charge.
+    const customerCode = h.fake.subscriptions.get(secondCode)?.customer;
+    expect(
+      live()
+        .filter((s) => s.customer === customerCode)
+        .map((s) => s.subscription_code)
+    ).toEqual([secondCode]);
+  });
+
+  it("is idempotent when the same downgrade is requested twice", async () => {
+    const { organizationId, actor } = await h.subscribe("pro-monthly-ngn");
+    await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "starter-monthly-ngn",
+      memberCount: 1,
+    });
+    const scheduled = await h.billing.getSubscription(organizationId);
+    const before = h.fake.calls.length;
+    const again = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "starter-monthly-ngn",
+      memberCount: 1,
+    });
+    expect(again).toEqual({
+      kind: "downgrade_scheduled",
+      effectiveAt: scheduled?.currentPeriodEnd,
+    });
+    expect(h.fake.calls.slice(before)).toEqual([]);
+    const after = await h.billing.getSubscription(organizationId);
+    expect(after?.scheduledSubscriptionCode).toBe(
+      scheduled?.scheduledSubscriptionCode
+    );
+    expect(
+      h.fake.subscriptions.get(after?.scheduledSubscriptionCode ?? "")?.status
+    ).toBe("active");
+  });
+});
+
 describe("cancel and resume (PLAN §2.3 #11)", () => {
   it("disables with the code and token from the database and keeps access", async () => {
     const { organizationId, actor, sub } = await h.subscribe("pro-monthly-ngn");

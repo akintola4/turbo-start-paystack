@@ -6,8 +6,8 @@ import { setupServer } from "msw/node";
 
 import { listPlanPrices } from "../src/catalog";
 import { createFakePaystack } from "../src/fake-paystack";
-import type { InvoicingConfig } from "../src/invoicing";
 import { chargeSuccess, subscriptionCreate } from "../src/fixtures";
+import type { InvoicingConfig } from "../src/invoicing";
 import { createPaystackClient } from "../src/paystack/client";
 import type { BillingNotification } from "../src/service/context";
 import { createBillingService } from "../src/service/index";

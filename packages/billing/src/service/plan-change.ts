@@ -10,6 +10,7 @@ import {
   audit,
   type BillingDeps,
   billingCustomer,
+  isReplacedCode,
   liveSubscription,
   newReference,
   planPriceRow,
@@ -132,11 +133,18 @@ export async function changePlan(
             `${targetPlan.name} allows ${targetPlan.limits.members} members; remove ${input.memberCount - targetPlan.limits.members} first.`
           );
         }
+        const effectiveAt = sub.currentPeriodEnd ?? deps.now();
+        // Asking for the downgrade that is already scheduled changes nothing.
+        if (
+          sub.scheduledSubscriptionCode &&
+          sub.scheduledPlanPriceId === target.id
+        ) {
+          return { kind: "downgrade_scheduled", effectiveAt };
+        }
         const customer = await billingCustomer(tx, input.organizationId);
         if (!customer) {
           throw new BillingError("no_subscription", "No billing customer");
         }
-        const effectiveAt = sub.currentPeriodEnd ?? deps.now();
         const created = await deps.paystack
           .createSubscription({
             customer: customer.paystackCustomerCode,
@@ -150,7 +158,22 @@ export async function changePlan(
               "Could not schedule the downgrade. Nothing was changed."
             );
           });
-        if (sub.paystackSubscriptionCode) {
+        // A different downgrade was already scheduled: its Paystack
+        // subscription would still start (and charge) at period end, so it is
+        // retired now that its replacement exists.
+        if (sub.scheduledSubscriptionCode) {
+          await retireSubscription(
+            deps,
+            tx,
+            sub.organizationId,
+            sub.scheduledSubscriptionCode,
+            sub.scheduledEmailToken
+          );
+        }
+        const currentRetired =
+          sub.paystackSubscriptionCode &&
+          (await isReplacedCode(tx, sub.paystackSubscriptionCode))?.disabledAt;
+        if (sub.paystackSubscriptionCode && !currentRetired) {
           await retireSubscription(
             deps,
             tx,
