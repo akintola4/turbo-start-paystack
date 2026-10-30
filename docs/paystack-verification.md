@@ -25,7 +25,9 @@ URL, `pnpm billing:sync`, and watch the `webhook_event` table.
       handler rejects any mismatch.
 - [ ] `metadata` comes back in `charge.success` and in
       `GET /transaction/verify` (as an object or a JSON string; both are
-      handled).
+      handled, and `""` or `0` read as no metadata).
+- [ ] The `plan` field on a one-off charge (the trial card check): `{}`,
+      `null`, `0` or a numeric id are all read as "no plan".
 - [ ] The callback URL receives `?reference=` (and `trxref=`).
 - [ ] `@paystack/inline-js` 2.27 `resumeTransaction(accessCode, { onSuccess })`
       opens the popup and calls `onSuccess`.
@@ -42,7 +44,13 @@ URL, `pnpm billing:sync`, and watch the `webhook_event` table.
 - [ ] `subscription.create` includes `email_token` and `next_payment_date`.
 - [ ] `POST /subscription` with `authorization` and a future `start_date`
       returns `subscription_code` and `email_token`, and charges nothing until
-      `start_date`.
+      `start_date`. Its `plan` and `customer` are numeric ids, not objects
+      (seen in production; the schemas accept both).
+- [ ] A second `POST /subscription` for the same customer and plan fails
+      with "This subscription is already in place." (seen in production).
+      The billing code then adopts the existing one via `GET /customer/:code`
+      and `GET /subscription?customer=<id>`; check that list returns
+      `plan.plan_code` and `email_token`.
 - [ ] On `start_date`, the first charge sends `charge.success` with the plan
       code and customer, and `GET /subscription/:code` then shows the next
       `next_payment_date`. Trials and scheduled downgrades depend on this.

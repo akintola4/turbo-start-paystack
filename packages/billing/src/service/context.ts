@@ -225,7 +225,7 @@ export function cardFields(
       }
     | null
     | undefined,
-  email: string | undefined
+  email: string | null | undefined
 ): Partial<SubscriptionRow> {
   if (!authorization?.reusable) {
     return {};
