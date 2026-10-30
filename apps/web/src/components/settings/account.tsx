@@ -1,10 +1,10 @@
 "use client";
 
+import { cn } from "@workspace/tailwind-config/utils";
 import { Button, buttonVariants } from "@workspace/ui/components/button";
 import { Checkbox } from "@workspace/ui/components/checkbox";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
-import { cn } from "@workspace/tailwind-config/utils";
 import {
   ArrowRightIcon,
   LaptopIcon,
@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 
 import { FormAlert } from "@/components/auth/auth-form";
 import { Confirm } from "@/components/confirm";
@@ -25,6 +25,11 @@ import {
   useThemeChoice,
 } from "@/components/landing/theme-choice";
 import { MarkAvatar } from "@/components/mark-avatar";
+import {
+  RowPresenceProvider,
+  useRowPresence,
+  useRowPresenceActions,
+} from "@/components/motion";
 import { Chip, PageHeader } from "@/components/primitives";
 import { SettingsDialog } from "@/components/settings/dialog";
 import { postJson } from "@/components/settings/post";
@@ -32,8 +37,8 @@ import { SettingsRow, SettingsSection } from "@/components/settings/section";
 import { TypeToConfirm } from "@/components/settings/type-to-confirm";
 import { authClient } from "@/lib/auth-client";
 import { RATE_LIMITED } from "@/lib/auth-errors";
-import type { AccountData, SessionRow } from "@/lib/view-models";
 import { toast } from "@/lib/toast";
+import type { AccountData, SessionRow } from "@/lib/view-models";
 
 type ClientError = { status?: number; code?: string; message?: string };
 
@@ -124,6 +129,8 @@ function EmailSection({ data }: { data: AccountData }) {
   const [pending, setPending] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The banner settles in when a send makes it appear, never on page load.
+  const pendingAtLoad = useRef(Boolean(data.pendingEmail));
 
   async function send(newEmail: string) {
     return authClient.changeEmail({ newEmail, callbackURL: "/app/account" });
@@ -183,6 +190,7 @@ function EmailSection({ data }: { data: AccountData }) {
         <div
           className="grid gap-3 rounded-card bg-info-bg p-4 text-info sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center"
           data-pending-email
+          data-presence={pendingAtLoad.current ? undefined : "entering"}
           role="status"
         >
           <MailIcon aria-hidden className="hidden size-4 sm:block" />
@@ -236,7 +244,7 @@ function EmailSection({ data }: { data: AccountData }) {
   );
 }
 
-function PasswordSection() {
+function PasswordSection({ email }: { email: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<{
@@ -296,6 +304,15 @@ function PasswordSection() {
       title="Password"
     >
       <form className="grid gap-5" onSubmit={onSubmit}>
+        {/* Password managers pair the new password with this account. */}
+        <input
+          autoComplete="username"
+          className="sr-only"
+          readOnly
+          tabIndex={-1}
+          type="email"
+          value={email}
+        />
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="account-current-password">Current password</Label>
@@ -351,15 +368,19 @@ const KIND_ICON = {
 function SessionItem({ session }: { session: SessionRow }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const rows = useRowPresenceActions();
+  const presence = useRowPresence(session.id);
   const Icon = KIND_ICON[session.kind];
 
   async function revoke() {
     setPending(true);
+    rows?.markLeaving(session.id);
     const result = await postJson("/api/account/sessions/revoke", {
       sessionId: session.id,
     });
     if (!result.ok) {
       setPending(false);
+      rows?.unmark(session.id);
       toast.error("Couldn't sign it out", { description: result.message });
       return;
     }
@@ -370,6 +391,7 @@ function SessionItem({ session }: { session: SessionRow }) {
   return (
     <li
       className="flex items-center gap-3 border-border border-t py-4 first:border-t-0 first:pt-0 last:pb-0"
+      data-presence={presence}
       data-session={session.id}
     >
       <span className="grid size-10 shrink-0 place-items-center rounded-chip bg-surface-2">
@@ -407,8 +429,23 @@ function SessionItem({ session }: { session: SessionRow }) {
 /** This device and the four most recently active; the rest on request. */
 const SHOWN_SESSIONS = 5;
 
+/**
+ * Rows revealed by "Show more" settle in, and signed-out rows fade the
+ * moment the request starts (the refresh lands underneath).
+ */
 function SessionsSection({ data }: { data: AccountData }) {
+  return (
+    <RowPresenceProvider
+      ids={data.sessions.slice(0, SHOWN_SESSIONS).map((s) => s.id)}
+    >
+      <SessionsBody data={data} />
+    </RowPresenceProvider>
+  );
+}
+
+function SessionsBody({ data }: { data: AccountData }) {
   const router = useRouter();
+  const rows = useRowPresenceActions();
   const [confirm, setConfirm] = useState(false);
   const [pending, setPending] = useState(false);
   const [all, setAll] = useState(false);
@@ -418,9 +455,16 @@ function SessionsSection({ data }: { data: AccountData }) {
 
   async function signOutOthers() {
     setPending(true);
+    const leaving = data.sessions.filter((s) => !s.current).map((s) => s.id);
+    for (const id of leaving) {
+      rows?.markLeaving(id);
+    }
     const result = await authClient.revokeOtherSessions();
     setPending(false);
     if (result.error) {
+      for (const id of leaving) {
+        rows?.unmark(id);
+      }
       toast.error("Couldn't sign them out", {
         description: accountError(result.error, "Try again in a moment."),
       });
@@ -638,7 +682,7 @@ export function Account({ data }: { data: AccountData }) {
       <div className="grid max-w-3xl gap-6">
         <ProfileSection data={data} />
         <EmailSection data={data} />
-        <PasswordSection />
+        <PasswordSection email={data.user.email} />
         <SessionsSection data={data} />
         <AppearanceSection />
         <DeleteAccount data={data} />
