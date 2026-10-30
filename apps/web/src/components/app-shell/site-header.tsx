@@ -16,12 +16,18 @@ import { usePathname } from "next/navigation";
 import { TopBarRow } from "@/components/app-shell/top-bar";
 
 function pageTitle(pathname: string, orgSlug: string) {
+  if (pathname.startsWith("/app/account")) {
+    return "Account";
+  }
   const rest = pathname.replace(`/app/${orgSlug}`, "");
   if (rest.startsWith("/settings/billing/invoices/")) {
     return "Invoice";
   }
   if (rest.startsWith("/settings/billing")) {
     return "Billing";
+  }
+  if (rest.startsWith("/settings")) {
+    return "Settings";
   }
   if (rest.startsWith("/members")) {
     return "Members";
@@ -54,12 +60,17 @@ export function SiteHeader({ org }: { org: { name: string; slug: string } }) {
       />
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem className="hidden md:block">
-            <BreadcrumbLink render={<Link href={`/app/${org.slug}`} />}>
-              {org.name}
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator className="hidden md:block" />
+          {/* The account isn't the org's: no org crumb above it. */}
+          {pathname.startsWith("/app/account") ? null : (
+            <>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink render={<Link href={`/app/${org.slug}`} />}>
+                  {org.name}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+            </>
+          )}
           <BreadcrumbItem>
             <BreadcrumbPage>{pageTitle(pathname, org.slug)}</BreadcrumbPage>
           </BreadcrumbItem>

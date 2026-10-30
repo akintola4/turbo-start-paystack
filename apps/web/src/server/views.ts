@@ -19,16 +19,24 @@ import {
 import { schema } from "@workspace/db";
 import { env as clientEnv } from "@workspace/env/client";
 import { env } from "@workspace/env/server";
-import { and, count, eq, gt, inArray } from "drizzle-orm";
+import { and, count, desc, eq, gt, inArray } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 
-import { maskEmail } from "@/lib/format";
+import { formatDate, maskEmail } from "@/lib/format";
+import { deleteBlock, deleteBlockMessage } from "@/lib/org-settings";
+import {
+  activeLabel,
+  describeDevice,
+  describeLocation,
+  deviceLabel,
+} from "@/lib/sessions";
 import { planState } from "@/lib/plan-state";
 import { seatUsage } from "@/lib/seats";
 import { formatMoney } from "@/lib/money";
 import { ORG_VIEW_COOKIE } from "@/lib/org-view";
 import type {
+  AccountData,
   BillingDeniedData,
   AcceptInviteData,
   BillingData,
@@ -38,6 +46,7 @@ import type {
   MemberRow,
   MembersData,
   OrgPickerData,
+  OrgSettingsData,
   PlanOption,
   ShellData,
   SubscriptionStatus,
@@ -268,6 +277,7 @@ export async function loadShell(orgSlug: string): Promise<ShellData> {
       overview: base,
       members: `${base}/members`,
       billing: can("billing:view") ? `${base}/settings/billing` : null,
+      settings: `${base}/settings`,
     },
     plan: planState(summary?.planName ?? "Free", summary, {
       withDates: can("billing:view"),
@@ -744,4 +754,127 @@ function inviteProblem(
     return "revoked";
   }
   return "expired";
+}
+
+export async function loadOrgSettings(
+  orgSlug: string
+): Promise<OrgSettingsData> {
+  const membership = await requireOrgBySlug(orgSlug);
+  const { organization, session, member: me, can } = membership;
+  const { db, billing, authService } = getServerContext();
+  const [rows, sub, entitlement, sole] = await Promise.all([
+    db
+      .select({
+        memberId: schema.member.id,
+        userId: schema.member.userId,
+        role: schema.member.role,
+        name: schema.user.name,
+        email: schema.user.email,
+      })
+      .from(schema.member)
+      .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
+      .where(eq(schema.member.organizationId, organization.id))
+      .orderBy(schema.user.name),
+    billing.getSubscription(organization.id),
+    billing.getEntitlement(organization.id),
+    authService.soleOwnedOrganizations(session.user.id),
+  ]);
+  const base = `/app/${organization.slug}`;
+  const own = can("organization:delete");
+  const block = own ? deleteBlock(sub) : null;
+  return {
+    org: {
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+    },
+    role: me.role,
+    can: {
+      update: can("organization:update"),
+      own,
+      viewBilling: can("billing:view"),
+    },
+    hrefs: {
+      billing: can("billing:view") ? `${base}/settings/billing` : null,
+      billingDetails: can("billing:view")
+        ? `${base}/settings/billing#billing-details`
+        : null,
+      members: `${base}/members`,
+    },
+    memberCount: rows.length,
+    transferTargets: own
+      ? rows
+          .filter((r) => r.userId !== session.user.id)
+          .map(({ memberId, name, email, role }) => ({
+            memberId,
+            name,
+            email,
+            role,
+          }))
+      : [],
+    currency: {
+      code: sub?.currency ?? env.BILLING_CURRENCY,
+      fromSubscription: Boolean(sub?.currency),
+    },
+    planName: entitlement.plan.name,
+    deleteBlocked: block
+      ? { message: deleteBlockMessage(block), accessEndsAt: block.accessEndsAt }
+      : null,
+    soleOwner: sole.some((o) => o.id === organization.id),
+  };
+}
+
+function minutesLeft(at: Date, now = Date.now()) {
+  const minutes = Math.ceil((at.getTime() - now) / 60_000);
+  return minutes <= 1 ? "about a minute" : `another ${minutes} minutes`;
+}
+
+export async function loadAccount(): Promise<AccountData> {
+  const session = await requireSession("/app/account");
+  const { db, authService } = getServerContext();
+  const [rows, pending, sole] = await Promise.all([
+    db
+      .select()
+      .from(schema.session)
+      .where(
+        and(
+          eq(schema.session.userId, session.user.id),
+          gt(schema.session.expiresAt, new Date())
+        )
+      )
+      .orderBy(desc(schema.session.updatedAt)),
+    authService.pendingEmail(session.user.id, session.user.email),
+    authService.soleOwnedOrganizations(session.user.id),
+  ]);
+  const sessions = rows.map((s) => {
+    const device = describeDevice(s.userAgent);
+    return {
+      id: s.id,
+      device: deviceLabel(device),
+      kind: device.kind,
+      location: describeLocation(s.ipAddress),
+      lastActive: activeLabel(s.updatedAt.toISOString()),
+      signedIn: formatDate(s.createdAt.toISOString()),
+      current: s.id === session.session.id,
+    };
+  });
+  return {
+    user: { id: session.user.id, ...userRef(session) },
+    pendingEmail: pending
+      ? {
+          email: pending.email,
+          expiresAt: pending.expiresAt.toISOString(),
+          expiresIn: minutesLeft(pending.expiresAt),
+        }
+      : null,
+    // This device first, then the most recently active.
+    sessions: [
+      ...sessions.filter((s) => s.current),
+      ...sessions.filter((s) => !s.current),
+    ],
+    soleOwnerOf: sole.map((o) => ({
+      ...o,
+      settingsHref: `/app/${o.slug}/settings#danger`,
+    })),
+  };
 }

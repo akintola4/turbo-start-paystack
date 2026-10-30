@@ -31,7 +31,12 @@ export type ShellData = {
   user: UserRef;
   role: string;
   /** Hrefs. `billing` is null when the role can't view billing. */
-  nav: { overview: string; members: string; billing: string | null };
+  nav: {
+    overview: string;
+    members: string;
+    billing: string | null;
+    settings: string;
+  };
   plan: PlanState;
 };
 
@@ -246,4 +251,57 @@ export type BillingDeniedData = {
   /** People who can manage billing, oldest member first. */
   managers: { name: string; role: string }[];
   overviewHref: string;
+};
+
+export type SessionRow = {
+  id: string;
+  device: string;
+  kind: "desktop" | "phone" | "tablet" | "other";
+  /** "This computer", "Local network", an IP, or null. */
+  location: string | null;
+  /** "5 min ago", worked out on the server so it renders once. */
+  lastActive: string;
+  /** "Signed in 12 Oct 2026". */
+  signedIn: string;
+  current: boolean;
+};
+
+export type AccountData = {
+  user: UserRef & { id: string };
+  /** `expiresIn`: "another 52 minutes", worked out on the server. */
+  pendingEmail: { email: string; expiresAt: string; expiresIn: string } | null;
+  sessions: SessionRow[];
+  /** Orgs where this user is the only owner: they block deleting it. */
+  soleOwnerOf: (OrgRef & { settingsHref: string })[];
+};
+
+export type OrgSettingsData = {
+  org: OrgRef;
+  role: string;
+  can: {
+    update: boolean;
+    /** Transfer ownership and delete: owners only. */
+    own: boolean;
+    viewBilling: boolean;
+  };
+  hrefs: {
+    billing: string | null;
+    billingDetails: string | null;
+    members: string;
+  };
+  memberCount: number;
+  /** Who ownership can go to: everyone else in the org. */
+  transferTargets: {
+    memberId: string;
+    name: string;
+    email: string;
+    role: string;
+  }[];
+  /** BILLING_CURRENCY, or the subscription's own once it has one. */
+  currency: { code: string; fromSubscription: boolean };
+  planName: string;
+  /** Set when a paid plan stops the owner deleting the org. */
+  deleteBlocked: { message: string; accessEndsAt: string | null } | null;
+  /** True for the only owner: they can't leave. */
+  soleOwner: boolean;
 };

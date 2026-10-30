@@ -8,7 +8,12 @@ import {
   SidebarMenu,
   SidebarRail,
 } from "@workspace/ui/components/sidebar";
-import { CreditCardIcon, HouseIcon, UsersIcon } from "lucide-react";
+import {
+  CreditCardIcon,
+  HouseIcon,
+  SettingsIcon,
+  UsersIcon,
+} from "lucide-react";
 import type { ComponentProps } from "react";
 
 import { SearchButton } from "@/components/app-shell/command-palette";
@@ -18,7 +23,8 @@ import { TeamSwitcher } from "@/components/app-shell/team-switcher";
 import { statusLabel } from "@/components/primitives";
 import type { ShellData } from "@/lib/view-models";
 
-/** The org's pages; Billing (a group) only for roles with billing:view. */
+/** The org's pages; Billing (a group) only for roles with billing:view.
+ *  Settings is for everyone: its controls follow the role. */
 function navItems(nav: ShellData["nav"]): NavItem[] {
   const items: NavItem[] = [
     { title: "Overview", url: nav.overview, icon: <HouseIcon /> },
@@ -37,6 +43,16 @@ function navItems(nav: ShellData["nav"]): NavItem[] {
       ],
     });
   }
+  items.push({
+    title: "Settings",
+    url: nav.settings,
+    icon: <SettingsIcon />,
+    items: [
+      { title: "General", url: `${nav.settings}#general` },
+      { title: "Members & roles", url: `${nav.settings}#members` },
+      { title: "Danger zone", url: `${nav.settings}#danger` },
+    ],
+  });
   return items;
 }
 
