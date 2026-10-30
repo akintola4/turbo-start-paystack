@@ -1,10 +1,16 @@
 "use client";
 
+import { cn } from "@workspace/tailwind-config/utils";
 import { Button, buttonVariants } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
-import { NativeSelect } from "@workspace/ui/components/native-select";
-import { cn } from "@workspace/tailwind-config/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select";
 import {
   ArrowRightIcon,
   CircleAlertIcon,
@@ -388,17 +394,28 @@ function TransferOwnership({ data }: { data: OrgSettingsData }) {
         <form className="grid gap-5" onSubmit={onSubmit}>
           <div className="grid gap-2">
             <Label htmlFor="transfer-to">New owner</Label>
-            <NativeSelect
-              id="transfer-to"
-              onChange={(e) => setMemberId(e.target.value)}
+            <Select
+              items={data.transferTargets.map((t) => ({
+                value: t.memberId,
+                label: t.name,
+              }))}
+              onValueChange={(v) => v && setMemberId(v)}
               value={memberId}
             >
-              {data.transferTargets.map((t) => (
-                <option key={t.memberId} value={t.memberId}>
-                  {t.name} · {roleLabel(t.role)}
-                </option>
-              ))}
-            </NativeSelect>
+              <SelectTrigger className="w-full" id="transfer-to">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {data.transferTargets.map((t) => (
+                  <SelectItem key={t.memberId} value={t.memberId}>
+                    {t.name}
+                    <span className="text-muted-foreground">
+                      {roleLabel(t.role)}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <TypeToConfirm
             expected={data.org.name}
