@@ -600,7 +600,10 @@ export async function resumeSubscription(
       organizationId: sub.organizationId,
       actorUserId: input.actor.userId,
       action: "billing.resumed",
-      data: { from: sub.paystackSubscriptionCode, to: created.subscription_code },
+      data: {
+        from: sub.paystackSubscriptionCode,
+        to: created.subscription_code,
+      },
     });
   });
 }
