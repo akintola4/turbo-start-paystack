@@ -20,6 +20,9 @@ const SELLER = {
   vatNumber: "VAT-0001",
 };
 const config: InvoicingConfig = { seller: SELLER, taxRateBp: 750 };
+const fail = (): never => {
+  throw new Error("no invoice row");
+};
 
 describe("tax maths (integer subunits)", () => {
   it("parses percentages to basis points", () => {
@@ -208,6 +211,43 @@ describe("issuing invoices", () => {
     expect(row?.refundedAt).not.toBeNull();
     expect(await h.billing.listInvoices(org.organizationId)).toHaveLength(0);
     expect(await h.billing.listCardChecks(org.organizationId)).toHaveLength(1);
+  });
+
+  it("freezes Billed to on a refunded card check, so a receipt never changes", async () => {
+    const org = await h.createOrg();
+    const checkout = await h.billing.startCheckout({
+      ...org,
+      planPriceId: "starter-monthly-ngn",
+    });
+    await h.deliver(h.pay(checkout.reference).charge);
+    const [row] = await rowsOf(org.organizationId);
+    expect(row?.number).toBeNull();
+    expect(row?.buyer).toMatchObject({ name: expect.stringMatching(/^Org /) });
+    const before = buildInvoiceDocument(row ?? fail(), {
+      config,
+      buyer: { name: "unused" },
+    });
+
+    await h.billing.updateBillingDetails({
+      organizationId: org.organizationId,
+      actor: org.actor,
+      details: {
+        legalName: "Renamed Ltd",
+        address: "1 New Road",
+        taxId: "TIN 1",
+        email: "new@kola.test",
+      },
+    });
+    const [after] = await rowsOf(org.organizationId);
+    expect(after?.buyer).toEqual(row?.buyer);
+    // Rendered from the snapshot, not from what the page passes as current.
+    const doc = buildInvoiceDocument(after ?? fail(), {
+      config: { seller: { name: "Someone Else" }, taxRateBp: 0 },
+      buyer: { name: "Renamed Ltd", email: "new@kola.test" },
+    });
+    expect(doc.buyer).toEqual(before.buyer);
+    expect(doc.seller).toEqual(before.seller);
+    expect(doc.totals.taxRateBp).toBe(0);
   });
 
   it("finds an invoice only through its own organization", async () => {

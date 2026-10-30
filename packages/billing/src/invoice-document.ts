@@ -131,9 +131,10 @@ function chargeLine(row: InvoiceRow, amountSubunit: number): InvoiceLine {
 }
 
 /**
- * Builds the invoice from its row. Seller, buyer and tax come from the
- * snapshot taken at issue; rows never issued (refunds, failures, rows from
- * before numbering) use `current` instead.
+ * Builds the invoice from its row. Seller and buyer come from the snapshot
+ * taken when the row was issued or settled (refunds and failures have one
+ * too); tax only from an issued invoice. Pending rows and rows from before
+ * snapshots use `current` instead.
  */
 export function buildInvoiceDocument(
   row: InvoiceRow,
@@ -158,8 +159,8 @@ export function buildInvoiceDocument(
     status,
     kind: row.kind ?? (row.paystackInvoiceCode ? "renewal" : "subscription"),
     currency: row.currency,
-    seller: issued && row.seller ? row.seller : current.config.seller,
-    buyer: issued && row.buyer ? row.buyer : current.buyer,
+    seller: row.seller ?? current.config.seller,
+    buyer: row.buyer ?? current.buyer,
     issuedAt: iso(row.issuedAt ?? row.paidAt ?? row.createdAt),
     paidAt: iso(row.paidAt),
     refundedAt: iso(row.refundedAt),

@@ -93,7 +93,7 @@ export function NavUser({ user }: { user: { name: string; email: string } }) {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={signOut}>
               <LogOutIcon />
-              Log out
+              Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

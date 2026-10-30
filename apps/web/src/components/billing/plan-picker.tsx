@@ -5,60 +5,19 @@ import { cn } from "@workspace/tailwind-config/utils";
 import { CheckIcon } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
 
-import {
-  BillingAction,
-  type BillingConfirm,
-} from "@/components/billing/billing-action";
+import { BillingAction } from "@/components/billing/billing-action";
 import { Money } from "@/components/primitives";
-import { formatDate, intervalLabel } from "@/lib/format";
+import { intervalLabel } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { freeTileCopy } from "@/lib/payment-copy";
-import type {
-  BillingData,
-  PlanOption,
-  SubscriptionSummary,
-} from "@/lib/view-models";
+import {
+  actionLabel,
+  planChangeSuccess,
+  planConfirm,
+} from "@/lib/plan-change-copy";
+import type { BillingData, PlanOption } from "@/lib/view-models";
 
 type Interval = "monthly" | "annually";
-
-function planConfirm(
-  plan: PlanOption,
-  sub: SubscriptionSummary | null,
-  orgName: string
-): BillingConfirm | undefined {
-  if (!(plan.action === "change-plan" && plan.price && sub)) {
-    return;
-  }
-  const per = intervalLabel(plan.price.interval, "long");
-  if (plan.change === "upgrade") {
-    return {
-      title: `Upgrade to ${plan.name}?`,
-      description:
-        sub.status === "trialing"
-          ? `${orgName} moves to ${plan.name} now. You're still in the trial, so nothing is charged today.`
-          : `${orgName} moves to ${plan.name} now. Today we charge the difference for the rest of this period to the card on file, then ${plan.price.label} per ${per}.`,
-      confirmLabel: `Upgrade to ${plan.name}`,
-      cancelLabel: "Not now",
-    };
-  }
-  return {
-    title: `Switch to ${plan.name}?`,
-    description: `${orgName} keeps ${sub.planName} until ${formatDate(sub.currentPeriodEnd)}, then moves to ${plan.name} at ${plan.price.label} per ${per}. Nothing is charged today.`,
-    confirmLabel: `Switch to ${plan.name}`,
-    cancelLabel: "Not now",
-  };
-}
-
-function actionLabel(plan: PlanOption) {
-  if (plan.action === "checkout") {
-    return plan.trialDays
-      ? `Start ${plan.trialDays}-day trial`
-      : `Choose ${plan.name}`;
-  }
-  return plan.change === "upgrade"
-    ? `Upgrade to ${plan.name}`
-    : `Switch to ${plan.name}`;
-}
 
 function PlanFooter({
   plan,
@@ -96,11 +55,7 @@ function PlanFooter({
         orgId={data.org.id}
         planPriceId={plan.price.id}
         publicKey={data.publicKey}
-        successMessage={
-          plan.change === "upgrade"
-            ? `${data.org.name} is now on ${plan.name}`
-            : `${plan.name} starts on ${formatDate(sub?.currentPeriodEnd ?? null)}`
-        }
+        successMessage={planChangeSuccess(plan, sub, data.org.name)}
         variant={plan.change === "downgrade" ? "outline" : "default"}
       >
         {actionLabel(plan)}

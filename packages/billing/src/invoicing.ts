@@ -132,6 +132,11 @@ export async function currentBuyer(
  * Gives a paid invoice its number and freezes who it is from and to, and
  * the tax in it. Runs once: an invoice that already has a number is left
  * alone. Card checks are refunded straight away and are never issued.
+ *
+ * Documents that settle without a number (a refunded card check or charge,
+ * a failed payment) still freeze "From" and "Billed to" the first time they
+ * settle, so editing billing details later never rewrites a receipt the
+ * customer already has. Only a pending row follows the current details.
  */
 export async function issueInvoice(
   tx: DbOrTx,
@@ -144,12 +149,19 @@ export async function issueInvoice(
     .from(schema.invoice)
     .where(eq(schema.invoice.id, invoiceId))
     .for("update");
-  if (
-    !row ||
-    row.number !== null ||
-    row.status !== "paid" ||
-    row.kind === "card_check"
-  ) {
+  if (!row || row.number !== null || row.status === "pending") {
+    return;
+  }
+  if (row.status !== "paid" || row.kind === "card_check") {
+    if (row.buyer === null) {
+      await tx
+        .update(schema.invoice)
+        .set({
+          seller: config.seller,
+          buyer: await currentBuyer(tx, row.organizationId),
+        })
+        .where(eq(schema.invoice.id, invoiceId));
+    }
     return;
   }
   const issuedAt = row.paidAt ?? now;

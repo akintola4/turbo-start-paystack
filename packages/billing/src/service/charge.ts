@@ -489,6 +489,78 @@ async function renewedAmong(
 }
 
 /**
+ * A one-off charge with no plan that we didn't start: the customer updating
+ * the card on Paystack's subscription manage page charges the new card. The
+ * charge itself doesn't name the subscription, so the card is re-read from
+ * Paystack: `GET /subscription/:code` returns the subscription's current
+ * `authorization`, and that is stored (code, last4, expiry, brand). Only
+ * subscriptions now on the card this charge used are touched, so an
+ * unrelated one-off charge changes nothing.
+ */
+async function applyCardUpdateCharge(
+  deps: BillingDeps,
+  tx: DbOrTx,
+  data: PaystackTransaction,
+  customerCode: string
+): Promise<Outcome> {
+  const used = data.authorization?.authorization_code;
+  if (!used) {
+    return { error: "charge not linked to a subscription" };
+  }
+  const rows = await tx
+    .select({ sub: schema.subscription })
+    .from(schema.subscription)
+    .innerJoin(
+      schema.billingCustomer,
+      eq(
+        schema.subscription.organizationId,
+        schema.billingCustomer.organizationId
+      )
+    )
+    .where(
+      and(
+        eq(schema.billingCustomer.paystackCustomerCode, customerCode),
+        notInArray(schema.subscription.status, [...TERMINAL_STATUSES])
+      )
+    )
+    .for("update", { of: schema.subscription });
+  let updated = 0;
+  for (const { sub } of rows) {
+    const codes = [
+      sub.paystackSubscriptionCode,
+      sub.scheduledSubscriptionCode,
+    ].filter((c): c is string => Boolean(c));
+    for (const code of codes) {
+      const remote = await deps.paystack.fetchSubscription(code);
+      const auth = remote.authorization;
+      if (
+        !(auth && typeof auth === "object") ||
+        auth.authorization_code !== used
+      ) {
+        continue;
+      }
+      const fields = cardFields(deps, auth, data.customer?.email);
+      if (!fields.authorizationCode) {
+        continue;
+      }
+      await tx
+        .update(schema.subscription)
+        .set(fields)
+        .where(eq(schema.subscription.id, sub.id));
+      await audit(tx, {
+        organizationId: sub.organizationId,
+        actorUserId: null,
+        action: "billing.card_updated",
+        data: { subscription: code, last4: auth.last4 ?? null },
+      });
+      updated += 1;
+      break;
+    }
+  }
+  return updated > 0 ? {} : { error: "charge not linked to a subscription" };
+}
+
+/**
  * A charge we did not initiate directly: a Paystack-scheduled renewal (or the
  * first charge after a trial or a scheduled downgrade). Matched on customer +
  * plan code, then re-derived from `GET /subscription/:code`, because a
@@ -502,6 +574,9 @@ async function applyRenewalCharge(
 ): Promise<Outcome> {
   const planCode = planCodeOf(data.plan);
   const customerCode = data.customer?.customer_code;
+  if (customerCode && !planCode) {
+    return applyCardUpdateCharge(deps, tx, data, customerCode);
+  }
   if (!(planCode && customerCode)) {
     return { error: "charge not linked to a subscription" };
   }

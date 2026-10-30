@@ -14,7 +14,10 @@ import {
   getPlanPrice,
   type PaystackEmailView,
   invoiceDate,
+  type PlanPrice,
+  planChangeKind,
   planPriceId,
+  upgradeChargeNow,
   formatPeriod,
 } from "@workspace/billing";
 import { schema } from "@workspace/db";
@@ -25,6 +28,7 @@ import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { formatDate, maskEmail } from "@/lib/format";
+import { nextChargeLabel } from "@/lib/payment-copy";
 import { deleteBlock, deleteBlockMessage } from "@/lib/org-settings";
 import {
   activeLabel,
@@ -54,6 +58,7 @@ import type {
   SubscriptionSummary,
 } from "@/lib/view-models";
 import { getServerContext } from "./context";
+import { orgSeats } from "./seats";
 import { isDevToolsEnabled } from "./dev-context";
 import {
   listMyOrganizations,
@@ -96,6 +101,7 @@ function summarize(
     : undefined;
   return {
     planKey: price?.planKey ?? "free",
+    planPriceId: sub.planPriceId,
     planName: plan?.name ?? "Free",
     status: sub.status as SubscriptionStatus,
     priceLabel: price ? formatMoney(price.amountSubunit, price.currency) : "",
@@ -113,6 +119,7 @@ function summarize(
       ? {
           planName: getPlan(scheduled.planKey)?.name ?? scheduled.planKey,
           interval: scheduled.interval,
+          priceLabel: formatMoney(scheduled.amountSubunit, scheduled.currency),
         }
       : null,
   };
@@ -442,27 +449,18 @@ function annualSaving(plan: CatalogPlan, currency: Currency) {
   return `Save ${pct}%`;
 }
 
-function changeKind(
-  action: PlanOption["action"],
-  rank: number,
-  currentRank: number
-): PlanOption["change"] {
-  if (action !== "change-plan") {
-    return null;
-  }
-  if (rank === currentRank) {
-    return "switch";
-  }
-  return rank > currentRank ? "upgrade" : "downgrade";
-}
-
 /** One plan tile's data for an interval; `currentPriceId` is null when on Free. */
 function planOption(
   plan: CatalogPlan,
   interval: "monthly" | "annually",
   currency: Currency,
   currentPriceId: string | null,
-  currentRank: number
+  current: {
+    key: string;
+    rank: number;
+    price: PlanPrice;
+    sub: Subscription;
+  } | null
 ): PlanOption {
   const id = plan.prices.length
     ? planPriceId(plan.key, interval, currency)
@@ -475,6 +473,24 @@ function planOption(
   if (price && id && !isCurrent) {
     action = currentPriceId ? "change-plan" : "checkout";
   }
+  // The server's own rule: on the same plan, monthly to yearly is an
+  // upgrade that applies now (and is prorated outside a trial).
+  const change =
+    action === "change-plan" && current && price
+      ? planChangeKind(
+          { rank: current.rank, interval: current.price.interval },
+          { rank: plan.rank, interval: price.interval }
+        )
+      : null;
+  const chargeNow =
+    change === "upgrade" && current && price
+      ? upgradeChargeNow({
+          sub: current.sub,
+          current: current.price,
+          target: price,
+          now: new Date(),
+        })
+      : null;
   return {
     key: plan.key,
     name: plan.name,
@@ -495,7 +511,12 @@ function planOption(
     saving: interval === "annually" ? annualSaving(plan, currency) : null,
     isCurrent,
     action,
-    change: changeKind(action, plan.rank, currentRank),
+    change,
+    chargeNow:
+      chargeNow === null
+        ? null
+        : { subunit: chargeNow, label: formatMoney(chargeNow, currency) },
+    intervalOnly: action === "change-plan" && current?.key === plan.key,
   };
 }
 
@@ -544,7 +565,7 @@ export async function loadBilling(
     sub,
     entitlement,
     invoices,
-    [seatRow],
+    seats,
     cardChecks,
     details,
     buyer,
@@ -556,10 +577,9 @@ export async function loadBilling(
       limit: INVOICE_PAGE_SIZE,
       offset: (paging.page - 1) * INVOICE_PAGE_SIZE,
     }),
-    getServerContext()
-      .db.select({ n: count() })
-      .from(schema.member)
-      .where(eq(schema.member.organizationId, organization.id)),
+    billing
+      .getEntitlement(organization.id)
+      .then((e) => orgSeats(db, organization.id, e.plan.limits.members)),
     billing.listCardChecks(organization.id),
     billing.getBillingDetails(organization.id),
     currentBuyer(db, organization.id),
@@ -572,17 +592,19 @@ export async function loadBilling(
       ? search.interval
       : (currentPrice?.interval ?? "monthly");
   const currentPlan = currentPrice ? getPlan(currentPrice.planKey) : undefined;
-  const currentRank = currentPlan?.rank ?? 0;
+  const current =
+    sub && currentPrice && currentPlan
+      ? {
+          key: currentPlan.key,
+          rank: currentPlan.rank,
+          price: currentPrice,
+          sub,
+        }
+      : null;
 
   const plansFor = (interval: "monthly" | "annually") =>
     catalog.map((plan) =>
-      planOption(
-        plan,
-        interval,
-        currency,
-        sub?.planPriceId ?? null,
-        currentRank
-      )
+      planOption(plan, interval, currency, sub?.planPriceId ?? null, current)
     );
   return {
     org: {
@@ -610,7 +632,8 @@ export async function loadBilling(
       buyer,
       paystackEmail
     ),
-    seats: { used: seatRow?.n ?? 1, limit: entitlement.plan.limits.members },
+    // Pending invitations hold a seat, as on Overview and Members.
+    seats: { used: seats.used, limit: seats.max },
     publicKey: clientEnv.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
     devTools: can("billing:manage") && isDevToolsEnabled(),
   };
@@ -636,13 +659,13 @@ function orgBilling(summary: SubscriptionSummary | null) {
   }
   if (summary.status === "trialing") {
     return {
-      priceLabel: summary.priceLabel,
+      priceLabel: nextChargeLabel(summary),
       date: summary.trialEndsAt,
       kind: "trial" as const,
     };
   }
   return {
-    priceLabel: summary.priceLabel,
+    priceLabel: nextChargeLabel(summary),
     date: summary.currentPeriodEnd,
     kind: "charge" as const,
   };

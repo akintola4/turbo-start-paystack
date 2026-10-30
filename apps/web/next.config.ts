@@ -4,7 +4,6 @@ import "@workspace/env/server";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-
 import type { NextConfig } from "next";
 
 import { emailAssetHeaders } from "./src/lib/email-assets";
@@ -46,16 +45,9 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@workspace/ui"],
   typedRoutes: false,
   poweredByHeader: false,
-  // Server-side PDF rendering (invoice download). Kept out of the bundle;
-  // its fonts are read from disk, so trace them into the deployment.
+  // Server-side PDF rendering (invoice download), kept out of the bundle.
+  // Its fonts sit next to server/invoice-pdf.tsx and are traced from there.
   serverExternalPackages: ["@react-pdf/renderer"],
-  outputFileTracingIncludes: {
-    "/app/[orgSlug]/settings/billing/invoices/[invoiceId]/pdf": [
-      "./src/server/pdf-fonts/*.ttf",
-      "./node_modules/geist/dist/fonts/geist-sans/Geist-{Regular,Medium,SemiBold}.ttf",
-      "./node_modules/geist/dist/fonts/geist-mono/GeistMono-Regular.ttf",
-    ],
-  },
   headers: async () => [
     {
       source: "/:path*",

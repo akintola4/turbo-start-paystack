@@ -12,6 +12,23 @@ import {
 const titles = (items: { title: string }[]) => items.map((i) => i.title);
 const ITEMS = staticItems("kola-logistics");
 
+describe("billing actions", () => {
+  it("'bill' finds the billing actions, not only the page", () => {
+    const found = titles(
+      searchItems(allowedFor(ITEMS, "owner"), "bill").map((r) => r.item)
+    );
+    expect(found).toEqual(
+      expect.arrayContaining([
+        "Billing",
+        "Billing details",
+        "Invoices",
+        "Update card",
+        "Change plan",
+      ])
+    );
+  });
+});
+
 describe("palette permissions", () => {
   it("owners see every page and action", () => {
     expect(titles(allowedFor(ITEMS, "owner"))).toEqual(titles(ITEMS));

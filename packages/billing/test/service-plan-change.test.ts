@@ -3,11 +3,15 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { chargeSuccess, subscriptionStatusEvent } from "../src/fixtures";
-import { computeProration } from "../src/proration";
+import { getPlanPrice, planChangeKind } from "../src/catalog";
+import { computeProration, upgradeChargeNow } from "../src/proration";
 import { staleUpgradeReason } from "../src/service/charge";
 import { type BillingHarness, planCode, setupBilling } from "./support";
 
 let h: BillingHarness;
+const fail = (): never => {
+  throw new Error("unknown plan price");
+};
 const START = new Date("2026-03-01T10:00:00Z");
 beforeAll(async () => {
   h = await setupBilling();
@@ -393,6 +397,112 @@ describe("upgrade (prorated, PLAN §2.3 #10)", () => {
   });
 });
 
+describe("monthly to yearly on the same plan (planChangeKind)", () => {
+  it("classifies changes the way changePlan applies them", () => {
+    const pro = { rank: 2 };
+    const starter = { rank: 1 };
+    const m = "monthly" as const;
+    const y = "annually" as const;
+    expect(
+      planChangeKind({ ...pro, interval: m }, { ...pro, interval: y })
+    ).toBe("upgrade");
+    expect(
+      planChangeKind({ ...pro, interval: y }, { ...pro, interval: m })
+    ).toBe("downgrade");
+    expect(
+      planChangeKind({ ...starter, interval: y }, { ...pro, interval: m })
+    ).toBe("upgrade");
+    expect(
+      planChangeKind({ ...pro, interval: m }, { ...starter, interval: y })
+    ).toBe("downgrade");
+  });
+
+  it("switches now outside a trial, charging exactly what upgradeChargeNow quotes", async () => {
+    for (const [from, to] of [
+      ["pro-monthly-ngn", "pro-annually-ngn"],
+      ["starter-monthly-ngn", "pro-annually-ngn"],
+    ] as const) {
+      const { organizationId, actor, sub } = await h.subscribe(from);
+      h.clock.now = midPeriod(sub);
+      const quoted = upgradeChargeNow({
+        sub,
+        current: getPlanPrice(from) ?? fail(),
+        target: getPlanPrice(to) ?? fail(),
+        now: h.clock.now,
+      });
+      const result = await h.billing.changePlan({
+        organizationId,
+        actor,
+        planPriceId: to,
+        memberCount: 1,
+      });
+      expect(result).toEqual({ kind: "upgraded", charged: quoted });
+      // Not scheduled: the plan changes today.
+      expect(await h.billing.getSubscription(organizationId)).toMatchObject({
+        planPriceId: to,
+        scheduledPlanPriceId: null,
+      });
+    }
+    // Pro yearly costs less per day than Pro monthly: nothing to top up.
+    // Starter monthly to Pro yearly does owe a difference.
+    const pro = getPlanPrice("pro-monthly-ngn") ?? fail();
+    const sub = {
+      status: "active",
+      currency: "NGN",
+      currentPeriodStart: START,
+      currentPeriodEnd: new Date("2026-04-01T10:00:00Z"),
+    };
+    const now = new Date("2026-03-16T10:00:00Z");
+    expect(
+      upgradeChargeNow({
+        sub,
+        current: pro,
+        target: getPlanPrice("pro-annually-ngn") ?? fail(),
+        now,
+      })
+    ).toBe(0);
+    expect(
+      upgradeChargeNow({
+        sub,
+        current: getPlanPrice("starter-monthly-ngn") ?? fail(),
+        target: getPlanPrice("pro-annually-ngn") ?? fail(),
+        now,
+      })
+    ).toBeGreaterThan(0);
+    expect(
+      upgradeChargeNow({
+        sub: { ...sub, status: "trialing" },
+        current: getPlanPrice("starter-monthly-ngn") ?? fail(),
+        target: pro,
+        now,
+      })
+    ).toBe(0);
+  });
+
+  it("switches now and charges nothing during a trial", async () => {
+    const { organizationId, actor, sub } = await h.subscribe("pro-monthly-ngn");
+    await h.db
+      .update(schema.subscription)
+      .set({ status: "trialing", trialEndsAt: sub.currentPeriodEnd })
+      .where(eq(schema.subscription.id, sub.id));
+    h.clock.now = midPeriod(sub);
+    const before = h.fake.calls.length;
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-annually-ngn",
+      memberCount: 1,
+    });
+    expect(result).toEqual({ kind: "upgraded", charged: 0 });
+    expect(callIndex("POST", "/transaction/charge_authorization", before)).toBe(
+      -1
+    );
+    expect((await h.billing.getSubscription(organizationId))?.planPriceId).toBe(
+      "pro-annually-ngn"
+    );
+  });
+});
+
 describe("downgrade (end of period)", () => {
   it("refuses when the org has more members than the smaller plan allows", async () => {
     const { organizationId, actor } = await h.subscribe("pro-monthly-ngn");
@@ -569,6 +679,106 @@ describe("a second downgrade (audit #1: no orphaned scheduled subscription)", ()
   });
 });
 
+describe("keeping the current plan (undo a scheduled downgrade)", () => {
+  it("starts a new subscription on the current plan at period end and retires the scheduled one", async () => {
+    const { organizationId, actor, sub, paid } =
+      await h.subscribe("pro-monthly-ngn");
+    await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "starter-monthly-ngn",
+      memberCount: 1,
+    });
+    const scheduled = await h.billing.getSubscription(organizationId);
+    const scheduledCode = scheduled?.scheduledSubscriptionCode ?? "";
+
+    const before = h.fake.calls.length;
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 1,
+    });
+    expect(result).toEqual({ kind: "downgrade_canceled" });
+
+    // Paystack can't re-enable the disabled current subscription.
+    expect(h.fake.callsTo("POST", "/subscription/enable")).toEqual([]);
+    const create = callIndex("POST", "/subscription", before);
+    const disable = callIndex("POST", "/subscription/disable", before);
+    expect(h.fake.calls[create]?.body).toMatchObject({
+      plan: planCode("pro-monthly-ngn"),
+      start_date: sub.currentPeriodEnd?.toISOString(),
+    });
+    expect(disable).toBeGreaterThan(create);
+    expect(h.fake.calls[disable]?.body).toMatchObject({ code: scheduledCode });
+    expect(h.fake.subscriptions.get(scheduledCode)?.status).toBe(
+      "non-renewing"
+    );
+
+    const after = await h.billing.getSubscription(organizationId);
+    expect(after).toMatchObject({
+      status: "active",
+      planPriceId: "pro-monthly-ngn",
+      scheduledPlanPriceId: null,
+      scheduledSubscriptionCode: null,
+      currentPeriodEnd: sub.currentPeriodEnd,
+    });
+    const kept = after?.paystackSubscriptionCode ?? "";
+    expect(kept).not.toBe(sub.paystackSubscriptionCode);
+    expect(kept).not.toBe(scheduledCode);
+    expect(h.fake.subscriptions.get(kept)?.status).toBe("active");
+
+    // Closing webhooks for the two retired codes change nothing.
+    for (const code of [sub.paystackSubscriptionCode ?? "", scheduledCode]) {
+      await h.deliver(
+        subscriptionStatusEvent({
+          event: "subscription.disable",
+          subscriptionCode: code,
+          status: "cancelled",
+          planCode: planCode("pro-monthly-ngn"),
+          customer: paid.customer,
+        })
+      );
+    }
+    expect(await h.billing.getSubscription(organizationId)).toMatchObject({
+      status: "active",
+      paystackSubscriptionCode: kept,
+    });
+
+    // And it can still be cancelled afterwards.
+    await h.billing.cancel({ organizationId, actor });
+    expect(h.fake.subscriptions.get(kept)?.status).toBe("non-renewing");
+  });
+
+  it("leaves the downgrade scheduled if Paystack refuses the new subscription", async () => {
+    const { organizationId, actor } = await h.subscribe("pro-monthly-ngn");
+    await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "starter-monthly-ngn",
+      memberCount: 1,
+    });
+    const scheduled = await h.billing.getSubscription(organizationId);
+    h.fake.failNext("POST", /^\/subscription$/, 400, "Plan not found");
+    await expect(
+      h.billing.changePlan({
+        organizationId,
+        actor,
+        planPriceId: "pro-monthly-ngn",
+        memberCount: 1,
+      })
+    ).rejects.toMatchObject({ code: "paystack_error" });
+    expect(await h.billing.getSubscription(organizationId)).toMatchObject({
+      scheduledPlanPriceId: "starter-monthly-ngn",
+      scheduledSubscriptionCode: scheduled?.scheduledSubscriptionCode,
+    });
+    expect(
+      h.fake.subscriptions.get(scheduled?.scheduledSubscriptionCode ?? "")
+        ?.status
+    ).toBe("active");
+  });
+});
+
 describe("cancel and resume (PLAN §2.3 #11)", () => {
   it("disables with the code and token from the database and keeps access", async () => {
     const { organizationId, actor, sub, paid } =
@@ -656,6 +866,44 @@ describe("cancel and resume (PLAN §2.3 #11)", () => {
     });
   });
 
+  it("cancel after a scheduled downgrade succeeds and retires the scheduled subscription", async () => {
+    const { organizationId, actor, sub } = await h.subscribe("pro-monthly-ngn");
+    await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "starter-monthly-ngn",
+      memberCount: 1,
+    });
+    const scheduled = await h.billing.getSubscription(organizationId);
+    const scheduledCode = scheduled?.scheduledSubscriptionCode ?? "";
+    expect(scheduledCode).not.toBe("");
+    // Scheduling disabled the current subscription on Paystack.
+    expect(
+      h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "")?.status
+    ).toBe("non-renewing");
+
+    const before = h.fake.calls.length;
+    await h.billing.cancel({ organizationId, actor });
+
+    expect(await h.billing.getSubscription(organizationId)).toMatchObject({
+      status: "non_renewing",
+      cancelAtPeriodEnd: true,
+      planPriceId: "pro-monthly-ngn",
+      scheduledPlanPriceId: null,
+      scheduledSubscriptionCode: null,
+    });
+    // Only the scheduled one is disabled; the current one already was.
+    const disables = h.fake
+      .callsTo("POST", "/subscription/disable")
+      .filter((c) => h.fake.calls.indexOf(c) >= before);
+    expect(disables.map((c) => (c.body as { code: string }).code)).toEqual([
+      scheduledCode,
+    ]);
+    expect(h.fake.subscriptions.get(scheduledCode)?.status).toBe(
+      "non-renewing"
+    );
+  });
+
   it("cancel retries with Paystack's token when the stored one is stale", async () => {
     const { organizationId, actor, sub } = await h.subscribe("pro-monthly-ngn");
     const remote = h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "");
@@ -686,6 +934,17 @@ describe("cancel and resume (PLAN §2.3 #11)", () => {
       h.billing.resume({ organizationId, actor })
     ).rejects.toMatchObject({
       code: "invalid_state",
+    });
+  });
+
+  it("refuses a card update link for a cancelled plan, and says why", async () => {
+    const { organizationId, actor } = await h.subscribe("pro-monthly-ngn");
+    await h.billing.cancel({ organizationId, actor });
+    await expect(
+      h.billing.getManageCardLink(organizationId)
+    ).rejects.toMatchObject({
+      code: "invalid_state",
+      message: "This plan is cancelled. Resume it to update the card.",
     });
   });
 

@@ -1,4 +1,5 @@
 import { type Interval, nominalDays } from "./catalog";
+import { type Currency, TOKENIZATION_AMOUNT } from "./money";
 
 export type ProrationInput = {
   /** Amount of the current plan for its own interval, in subunits. */
@@ -46,4 +47,40 @@ export function computeProration(input: ProrationInput): Proration {
     cost,
     charge: Math.max(0, cost - credit),
   };
+}
+
+/**
+ * What an immediate upgrade charges today. Nothing during a trial (no paid
+ * time to top up), and nothing below Paystack's minimum card charge. The
+ * billing service charges exactly this; the plan picker quotes it.
+ */
+export function upgradeChargeNow(input: {
+  sub: {
+    status: string;
+    currency: string;
+    currentPeriodStart: Date | null;
+    currentPeriodEnd: Date | null;
+  };
+  current: { amountSubunit: number; interval: Interval };
+  target: { amountSubunit: number; interval: Interval };
+  now: Date;
+}): number {
+  const { sub } = input;
+  if (
+    sub.status === "trialing" ||
+    !(sub.currentPeriodStart && sub.currentPeriodEnd)
+  ) {
+    return 0;
+  }
+  const { charge } = computeProration({
+    oldAmount: input.current.amountSubunit,
+    oldInterval: input.current.interval,
+    newAmount: input.target.amountSubunit,
+    newInterval: input.target.interval,
+    periodStart: sub.currentPeriodStart,
+    periodEnd: sub.currentPeriodEnd,
+    now: input.now,
+  });
+  const minimum = TOKENIZATION_AMOUNT[sub.currency as Currency] ?? 0;
+  return charge >= minimum ? charge : 0;
 }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   billingEmailHint,
   freeTileCopy,
+  nextChargeLabel,
   paymentOutcome,
   paystackEmailNote,
 } from "../src/lib/payment-copy";
@@ -128,6 +129,22 @@ describe("billingEmailHint", () => {
       })
     ).toBe(
       "Paystack keeps billing ada@kolalogistics.test. The billing email only changes what invoices show."
+    );
+  });
+});
+
+describe("nextChargeLabel", () => {
+  it("is the scheduled plan's price once a downgrade is scheduled", () => {
+    const scheduled = {
+      planName: "Starter",
+      interval: "monthly",
+      priceLabel: "₦10,000.00",
+    };
+    expect(nextChargeLabel({ priceLabel: "₦30,000.00", scheduled })).toBe(
+      "₦10,000.00"
+    );
+    expect(nextChargeLabel({ priceLabel: "₦30,000.00", scheduled: null })).toBe(
+      "₦30,000.00"
     );
   });
 });

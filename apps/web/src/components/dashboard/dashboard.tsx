@@ -25,6 +25,7 @@ import {
 } from "@/components/primitives";
 import { daysUntil, formatDate, intervalLabel, roleLabel } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
+import { nextChargeLabel } from "@/lib/payment-copy";
 import type { DashboardData } from "@/lib/view-models";
 
 const linkClass =
@@ -47,7 +48,8 @@ function chargeLine(sub: NonNullable<DashboardData["subscription"]>) {
   const lead = sub.status === "trialing" ? "First charge" : "Next charge";
   return (
     <>
-      {lead} <Amount label={sub.priceLabel} /> on {formatDate(when, "short")}
+      {lead} <Amount label={nextChargeLabel(sub)} /> on{" "}
+      {formatDate(when, "short")}
       {days !== null && days >= 0 ? ` (in ${days} days)` : ""}
     </>
   );

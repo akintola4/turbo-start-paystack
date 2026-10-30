@@ -42,6 +42,7 @@ export type ShellData = {
 
 export type SubscriptionSummary = {
   planKey: string;
+  planPriceId: string;
   planName: string;
   status: SubscriptionStatus;
   /** Formatted, e.g. "₦30,000.00". */
@@ -55,7 +56,8 @@ export type SubscriptionSummary = {
   graceUntil: string | null;
   cancelAtPeriodEnd: boolean;
   card: { brand: string | null; last4: string; exp: string | null } | null;
-  scheduled: { planName: string; interval: string } | null;
+  /** A downgrade waiting for the period end; its price is the next charge. */
+  scheduled: { planName: string; interval: string; priceLabel: string } | null;
 };
 
 export type InvoiceRow = {
@@ -187,7 +189,13 @@ export type PlanOption = {
   isCurrent: boolean;
   /** What pressing the plan's button does, or null when there is no button. */
   action: "checkout" | "change-plan" | null;
-  change: "upgrade" | "downgrade" | "switch" | null;
+  /** From `planChangeKind`, the rule the server applies. */
+  change: "upgrade" | "downgrade" | null;
+  /** For an upgrade: what `upgradeChargeNow` charges today (0 in a trial
+   *  or when nothing is owed). Null for anything else. */
+  chargeNow: { subunit: number; label: string } | null;
+  /** Same plan, other interval: the copy talks about billing, not plans. */
+  intervalOnly: boolean;
 };
 
 export type BillingData = {

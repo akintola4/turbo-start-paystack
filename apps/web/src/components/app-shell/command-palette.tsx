@@ -56,6 +56,7 @@ import {
 } from "react";
 
 import { useSignOut } from "@/components/app-shell/user-menu";
+import { toast } from "@/lib/toast";
 import {
   allowedFor,
   highlightParts,
@@ -140,6 +141,28 @@ function remember(orgId: string, item: PaletteItem) {
 /* --------------------------------------------------------------- search */
 
 /** Server results for a query, debounced, with the latest request winning. */
+/** Opens Paystack's card page for the org's subscription, or says why not. */
+async function openCardUpdate(orgId: string) {
+  try {
+    const res = await fetch(`/api/orgs/${orgId}/billing/manage-card`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      url?: string;
+      message?: string;
+    };
+    if (res.ok && data.url) {
+      window.location.assign(data.url);
+      return;
+    }
+    toast.error(data.message ?? "Couldn't open the card page.");
+  } catch {
+    toast.error("Couldn't open the card page.");
+  }
+}
+
 function useRemoteResults(orgId: string, query: string, open: boolean) {
   const [state, setState] = useState<{
     query: string;
@@ -380,6 +403,12 @@ export function CommandPaletteProvider({
     }
     if (item.action === "sign-out") {
       signOut();
+      return;
+    }
+    if (item.action === "update-card" && !alternate) {
+      // Straight to Paystack's card page, as the billing page's button
+      // does; the server says why when there's no card to update.
+      openCardUpdate(org.id);
       return;
     }
     const href = alternate && item.altHref ? item.altHref : item.href;
