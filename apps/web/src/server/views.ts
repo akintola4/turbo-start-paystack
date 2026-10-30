@@ -10,8 +10,11 @@ import {
   type Currency,
   catalog,
   getPlan,
+  currentBuyer,
   getPlanPrice,
+  invoiceDate,
   planPriceId,
+  formatPeriod,
 } from "@workspace/billing";
 import { schema } from "@workspace/db";
 import { env as clientEnv } from "@workspace/env/client";
@@ -25,6 +28,7 @@ import { ORG_VIEW_COOKIE } from "@/lib/org-view";
 import type {
   AcceptInviteData,
   BillingData,
+  CardCheckRow,
   DashboardData,
   InvoiceRow,
   MemberRow,
@@ -100,15 +104,37 @@ function summarize(
   };
 }
 
-function invoiceRow(invoice: Invoice): InvoiceRow {
+const KIND_TITLE = {
+  subscription: (plan: string) => plan,
+  renewal: (plan: string) => `${plan} renewal`,
+  proration: (plan: string) => `Upgrade to ${plan}`,
+  card_check: () => "Card check",
+} as const;
+
+function periodLabel(start: Date | null, end: Date | null) {
+  return start && end ? formatPeriod(start, end) : null;
+}
+
+function invoiceTitle(invoice: Invoice) {
+  const price = invoice.planPriceId ? getPlanPrice(invoice.planPriceId) : null;
+  const plan = price ? getPlan(price.planKey)?.name : undefined;
+  const kind =
+    invoice.kind ?? (invoice.paystackInvoiceCode ? "renewal" : "subscription");
+  if (!plan) {
+    // Rows from before plans were recorded on invoices.
+    return (invoice.description ?? "Subscription").replace(/\s*\(.*\)$/, "");
+  }
+  return KIND_TITLE[kind](`${plan} plan`);
+}
+
+function invoiceRow(invoice: Invoice, orgSlug: string): InvoiceRow {
+  const href = `/app/${orgSlug}/settings/billing/invoices/${invoice.id}`;
   return {
     id: invoice.id,
-    date: (invoice.paidAt ?? invoice.createdAt).toISOString(),
-    // The status badge already says "Refunded".
-    description: (invoice.description ?? "Subscription").replace(
-      /\s*\(refunded\)$/i,
-      ""
-    ),
+    date: invoiceDate(invoice).toISOString(),
+    description: invoiceTitle(invoice),
+    number: invoice.number,
+    period: periodLabel(invoice.periodStart, invoice.periodEnd),
     amountLabel: formatMoney(
       Number(invoice.amountSubunit),
       invoice.currency as Currency
@@ -116,6 +142,72 @@ function invoiceRow(invoice: Invoice): InvoiceRow {
     amountSubunit: Number(invoice.amountSubunit),
     currency: invoice.currency,
     status: invoice.status,
+    href,
+    pdfHref: `${href}/pdf`,
+  };
+}
+
+function cardCheckRow(invoice: Invoice, orgSlug: string): CardCheckRow {
+  return {
+    id: invoice.id,
+    date: invoiceDate(invoice).toISOString(),
+    refundedAt: iso(invoice.refundedAt),
+    amountLabel: formatMoney(
+      Number(invoice.amountSubunit),
+      invoice.currency as Currency
+    ),
+    href: `/app/${orgSlug}/settings/billing/invoices/${invoice.id}`,
+  };
+}
+
+/** Invoices per page on the billing page. */
+export const INVOICE_PAGE_SIZE = 12;
+
+function billingDetailsData(
+  details: {
+    legalName: string | null;
+    address: string | null;
+    taxId: string | null;
+    email: string | null;
+  } | null,
+  orgName: string,
+  buyer: { email?: string | null }
+): BillingData["billingDetails"] {
+  return {
+    legalName: details?.legalName ?? null,
+    address: details?.address ?? null,
+    taxId: details?.taxId ?? null,
+    email: details?.email ?? null,
+    // With no billing email saved, invoices use the one Paystack bills.
+    fallback: {
+      name: orgName,
+      email: details?.email ? null : (buyer.email ?? null),
+    },
+  };
+}
+
+/** `?page=` clamped to the pages that exist, with newer/older links. */
+function invoicePaging(
+  orgSlug: string,
+  total: number,
+  requested: string | undefined
+): BillingData["invoicePage"] {
+  const pageCount = Math.max(1, Math.ceil(total / INVOICE_PAGE_SIZE));
+  const asked = Number.parseInt(requested ?? "1", 10);
+  const page = Math.min(
+    Math.max(Number.isFinite(asked) ? asked : 1, 1),
+    pageCount
+  );
+  const href = (n: number) =>
+    `/app/${orgSlug}/settings/billing${n > 1 ? `?page=${n}` : ""}#invoices`;
+  return {
+    page,
+    pageCount,
+    total,
+    from: total === 0 ? 0 : (page - 1) * INVOICE_PAGE_SIZE + 1,
+    to: Math.min(page * INVOICE_PAGE_SIZE, total),
+    prevHref: page > 1 ? href(page - 1) : null,
+    nextHref: page < pageCount ? href(page + 1) : null,
   };
 }
 
@@ -188,7 +280,7 @@ export async function loadDashboard(orgSlug: string): Promise<DashboardData> {
     billing.getSubscription(organization.id),
     billing.getEntitlement(organization.id),
     can("billing:view")
-      ? billing.listInvoices(organization.id)
+      ? billing.listInvoices(organization.id, { limit: 4 })
       : Promise.resolve([]),
     listMembers(membership),
     db
@@ -223,7 +315,7 @@ export async function loadDashboard(orgSlug: string): Promise<DashboardData> {
       recent: [...members].reverse().slice(0, 5),
     },
     pendingInvitations: can("invitation:create") ? (pending?.n ?? 0) : 0,
-    recentInvoices: invoices.slice(0, 4).map(invoiceRow),
+    recentInvoices: invoices.slice(0, 4).map((i) => invoiceRow(i, orgSlug)),
     can: {
       viewBilling: can("billing:view"),
       manageBilling: can("billing:manage"),
@@ -372,22 +464,34 @@ function planOption(
 
 export async function loadBilling(
   orgSlug: string,
-  search: { payment?: string; interval?: string }
+  search: { payment?: string; interval?: string; page?: string }
 ): Promise<BillingData> {
   const { organization, can } = await requireOrgBySlug(orgSlug);
   if (!can("billing:view")) {
     notFound();
   }
-  const { billing } = getServerContext();
-  const [sub, entitlement, invoices, [seatRow]] = await Promise.all([
-    billing.getSubscription(organization.id),
-    billing.getEntitlement(organization.id),
-    billing.listInvoices(organization.id),
-    getServerContext()
-      .db.select({ n: count() })
-      .from(schema.member)
-      .where(eq(schema.member.organizationId, organization.id)),
-  ]);
+  const { billing, db } = getServerContext();
+  const paging = invoicePaging(
+    orgSlug,
+    await billing.countInvoices(organization.id),
+    search.page
+  );
+  const [sub, entitlement, invoices, [seatRow], cardChecks, details, buyer] =
+    await Promise.all([
+      billing.getSubscription(organization.id),
+      billing.getEntitlement(organization.id),
+      billing.listInvoices(organization.id, {
+        limit: INVOICE_PAGE_SIZE,
+        offset: (paging.page - 1) * INVOICE_PAGE_SIZE,
+      }),
+      getServerContext()
+        .db.select({ n: count() })
+        .from(schema.member)
+        .where(eq(schema.member.organizationId, organization.id)),
+      billing.listCardChecks(organization.id),
+      billing.getBillingDetails(organization.id),
+      currentBuyer(db, organization.id),
+    ]);
   const currency = (sub?.currency ?? env.BILLING_CURRENCY) as Currency;
   const currentPrice = sub ? getPlanPrice(sub.planPriceId) : undefined;
   const interval =
@@ -424,7 +528,10 @@ export async function loadBilling(
       reason: entitlement.reason,
     },
     plans: { monthly: plansFor("monthly"), annually: plansFor("annually") },
-    invoices: invoices.map(invoiceRow),
+    invoices: invoices.map((i) => invoiceRow(i, orgSlug)),
+    invoicePage: paging,
+    cardChecks: cardChecks.map((i) => cardCheckRow(i, orgSlug)),
+    billingDetails: billingDetailsData(details, organization.name, buyer),
     seats: { used: seatRow?.n ?? 1, limit: entitlement.plan.limits.members },
     publicKey: clientEnv.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
     devTools: can("billing:manage") && isDevToolsEnabled(),

@@ -1,11 +1,17 @@
 import { schema } from "@workspace/db";
 import { Logger } from "@workspace/logger";
-import { desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, isNull, ne, or, sql } from "drizzle-orm";
 
 import { getEntitlement } from "../entitlements";
 import { BillingError } from "../errors";
+import { DEFAULT_INVOICING } from "../invoicing";
 import { reconcile, sendTrialReminders } from "../reconcile";
 import { processEvent, processPending } from "../webhook/process";
+import {
+  type BillingDetailsInput,
+  getBillingDetails,
+  updateBillingDetails,
+} from "./billing-details";
 import { applyChargeSuccess } from "./charge";
 import { type Actor, startCheckout } from "./checkout";
 import {
@@ -19,6 +25,24 @@ import {
   getManageCardLink,
   resumeSubscription,
 } from "./plan-change";
+
+/** The date an invoice is listed under: paid date, else the period it is
+ *  for, else when we first heard of it. */
+export const invoiceDateSql = sql<Date>`coalesce(${schema.invoice.paidAt}, ${schema.invoice.periodStart}, ${schema.invoice.createdAt})`;
+
+export function invoiceDate(invoice: {
+  paidAt: Date | null;
+  periodStart: Date | null;
+  createdAt: Date;
+}): Date {
+  return invoice.paidAt ?? invoice.periodStart ?? invoice.createdAt;
+}
+
+/** Card checks (the refunded trial tokenisation charge) are not invoices. */
+const isInvoice = or(
+  isNull(schema.invoice.kind),
+  ne(schema.invoice.kind, "card_check")
+);
 
 export type CreateBillingServiceOptions = Omit<BillingDeps, "now" | "logger"> &
   Partial<Pick<BillingDeps, "now" | "logger">>;
@@ -82,13 +106,72 @@ export function createBillingService(options: CreateBillingServiceOptions) {
       );
     },
 
-    listInvoices: (organizationId: string) =>
+    /** Invoices newest first, by the date each row shows. */
+    listInvoices: (
+      organizationId: string,
+      page: { limit?: number; offset?: number } = {}
+    ) =>
       deps.db
         .select()
         .from(schema.invoice)
-        .where(eq(schema.invoice.organizationId, organizationId))
-        .orderBy(desc(schema.invoice.createdAt))
-        .limit(50),
+        .where(
+          and(eq(schema.invoice.organizationId, organizationId), isInvoice)
+        )
+        // Not by insert time: a failed attempt inserts its row long before
+        // the payment that settles it.
+        .orderBy(desc(invoiceDateSql), desc(schema.invoice.id))
+        .limit(page.limit ?? 50)
+        .offset(page.offset ?? 0),
+
+    async countInvoices(organizationId: string) {
+      const [row] = await deps.db
+        .select({ n: count() })
+        .from(schema.invoice)
+        .where(
+          and(eq(schema.invoice.organizationId, organizationId), isInvoice)
+        );
+      return row?.n ?? 0;
+    },
+
+    /** The refunded card checks behind card-up-front trials. */
+    listCardChecks: (organizationId: string) =>
+      deps.db
+        .select()
+        .from(schema.invoice)
+        .where(
+          and(
+            eq(schema.invoice.organizationId, organizationId),
+            eq(schema.invoice.kind, "card_check")
+          )
+        )
+        .orderBy(desc(invoiceDateSql), desc(schema.invoice.id))
+        .limit(20),
+
+    /** One invoice, only if it belongs to `organizationId`. */
+    async getInvoice(organizationId: string, invoiceId: string) {
+      const [row] = await deps.db
+        .select()
+        .from(schema.invoice)
+        .where(
+          and(
+            eq(schema.invoice.id, invoiceId),
+            eq(schema.invoice.organizationId, organizationId)
+          )
+        );
+      return row ?? null;
+    },
+
+    getBillingDetails: (organizationId: string) =>
+      getBillingDetails(deps.db, organizationId),
+
+    updateBillingDetails: (input: {
+      organizationId: string;
+      actor: Actor;
+      details: BillingDetailsInput;
+    }) => updateBillingDetails(deps.db, input),
+
+    /** Seller and tax settings new invoices are issued with. */
+    invoicing: () => deps.invoicing ?? DEFAULT_INVOICING,
 
     changePlan: (input: {
       organizationId: string;

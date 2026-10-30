@@ -8,7 +8,7 @@ export default async function BillingPage({
   searchParams,
 }: {
   params: Promise<{ orgSlug: string }>;
-  searchParams: Promise<{ payment?: string; interval?: string }>;
+  searchParams: Promise<{ payment?: string; interval?: string; page?: string }>;
 }) {
   const { orgSlug } = await params;
   return <Billing data={await loadBilling(orgSlug, await searchParams)} />;

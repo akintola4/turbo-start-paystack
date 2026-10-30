@@ -15,6 +15,7 @@ import {
 import { env } from "@workspace/env/server";
 
 import { notifyBillingAdmins } from "./billing-emails";
+import { invoicingFromEnv } from "./invoicing-config";
 
 type ServerContext = {
   db: Database;
@@ -55,6 +56,7 @@ function createServerContext(): ServerContext {
     graceDays: env.BILLING_GRACE_DAYS,
     trialMode: env.BILLING_TRIAL_MODE,
     notify: (notification) => notifyBillingAdmins({ db, mailer }, notification),
+    invoicing: invoicingFromEnv(),
   });
   const authService = createAuth({
     db,

@@ -161,6 +161,8 @@ export function invoiceEvent(input: {
   periodStart: string;
   periodEnd: string;
   reference?: string;
+  /** When the charge went through. Defaults to now for paid invoices. */
+  paidAt?: string;
 }) {
   return {
     event: input.event,
@@ -172,7 +174,7 @@ export function invoiceEvent(input: {
       period_end: input.periodEnd,
       status: input.status,
       paid: input.paid,
-      paid_at: input.paid ? new Date().toISOString() : null,
+      paid_at: input.paid ? (input.paidAt ?? new Date().toISOString()) : null,
       description: null,
       authorization: testAuthorization(),
       subscription: subscriptionRef(input.subscriptionCode),

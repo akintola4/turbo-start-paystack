@@ -63,6 +63,7 @@ describe("notifyBillingAdmins", () => {
       amountSubunit: 45_000,
       currency: "GHS",
       reference: "tsp_1",
+      invoiceId: "inv_1",
       paidAt: new Date("2026-10-28T00:00:00Z"),
       periodStart: new Date("2026-10-28T00:00:00Z"),
       periodEnd: new Date("2026-11-28T00:00:00Z"),
@@ -75,7 +76,10 @@ describe("notifyBillingAdmins", () => {
     expect(mail?.subject).toBe("Receipt for GH₵450.00: Acme <Logistics>");
     expect(mail?.html).toContain("Acme &lt;Logistics&gt;");
     expect(mail?.text).toContain("Plan: Pro (monthly)");
-    expect(mail?.text).toContain("https://app.test/app/acme/settings/billing");
+    expect(mail?.text).toContain(
+      "https://app.test/app/acme/settings/billing/invoices/inv_1"
+    );
+    expect(mail?.text).toContain("View invoice");
     expect(mail?.idempotencyKey).toMatch(/^[0-9a-f]{64}$/);
     expect(sent[0]?.idempotencyKey).not.toBe(sent[1]?.idempotencyKey);
   });

@@ -49,6 +49,23 @@ export const env = createEnv({
     EMAIL_LOGO_URL: z.url({ protocol: /^https$/ }).optional(),
     // "Contact support" link in the footer (https: or mailto:).
     EMAIL_SUPPORT_URL: z.url({ protocol: /^(https|mailto)$/ }).optional(),
+
+    // The seller printed on invoices. All optional: the name falls back to
+    // EMAIL_BRAND_NAME and empty fields are left off. Copied onto each
+    // invoice when it is issued, so changing them never edits old ones.
+    INVOICE_SELLER_NAME: z.string().min(1).optional(),
+    // Postal address; write line breaks as \n.
+    INVOICE_SELLER_ADDRESS: z.string().min(1).optional(),
+    INVOICE_SELLER_EMAIL: z.email().optional(),
+    // Company registration or tax ID, e.g. "RC 1234567" or "TIN 12345678-0001".
+    INVOICE_SELLER_TAX_ID: z.string().min(1).optional(),
+    INVOICE_SELLER_VAT_NUMBER: z.string().min(1).optional(),
+    // VAT included in your prices, as a percentage: 7.5 in Nigeria. 0 (the
+    // default) prints no VAT lines.
+    INVOICE_VAT_RATE: z
+      .string()
+      .regex(/^(100|\d{1,2})(\.\d{1,2})?$/, "a percentage like 7.5")
+      .optional(),
   },
 
   experimental__runtimeEnv: {

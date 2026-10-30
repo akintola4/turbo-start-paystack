@@ -92,9 +92,14 @@ describe("createMailer", () => {
       amountSubunit: 3_000_000,
       currency: "NGN",
       reference: "tsp_1",
+      invoiceId: "inv/1",
       paidAt: new Date("2026-10-28T00:00:00Z"),
     };
     await mailer.paymentReceipt({ ...input, to: "a@x.test" });
+    // The receipt links to its invoice; the id is one encoded segment.
+    expect(sent[0]?.text).toContain(
+      "https://app.test/app/acme/settings/billing/invoices/inv%2F1"
+    );
     await mailer.paymentReceipt({ ...input, to: "b@x.test" });
     await mailer.paymentReceipt({ ...input, to: "A@x.test" });
     const [a, b, aAgain] = sent.map((m) => m.idempotencyKey);

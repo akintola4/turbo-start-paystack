@@ -146,7 +146,8 @@ async function activateFromCheckout(
       ...card,
     });
   }
-  await upsertInvoice(tx, {
+  const invoiceId = await upsertInvoice(deps, tx, {
+    source: "charge",
     organizationId: intent.organizationId,
     subscriptionId,
     reference: data.reference,
@@ -157,6 +158,9 @@ async function activateFromCheckout(
     periodStart: paidAt,
     periodEnd: addInterval(paidAt, price.interval),
     description: `${price.planKey} (${price.interval})`,
+    kind: "subscription",
+    planPriceId: intent.planPriceId,
+    card: data.authorization,
   });
   await audit(tx, {
     organizationId: intent.organizationId,
@@ -169,6 +173,7 @@ async function activateFromCheckout(
     organizationId: intent.organizationId,
     key: `receipt:${data.reference}`,
     planPriceId: intent.planPriceId,
+    invoiceId,
     amountSubunit: data.amount,
     currency: data.currency,
     reference: data.reference,
@@ -255,7 +260,8 @@ async function startTrialFromCharge(
     })
     .where(eq(schema.subscription.id, subscriptionId));
   await refund();
-  await upsertInvoice(tx, {
+  await upsertInvoice(deps, tx, {
+    source: "charge",
     organizationId: intent.organizationId,
     subscriptionId,
     reference: data.reference,
@@ -264,6 +270,10 @@ async function startTrialFromCharge(
     status: "void",
     paidAt: now,
     description: "Card verification (refunded)",
+    kind: "card_check",
+    planPriceId: intent.planPriceId,
+    card: data.authorization,
+    refundedAt: now,
   });
   await audit(tx, {
     organizationId: intent.organizationId,
@@ -291,7 +301,8 @@ async function finalizeUpgradeFromCharge(
 ): Promise<Outcome> {
   const sub = await liveSubscription(tx, intent.organizationId, { lock: true });
   const paidAt = data.paid_at ? new Date(data.paid_at) : deps.now();
-  await upsertInvoice(tx, {
+  await upsertInvoice(deps, tx, {
+    source: "charge",
     organizationId: intent.organizationId,
     subscriptionId: sub?.id ?? null,
     reference: data.reference,
@@ -300,6 +311,9 @@ async function finalizeUpgradeFromCharge(
     status: "paid",
     paidAt,
     description: "Plan upgrade (prorated)",
+    kind: "proration",
+    planPriceId: intent.planPriceId,
+    card: data.authorization,
   });
   if (!sub || sub.planPriceId === intent.planPriceId) {
     return {};
@@ -412,7 +426,13 @@ async function applyRenewalCharge(
           ])
         )
       );
-    await upsertInvoice(tx, {
+    // Resync may have moved the period or swapped in a scheduled plan.
+    const [renewed] = await tx
+      .select()
+      .from(schema.subscription)
+      .where(eq(schema.subscription.id, only.id));
+    const invoiceId = await upsertInvoice(deps, tx, {
+      source: "charge",
       organizationId: only.organizationId,
       subscriptionId: only.id,
       reference: data.reference,
@@ -421,17 +441,20 @@ async function applyRenewalCharge(
       status: "paid",
       paidAt,
       description: "Renewal",
+      kind: "renewal",
+      // The plan this charge was for: its plan code, not the row's plan.
+      planPriceId:
+        renewed && priceIds.includes(renewed.planPriceId)
+          ? renewed.planPriceId
+          : (priceIds[0] ?? null),
+      card: data.authorization,
     });
-    // Resync may have moved the period or swapped in a scheduled plan.
-    const [renewed] = await tx
-      .select()
-      .from(schema.subscription)
-      .where(eq(schema.subscription.id, only.id));
     await deps.notify?.({
       type: "payment_succeeded",
       organizationId: only.organizationId,
       key: `receipt:${data.reference}`,
       planPriceId: renewed?.planPriceId ?? only.planPriceId,
+      invoiceId,
       amountSubunit: data.amount,
       currency: data.currency,
       reference: data.reference,

@@ -504,3 +504,56 @@ number-flow-react::part(symbol) {
     transition: none;
   }
 }
+
+/*
+ * Printing (the invoice page): A4, no app chrome, and light paper even when
+ * the app is in dark mode. The forest panel keeps its own colours (it is the
+ * same island in both themes) and is printed with them.
+ */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+  :root,
+  html.dark {
+    color-scheme: light;
+    --background: #ffffff;
+    --foreground: oklch(0.22 0.018 159);
+    --card: #ffffff;
+    --card-foreground: oklch(0.22 0.018 159);
+    --surface-2: oklch(0.958 0.008 163);
+    --muted-foreground: oklch(0.47 0.016 163);
+    --subtle-foreground: oklch(0.56 0.014 163);
+    --border: oklch(0.9 0.012 163);
+  }
+  [data-slot="sidebar"],
+  [data-slot="sidebar-gap"],
+  [data-slot="sidebar-container"],
+  [data-sonner-toaster],
+  [data-print="hide"] {
+    /* Unlayered, so it wins over Tailwind's layered display utilities. */
+    display: none;
+  }
+  #content {
+    max-width: none;
+    padding: 0;
+  }
+  .invoice-paper {
+    box-shadow: none;
+    padding: 0;
+    border-radius: 0;
+  }
+  /* Every fill on the invoice prints: the panel, the seller's mark on
+     its forest chip, and the reference well. */
+  .invoice-paper,
+  .invoice-paper * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .invoice-paper section,
+  .invoice-paper footer,
+  .invoice-paper tr {
+    break-inside: avoid;
+  }
+}

@@ -18,6 +18,7 @@
     "@gsap/react": "2.1.2",
     "@number-flow/react": "^0.6.2",
     "@paystack/inline-js": "^2.22.0",
+    "@react-pdf/renderer": "^4.9.0",
     "@tanstack/react-table": "^8.21.3",
     "@workspace/auth": "workspace:*",
     "@workspace/billing": "workspace:*",

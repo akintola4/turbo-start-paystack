@@ -1,9 +1,7 @@
-import { cn } from "@workspace/tailwind-config/utils";
 import {
   CalendarIcon,
   CreditCardIcon,
   type LucideIcon,
-  RotateCwIcon,
   TriangleAlertIcon,
   UsersIcon,
 } from "lucide-react";
@@ -14,19 +12,19 @@ import {
   BillingAction,
   type BillingConfirm,
 } from "@/components/billing/billing-action";
+import { BillingDetails } from "@/components/billing/billing-details";
 import { DevBillingPanel } from "@/components/billing/dev-billing-panel";
+import { InvoiceList } from "@/components/billing/invoice-list";
 import { PaymentToast } from "@/components/billing/payment-toast";
 import { PlanPicker } from "@/components/billing/plan-picker";
 import { SwapOnChange } from "@/components/motion";
 import {
   Amount,
   CardNumber,
-  InvoiceBadge,
   Money,
   PageHeader,
   Panel,
   StatusBadge,
-  Tile,
 } from "@/components/primitives";
 import { daysUntil, formatDate, intervalLabel } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
@@ -261,72 +259,6 @@ function PastDueBanner({ data }: { data: BillingData }) {
   );
 }
 
-function Invoices({ data }: { data: BillingData }) {
-  return (
-    <section
-      aria-labelledby="invoices-title"
-      className="grid gap-4"
-      id="invoices"
-    >
-      <h2 className="font-semibold text-xl" id="invoices-title">
-        Invoices
-      </h2>
-      {data.invoices.length === 0 ? (
-        <Tile className="grid gap-1">
-          <p className="font-semibold">No invoices yet</p>
-          <p className="text-muted-foreground">
-            Paystack emails a receipt for every charge; each one shows up here
-            too.
-          </p>
-        </Tile>
-      ) : (
-        <Tile className="p-0 sm:p-0">
-          <ul>
-            {data.invoices.map((inv) => (
-              <li
-                className="grid min-h-14 grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 border-border border-t px-5 py-3 first:border-t-0 sm:grid-cols-[7.5rem_1fr_8rem_6.5rem_2.75rem] sm:px-6"
-                key={inv.id}
-              >
-                <span className="text-muted-foreground text-sm tabular-nums max-sm:order-3">
-                  {formatDate(inv.date)}
-                </span>
-                <span className="truncate font-medium max-sm:order-1">
-                  {inv.description}
-                </span>
-                <span
-                  className={cn(
-                    "text-right max-sm:order-2",
-                    inv.status === "void" &&
-                      "text-muted-foreground line-through"
-                  )}
-                >
-                  <Amount label={inv.amountLabel} />
-                </span>
-                <span className="flex sm:justify-start max-sm:order-4 max-sm:justify-end">
-                  <InvoiceBadge status={inv.status} />
-                </span>
-                <span className="hidden justify-end sm:flex">
-                  {inv.status === "failed" && data.canManage ? (
-                    <BillingAction
-                      action="manage-card"
-                      aria-label="Retry with another card"
-                      orgId={data.org.id}
-                      size="icon-sm"
-                      variant="ghost"
-                    >
-                      <RotateCwIcon aria-hidden />
-                    </BillingAction>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Tile>
-      )}
-    </section>
-  );
-}
-
 export function Billing({ data }: { data: BillingData }) {
   const sub = data.subscription;
   const description = sub
@@ -362,7 +294,14 @@ export function Billing({ data }: { data: BillingData }) {
           </p>
         )}
       </section>
-      <Invoices data={data} />
+      <div className="grid gap-4">
+        <InvoiceList data={data} />
+        <BillingDetails
+          canManage={data.canManage}
+          details={data.billingDetails}
+          orgId={data.org.id}
+        />
+      </div>
     </div>
   );
 }

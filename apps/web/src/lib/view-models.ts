@@ -52,13 +52,39 @@ export type SubscriptionSummary = {
 
 export type InvoiceRow = {
   id: string;
-  /** ISO. */
+  /** ISO. The paid date; for unpaid rows, the period start. */
   date: string;
+  /** "Pro plan renewal", "Upgrade to Pro plan". */
   description: string;
+  /** "INV-2026-000123", null until paid. */
+  number: string | null;
+  /** "12 Nov – 12 Dec 2026", when the row covers a period. */
+  period: string | null;
   amountLabel: string;
   amountSubunit: number;
   currency: string;
   status: "pending" | "paid" | "failed" | "void";
+  href: string;
+  pdfHref: string;
+};
+
+/** A trial's refunded card check: kept apart from invoices. */
+export type CardCheckRow = {
+  id: string;
+  /** ISO. */
+  date: string;
+  refundedAt: string | null;
+  amountLabel: string;
+  href: string;
+};
+
+export type BillingDetailsData = {
+  legalName: string | null;
+  address: string | null;
+  taxId: string | null;
+  email: string | null;
+  /** What invoices use when a field is blank. */
+  fallback: { name: string; email: string | null };
 };
 
 export type MemberRow = {
@@ -142,6 +168,18 @@ export type BillingData = {
   /** Plan options for each interval, so the picker can switch without a request. */
   plans: { monthly: PlanOption[]; annually: PlanOption[] };
   invoices: InvoiceRow[];
+  invoicePage: {
+    page: number;
+    pageCount: number;
+    total: number;
+    /** 1-based positions of the first and last row shown. */
+    from: number;
+    to: number;
+    prevHref: string | null;
+    nextHref: string | null;
+  };
+  cardChecks: CardCheckRow[];
+  billingDetails: BillingDetailsData;
   seats: { used: number; limit: number };
   publicKey?: string;
   /** Show the "Simulate billing" dev panel: development, local Paystack

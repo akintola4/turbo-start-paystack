@@ -98,7 +98,10 @@ export function AppShell({
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="bg-background">
-        <header className="sticky top-0 z-10 flex min-h-14 items-center gap-3 border-b bg-background px-4 pt-[env(safe-area-inset-top)] md:hidden">
+        <header
+          className="sticky top-0 z-10 flex min-h-14 items-center gap-3 border-b bg-background px-4 pt-[env(safe-area-inset-top)] md:hidden"
+          data-print="hide"
+        >
           <SidebarTrigger
             aria-label="Open navigation"
             className="-ml-2 size-11"

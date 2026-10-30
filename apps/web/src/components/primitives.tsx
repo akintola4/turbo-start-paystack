@@ -20,7 +20,8 @@ import type { HTMLAttributes, ReactNode } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
 import { splitMoney } from "@/lib/format";
-import type { SubscriptionStatus } from "@/lib/view-models";
+import { spokenMoney } from "@/lib/money";
+import type { InvoiceRow, SubscriptionStatus } from "@/lib/view-models";
 
 /**
  * The product mark: one reference tile (forest, radius 8) with a sunflower
@@ -95,7 +96,7 @@ const SUBSCRIPTION_STATUS: Record<
 };
 
 const INVOICE_STATUS: Record<
-  string,
+  InvoiceRow["status"],
   { label: string; icon: LucideIcon; variant: StatusVariant }
 > = {
   paid: { label: "Paid", icon: CheckIcon, variant: "success" },
@@ -140,13 +141,10 @@ export function InvoiceBadge({
   status,
   className,
 }: {
-  status: string;
+  status: InvoiceRow["status"];
   className?: string;
 }) {
-  const meta = INVOICE_STATUS[status] ?? INVOICE_STATUS.pending;
-  if (!meta) {
-    return null;
-  }
+  const meta = INVOICE_STATUS[status];
   const Icon = meta.icon;
   return (
     <Badge className={className} variant={meta.variant}>
@@ -226,14 +224,6 @@ export function Panel({
 
 /* ------------------------------------------------------------------ money */
 
-const SPOKEN: Record<string, string> = {
-  "₦": "naira",
-  "GH₵": "cedis",
-  R: "rand",
-  "KSh ": "shillings",
-  $: "dollars",
-};
-
 /**
  * Display amount. Symbol, digits and the period unit are one NumberFlow:
  * the symbol at the digits' size and weight (from the shared formatter),
@@ -258,7 +248,7 @@ export function Money({
     xl: "text-[40px] sm:text-[56px]",
   } as const;
   const showDecimals = Boolean(decimals && decimals !== ".00");
-  const spoken = `${whole} ${SPOKEN[symbol] ?? symbol.trim()}${per ? ` per ${per}` : ""}`;
+  const spoken = spokenMoney(label, per);
   return (
     <AnimatedNumber
       className={cn(
@@ -281,7 +271,10 @@ export function Money({
   );
 }
 
-/** Inline / table amount: same size as the text around it, right-aligned by the caller. */
+/**
+ * Inline / table amount: same size as the text around it, right-aligned by
+ * the caller. Screen readers get the spoken form ("30,000 naira").
+ */
 export function Amount({
   label,
   className,
@@ -294,7 +287,8 @@ export function Amount({
       className={cn("font-money font-medium tabular-nums", className)}
       data-money
     >
-      {label}
+      <span aria-hidden>{label}</span>
+      <span className="sr-only">{spokenMoney(label)}</span>
     </span>
   );
 }

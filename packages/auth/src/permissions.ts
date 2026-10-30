@@ -1,4 +1,4 @@
-export { AuthError } from "./errors";
+export { AuthError, isAuthError } from "./errors";
 export {
   isRole,
   type Permission,

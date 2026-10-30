@@ -54,6 +54,7 @@ describe("email assets", () => {
       amountSubunit: 3_000_000,
       currency: "NGN",
       reference: "tsp_1",
+      invoiceId: "inv_1",
       paidAt: new Date("2026-10-12T09:00:00Z"),
     });
     const html = sent[0]?.html ?? "";

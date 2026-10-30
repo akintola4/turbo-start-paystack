@@ -271,7 +271,8 @@ export async function changePlan(
             .update(schema.paymentIntent)
             .set({ status: "failed" })
             .where(eq(schema.paymentIntent.id, reference));
-          await upsertInvoice(tx, {
+          await upsertInvoice(deps, tx, {
+            source: "charge",
             organizationId: sub.organizationId,
             subscriptionId: sub.id,
             reference,
@@ -279,10 +280,14 @@ export async function changePlan(
             currency: sub.currency,
             status: "void",
             description: "Plan upgrade (refunded)",
+            kind: "proration",
+            planPriceId: target.id,
+            refundedAt: now,
           });
           return { failed: error };
         }
-        await upsertInvoice(tx, {
+        await upsertInvoice(deps, tx, {
+          source: "charge",
           organizationId: sub.organizationId,
           subscriptionId: sub.id,
           reference,
@@ -291,6 +296,8 @@ export async function changePlan(
           status: "paid",
           paidAt: now,
           description: "Plan upgrade (prorated)",
+          kind: "proration",
+          planPriceId: target.id,
         });
         await notifyChange({
           key: `plan_changed:${reference}`,
