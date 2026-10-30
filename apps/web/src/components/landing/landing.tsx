@@ -104,9 +104,11 @@ function ProofHead({
 export function Landing({
   initialCurrency,
   initialInterval,
+  signedIn = false,
 }: {
   initialCurrency: Currency;
   initialInterval?: Interval;
+  signedIn?: boolean;
 }) {
   const prices = priceTable();
   return (
@@ -117,7 +119,7 @@ export function Landing({
       {/* Padding, not the hero's margin: a top margin would collapse
           through <body> and shift the page once hydration settles. */}
       <div className="pt-(--edge)">
-        <Hero prices={prices} />
+        <Hero prices={prices} signedIn={signedIn} />
       </div>
       <main
         className="grid grid-cols-[minmax(0,1fr)] gap-24 pt-24 sm:gap-32 sm:pt-32"

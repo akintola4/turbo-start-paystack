@@ -4,12 +4,14 @@ import { cookies } from "next/headers";
 
 import { Landing } from "@/components/landing/landing";
 import { landingJsonLd, serializeJsonLd } from "@/lib/json-ld";
+import { isSignedIn } from "@/server/session";
 
 /**
  * Reads the remembered currency so the server renders prices, the receipt
  * and the footer tile in it: no flash of naira for a visitor who chose rand.
  * `?currency=` and `?interval=` come from the wall and the interval switch
  * when JavaScript is off (they submit as GET forms), and win over the cookie.
+ * A signed-in visitor gets a way back into the app instead of "Sign in".
  */
 export default async function HomePage({
   searchParams,
@@ -25,6 +27,7 @@ export default async function HomePage({
       ? saved
       : "NGN";
   const interval = query.interval === "annually" ? "annually" : "monthly";
+  const signedIn = await isSignedIn();
   return (
     <>
       <script
@@ -33,7 +36,11 @@ export default async function HomePage({
         }}
         type="application/ld+json"
       />
-      <Landing initialCurrency={currency} initialInterval={interval} />
+      <Landing
+        initialCurrency={currency}
+        initialInterval={interval}
+        signedIn={signedIn}
+      />
     </>
   );
 }
