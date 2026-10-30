@@ -242,7 +242,7 @@ export function Hero({ prices }: { prices: PriceTable }) {
         >
           <p
             aria-live="polite"
-            className="inline-flex flex-wrap items-baseline gap-x-2.5 gap-y-1 rounded-card bg-panel-tile px-4 py-2.5 font-medium text-[15px] text-panel-muted"
+            className="inline-flex w-full flex-wrap items-baseline gap-x-2.5 gap-y-1 rounded-card bg-panel-tile px-4 py-2.5 font-medium text-[15px] text-panel-muted pointer-fine:sm:w-auto"
             data-hero-price
           >
             Your customers see
