@@ -166,8 +166,13 @@ function CurrentPlan({ data }: { data: BillingData }) {
 
   return (
     <div className="grid gap-3">
-      <Panel aria-labelledby="current-plan" className="grid gap-6 sm:gap-8">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      {/* A container: beside an open sidebar on a tablet the panel is
+          narrower than the viewport breakpoints assume. */}
+      <Panel
+        aria-labelledby="current-plan"
+        className="@container grid gap-6 sm:gap-8"
+      >
+        <div className="flex flex-col gap-5 @2xl:flex-row @2xl:items-start @2xl:justify-between">
           <div className="grid gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <SwapOnChange value={sub.planName}>
@@ -195,6 +200,7 @@ function CurrentPlan({ data }: { data: BillingData }) {
               </span>
             </div>
             <Money
+              className="@max-md:text-[40px]"
               label={sub.priceLabel}
               per={intervalLabel(sub.interval, "long")}
               size="xl"

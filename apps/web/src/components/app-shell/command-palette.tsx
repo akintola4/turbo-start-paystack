@@ -29,9 +29,23 @@ import {
   UserPlusIcon,
   UsersIcon,
 } from "lucide-react";
+import {
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@workspace/ui/components/sidebar";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  type RefObject,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { useSignOut } from "@/components/app-shell/user-menu";
 import {
@@ -199,6 +213,51 @@ function useModKey() {
 
 /* -------------------------------------------------------------- palette */
 
+const PaletteContext = createContext<{
+  open: () => void;
+  trigger: RefObject<HTMLButtonElement | null>;
+  mod: string | null;
+} | null>(null);
+
+/** The sidebar's "Search… ⌘K" row. In icon mode, an icon with a tooltip. */
+export function SearchButton() {
+  const palette = useContext(PaletteContext);
+  const { setOpenMobile } = useSidebar();
+  if (!palette) {
+    throw new Error("SearchButton must be inside CommandPaletteProvider.");
+  }
+  const { mod } = palette;
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        aria-haspopup="dialog"
+        aria-keyshortcuts="Meta+K Control+K"
+        className="text-muted-foreground"
+        data-command-trigger
+        onClick={() => {
+          // On phones the button is in the drawer: close it first.
+          setOpenMobile(false);
+          palette.open();
+        }}
+        ref={palette.trigger}
+        tooltip={`Search (${mod ?? "⌘"}K)`}
+      >
+        <SearchIcon aria-hidden />
+        <span>Search…</span>
+        <kbd
+          aria-hidden
+          className={cn(
+            "ml-auto inline-flex h-5 min-w-9 items-center justify-center rounded-[5px] border border-sidebar-border bg-sidebar px-1.5 font-medium font-sans text-[11px] text-muted-foreground tabular-nums",
+            mod ? "" : "invisible"
+          )}
+        >
+          {mod ?? "⌘"}K
+        </kbd>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
 /**
  * ⌘K / Ctrl+K search for the org in the URL: pages, organizations,
  * members, invoices and actions, limited to what the member's role can do.
@@ -206,19 +265,25 @@ function useModKey() {
  * /api/orgs/:orgId/search, which checks the role again on the server.
  * Enter opens the highlighted result; ⌘/Ctrl+Enter opens its alternate
  * (an invoice's PDF). Focus goes back to the trigger on close.
+ *
+ * Mounted around the whole shell, so ⌘K and the dialog work while the
+ * phone drawer (where SearchButton lives) is closed.
  */
-export function CommandPalette({
+export function CommandPaletteProvider({
   org,
   role,
+  children,
 }: {
   org: { id: string; slug: string };
   role: string;
+  children: ReactNode;
 }) {
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
   const signOut = useSignOut();
   const mod = useModKey();
   const trigger = useRef<HTMLButtonElement>(null);
+  const { isMobile } = useSidebar();
   const highlighted = useRef<PaletteResult | null>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -294,31 +359,15 @@ export function CommandPalette({
 
   return (
     <>
-      <button
-        aria-haspopup="dialog"
-        aria-keyshortcuts="Meta+K Control+K"
-        className="pressable flex h-10 items-center gap-2 rounded-control border border-border bg-surface-1 px-3 text-muted-foreground text-sm transition-colors duration-(--dur-fast) hover:bg-surface-2 hover:text-foreground max-sm:size-11 max-sm:justify-center max-sm:px-0 sm:w-60"
-        data-command-trigger
-        onClick={() => setOpen(true)}
-        ref={trigger}
-        type="button"
+      <PaletteContext.Provider
+        value={{ open: () => setOpen(true), trigger, mod }}
       >
-        <SearchIcon aria-hidden className="size-4 shrink-0" />
-        <span className="max-sm:sr-only">Search…</span>
-        <kbd
-          aria-hidden
-          className={cn(
-            "ml-auto hidden h-5 min-w-9 items-center justify-center rounded-[5px] border border-border bg-background px-1.5 font-medium font-sans text-[11px] text-muted-foreground tabular-nums sm:inline-flex",
-            mod ? "" : "invisible"
-          )}
-        >
-          {mod ?? "⌘"}K
-        </kbd>
-      </button>
+        {children}
+      </PaletteContext.Provider>
       <CommandDialog
         className="sm:top-[18vh] sm:max-w-xl max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:max-w-none max-sm:translate-x-0 max-sm:rounded-b-none! max-sm:pb-[env(safe-area-inset-bottom)] duration-(--dur-fast) data-ending-style:duration-[120ms] max-sm:transition-[opacity,translate] max-sm:duration-(--dur-sheet) max-sm:ease-drawer max-sm:data-ending-style:duration-(--dur-sheet-exit) max-sm:data-starting-style:translate-y-full max-sm:data-ending-style:translate-y-full max-sm:data-starting-style:opacity-100 max-sm:data-ending-style:opacity-100"
         description="Search pages, people, invoices and actions in this organization."
-        finalFocus={trigger}
+        finalFocus={isMobile ? undefined : trigger}
         onOpenChange={setOpen}
         open={open}
         title="Search"

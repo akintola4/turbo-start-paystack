@@ -160,7 +160,9 @@ test("collapsed sidebar keeps one left edge and survives a reload", async ({
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page, ORG);
-  await page.getByRole("button", { name: "Toggle sidebar" }).click();
+  await page
+    .getByRole("button", { name: "Toggle sidebar", exact: true })
+    .click();
   await page.reload();
   await page.locator("main h1").waitFor();
   await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute(
@@ -229,7 +231,9 @@ for (const width of [1440, 1920]) {
     const expanded = await gutters(page);
     expect(Math.abs(expanded.left - expanded.right)).toBeLessThanOrEqual(1);
 
-    await page.getByRole("button", { name: "Toggle sidebar" }).click();
+    await page
+      .getByRole("button", { name: "Toggle sidebar", exact: true })
+      .click();
     await expect(page.locator('[data-slot="sidebar"]')).toHaveAttribute(
       "data-state",
       "collapsed"
@@ -248,7 +252,10 @@ test("the toggle shows a focus ring for the keyboard, not after a click", async 
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page, ORG);
-  const toggle = page.getByRole("button", { name: "Toggle sidebar" });
+  const toggle = page.getByRole("button", {
+    name: "Toggle sidebar",
+    exact: true,
+  });
   const outline = () =>
     toggle.evaluate((el) => {
       const s = getComputedStyle(el);
@@ -278,4 +285,106 @@ test("the toggle shows a focus ring for the keyboard, not after a click", async 
   const tabbed = await outline();
   expect(tabbed.style).toBe("solid");
   expect(transparent(tabbed.color)).toBe(false);
+});
+
+/* ---------------------------------------- shadcn sidebar behaviour (icon) */
+
+const sidebarState = (page: Page) =>
+  page.locator('[data-slot="sidebar"]').first().getAttribute("data-state");
+
+test("⌘B, the trigger and the rail toggle between expanded and icons", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page, ORG);
+  const trigger = page.getByRole("button", {
+    name: "Toggle sidebar",
+    exact: true,
+  });
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  expect(await sidebarState(page)).toBe("expanded");
+
+  await page.keyboard.press("ControlOrMeta+b");
+  await expect.poll(() => sidebarState(page)).toBe("collapsed");
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator('[data-slot="sidebar"]').first()).toHaveAttribute(
+    "data-collapsible",
+    "icon"
+  );
+
+  await page.locator('[data-sidebar="rail"]').click();
+  await expect.poll(() => sidebarState(page)).toBe("expanded");
+  await trigger.click();
+  await expect.poll(() => sidebarState(page)).toBe("collapsed");
+
+  // Reload keeps the state (cookie, read on the server: no flash).
+  await page.reload();
+  expect(await sidebarState(page)).toBe("collapsed");
+});
+
+test("icon mode: icons with tooltips, nothing overflowing, header still aligned", async ({
+  page,
+}) => {
+  await page.context().addCookies([
+    {
+      name: "sidebar_state",
+      value: "false",
+      url: test.info().project.use.baseURL ?? "http://localhost:3200",
+    },
+  ]);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page, ORG);
+  const sidebar = page.locator('[data-slot="sidebar-inner"]');
+  // --sidebar-width-icon (3rem) including its 1px border.
+  const box = await page
+    .locator('[data-slot="sidebar-container"]')
+    .boundingBox();
+  const overflow = await sidebar.evaluate((el) =>
+    [...el.querySelectorAll("[data-sidebar=menu-button]")].some((b) => {
+      const r = b.getBoundingClientRect();
+      const s = el.getBoundingClientRect();
+      return r.left < s.left - 0.5 || r.right > s.right + 0.5;
+    })
+  );
+  expect(box?.width).toBe(48);
+  expect(overflow).toBe(false);
+
+  await page
+    .locator("[data-sidebar=menu-button]")
+    .filter({ hasText: "Billing" })
+    .hover();
+  await expect(page.locator("[data-slot=tooltip-content]")).toHaveText(
+    "Billing"
+  );
+
+  const m = await measure(page);
+  expect(
+    Math.abs((m.toggleCentre ?? 0) - (m.orgRowCentre ?? 0))
+  ).toBeLessThanOrEqual(1);
+  expect(Math.abs(m.titleInk - m.contentLeft)).toBeLessThanOrEqual(1);
+});
+
+test("the search trigger sits in the sidebar and opens the palette", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page, ORG);
+  const search = page.locator('[data-slot="sidebar"] [data-command-trigger]');
+  await expect(search).toBeVisible();
+  await search.click();
+  await expect(page.getByRole("dialog", { name: "Search" })).toBeVisible();
+});
+
+test("phones open the sidebar as a sheet", async ({ page }) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await open(page, ORG);
+  await page
+    .getByRole("button", { name: "Toggle sidebar", exact: true })
+    .click();
+  const sheet = page.locator('[data-mobile="true"]');
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("link", { name: "Members" })).toBeVisible();
+  await sheet.getByRole("link", { name: "Members" }).click();
+  await expect(page).toHaveURL(/\/members$/);
+  await expect(sheet).toBeHidden();
 });
