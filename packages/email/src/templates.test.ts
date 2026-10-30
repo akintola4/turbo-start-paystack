@@ -35,6 +35,19 @@ describe("content", () => {
     expect(email.text).toContain("Hi Ada");
   });
 
+  it("a change-email link says it replaces the old address", async () => {
+    const url = "https://app.test/api/auth/verify-email?token=t2";
+    const email = await renderEmail("verify-email", {
+      name: "Ada",
+      url,
+      purpose: "change-email",
+    });
+    expect(email.subject).toBe("Confirm your new email address");
+    expect(email.text).toContain("replaces your old one");
+    expect(email.text).toContain(url);
+    expect(email.text).not.toContain("sign up");
+  });
+
   it("invitation shows inviter, org, role and expiry, and escapes names", async () => {
     const email = await renderEmail("organization-invitation", {
       inviterName: "Tunde <script>alert(1)</script>",

@@ -1,6 +1,5 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@workspace/ui/components/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +20,7 @@ import {
 } from "@workspace/ui/components/sidebar";
 import {
   ChevronsUpDownIcon,
+  CircleUserIcon,
   LayoutGridIcon,
   LogOutIcon,
   SunMoonIcon,
@@ -28,17 +28,16 @@ import {
 import Link from "next/link";
 
 import { ThemeRadio, useSignOut } from "@/components/app-shell/user-menu";
-import { initials } from "@/lib/format";
+import { MarkAvatar } from "@/components/mark-avatar";
 
-/** shadcn sidebar-07's nav-user: the account, theme and sign out. */
+/** shadcn sidebar-07's nav-user: the account, theme and sign out. The
+ *  avatar is the user's mark, drawn from their email as on sign-in. */
 export function NavUser({ user }: { user: { name: string; email: string } }) {
   const { isMobile } = useSidebar();
   const signOut = useSignOut();
   const who = (
     <>
-      <Avatar>
-        <AvatarFallback>{initials(user.name)}</AvatarFallback>
-      </Avatar>
+      <MarkAvatar seed={user.email} />
       <div className="grid flex-1 text-left text-sm leading-tight">
         <span className="truncate font-medium">{user.name}</span>
         <span className="truncate text-xs">{user.email}</span>
@@ -73,6 +72,10 @@ export function NavUser({ user }: { user: { name: string; email: string } }) {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              <DropdownMenuItem render={<Link href="/app/account" />}>
+                <CircleUserIcon />
+                Account
+              </DropdownMenuItem>
               <DropdownMenuItem render={<Link href="/app" />}>
                 <LayoutGridIcon />
                 Organizations

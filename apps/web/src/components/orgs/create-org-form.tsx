@@ -8,16 +8,8 @@ import { type FormEvent, type ReactNode, useState } from "react";
 
 import { FormAlert, inlineLinkClass } from "@/components/auth/auth-form";
 import { authClient } from "@/lib/auth-client";
+import { slugify, slugInput } from "@/lib/org-settings";
 import { toast } from "@/lib/toast";
-
-export function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-}
 
 /**
  * Name → address. The address follows the name until someone edits it;
@@ -31,7 +23,9 @@ export function CreateOrgForm({ footer }: { footer?: ReactNode }) {
   const [pending, setPending] = useState(false);
   const [name, setName] = useState("");
   const [customSlug, setCustomSlug] = useState<string | null>(null);
-  const slug = customSlug ?? slugify(name);
+  // Typing keeps a trailing hyphen so "kola-ng" can be typed; it's
+  // trimmed here.
+  const slug = slugify(customSlug ?? name);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -120,7 +114,7 @@ export function CreateOrgForm({ footer }: { footer?: ReactNode }) {
               className="font-mono"
               id="org-slug-input"
               onChange={(e) => {
-                setCustomSlug(slugify(e.target.value));
+                setCustomSlug(slugInput(e.target.value));
                 if (error?.slug) {
                   setError(null);
                 }

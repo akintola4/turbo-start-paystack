@@ -16,12 +16,18 @@ import { usePathname } from "next/navigation";
 import { TopBarRow } from "@/components/app-shell/top-bar";
 
 function pageTitle(pathname: string, orgSlug: string) {
+  if (pathname.startsWith("/app/account")) {
+    return "Account";
+  }
   const rest = pathname.replace(`/app/${orgSlug}`, "");
   if (rest.startsWith("/settings/billing/invoices/")) {
     return "Invoice";
   }
   if (rest.startsWith("/settings/billing")) {
     return "Billing";
+  }
+  if (rest.startsWith("/settings")) {
+    return "Settings";
   }
   if (rest.startsWith("/members")) {
     return "Members";
@@ -32,21 +38,22 @@ function pageTitle(pathname: string, orgSlug: string) {
 /**
  * sidebar-07's header: trigger, separator, breadcrumb (org / page). 64px,
  * 48px with the sidebar in icon mode, as in the block, so its centre stays
- * on the team switcher's (which shrinks from 48px to 32px). It sits on the
- * page column, so the trigger's ink starts on the content edge.
+ * on the team switcher's (which shrinks from 48px to 32px). It spans the
+ * inset like the block's, so the trigger stays beside the sidebar.
  */
 export function SiteHeader({ org }: { org: { name: string; slug: string } }) {
   const pathname = usePathname();
   const { isMobile, open, openMobile } = useSidebar();
   return (
-    <TopBarRow className="gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 motion-reduce:transition-none">
-      {/* (36 − 16) / 2 + 1.33 (the glyph's inset in its 24px box) puts the
-          icon's ink, not the button box, on the content edge. */}
+    <TopBarRow
+      className="gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12 motion-reduce:transition-none"
+      edge
+    >
       <SidebarTrigger
         aria-expanded={isMobile ? openMobile : open}
         aria-keyshortcuts="Meta+B Control+B"
         aria-label="Toggle sidebar"
-        className="-ml-[11.33px] aria-expanded:not-hover:bg-transparent"
+        className="-ml-1 aria-expanded:not-hover:bg-transparent"
       />
       <Separator
         className="mr-2 data-vertical:h-4 data-vertical:self-auto"
@@ -54,12 +61,17 @@ export function SiteHeader({ org }: { org: { name: string; slug: string } }) {
       />
       <Breadcrumb>
         <BreadcrumbList>
-          <BreadcrumbItem className="hidden md:block">
-            <BreadcrumbLink render={<Link href={`/app/${org.slug}`} />}>
-              {org.name}
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator className="hidden md:block" />
+          {/* The account isn't the org's: no org crumb above it. */}
+          {pathname.startsWith("/app/account") ? null : (
+            <>
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink render={<Link href={`/app/${org.slug}`} />}>
+                  {org.name}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
+            </>
+          )}
           <BreadcrumbItem>
             <BreadcrumbPage>{pageTitle(pathname, org.slug)}</BreadcrumbPage>
           </BreadcrumbItem>

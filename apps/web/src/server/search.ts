@@ -11,6 +11,7 @@ import {
   type PaletteResult,
   searchItems,
 } from "@/lib/command-search";
+import { formatDate } from "@/lib/format";
 
 type SearchDeps = {
   db: Database;
@@ -29,12 +30,6 @@ const INVOICE_STATUS: Record<string, string> = {
   pending: "Pending",
 };
 
-const dateLabel = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
 type InvoiceRow = Awaited<ReturnType<BillingService["listInvoices"]>>[number];
 
 /** An invoice as a palette item: its number, amount, status and date. The
@@ -49,7 +44,7 @@ export function invoiceItem(row: InvoiceRow, orgSlug: string): PaletteItem {
     id: `invoice:${row.id}`,
     group: "Invoices",
     title: row.number ?? "Invoice",
-    subtitle: `${money} · ${status} · ${dateLabel.format(invoiceDate(row))}`,
+    subtitle: `${money} · ${status} · ${formatDate(invoiceDate(row).toISOString())}`,
     keywords: [
       money,
       String(major),

@@ -14,6 +14,8 @@ import {
 } from "@workspace/email";
 import { env } from "@workspace/env/server";
 
+import { deleteBlock, deleteBlockMessage } from "@/lib/org-settings";
+
 import { notifyBillingAdmins } from "./billing-emails";
 import { invoicingFromEnv } from "./invoicing-config";
 
@@ -66,14 +68,22 @@ function createServerContext(): ServerContext {
     // Plan limits are enforced on the server when inviting (PLAN §2.3 #16).
     memberLimit: async (organizationId) =>
       (await billing.getEntitlement(organizationId)).plan.limits.members,
+    // A renewing or past-due paid plan blocks the delete (cancel it in
+    // Billing first). A trial is cancelled through the billing service so
+    // Paystack never charges it; a plan already set to end needs nothing.
     beforeDeleteOrganization: async (organizationId) => {
       const sub = await billing.getSubscription(organizationId);
-      if (sub && ["active", "trialing", "past_due"].includes(sub.status)) {
+      const block = deleteBlock(sub);
+      if (block) {
+        return { blocked: deleteBlockMessage(block) };
+      }
+      if (sub?.status === "trialing") {
         await billing.cancel({
           organizationId,
           actor: { userId: "system", email: "" },
         });
       }
+      return undefined;
     },
   });
   return { db, authService, billing, sendEmail };

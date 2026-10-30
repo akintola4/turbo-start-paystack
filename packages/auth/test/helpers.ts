@@ -3,9 +3,11 @@ import { createTestDb } from "@workspace/db/testing";
 import { createMailer, type EmailMessage } from "@workspace/email";
 import { eq } from "drizzle-orm";
 
-import { createAuth } from "../src/server";
+import { type CreateAuthOptions, createAuth } from "../src/server";
 
-export async function setupAuth() {
+export async function setupAuth(
+  overrides: Pick<CreateAuthOptions, "beforeDeleteOrganization"> = {}
+) {
   const limits = { members: 100 };
   const { db, close } = await createTestDb();
   const outbox: EmailMessage[] = [];
@@ -20,6 +22,7 @@ export async function setupAuth() {
       },
     }),
     memberLimit: async () => limits.members,
+    ...overrides,
   });
   return { db, close, outbox, limits, ...service };
 }

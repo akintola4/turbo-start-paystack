@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { landingOrg } from "../src/lib/org-view";
-import { slugify } from "../src/components/orgs/create-org-form";
+import { slugify } from "../src/lib/org-settings";
 
 describe("landingOrg", () => {
   it("goes back to the last organization opened here", () => {
