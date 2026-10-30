@@ -495,7 +495,8 @@ async function renewedAmong(
  * Paystack: `GET /subscription/:code` returns the subscription's current
  * `authorization`, and that is stored (code, last4, expiry, brand). Only
  * subscriptions now on the card this charge used are touched, so an
- * unrelated one-off charge changes nothing.
+ * unrelated one-off charge changes nothing. Paystack marks these charges
+ * `metadata.transaction_type: "update_card"`.
  */
 async function applyCardUpdateCharge(
   deps: BillingDeps,
@@ -557,7 +558,16 @@ async function applyCardUpdateCharge(
       break;
     }
   }
-  return updated > 0 ? {} : { error: "charge not linked to a subscription" };
+  if (updated > 0) {
+    return {};
+  }
+  // Paystack can move the subscription onto the new card after this webhook
+  // (and test mode never does), so a card update is retried by reconcile,
+  // up to MAX_EVENT_ATTEMPTS, rather than dropped.
+  if (data.metadata?.transaction_type === "update_card") {
+    return { error: "card update not on the subscription yet", retry: true };
+  }
+  return { error: "charge not linked to a subscription" };
 }
 
 /**

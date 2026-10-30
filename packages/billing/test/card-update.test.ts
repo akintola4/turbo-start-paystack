@@ -47,6 +47,31 @@ describe("card updated on Paystack's manage page", () => {
     expect(invoices.map((i) => i.reference)).not.toContain(charge.reference);
   });
 
+  it("retries a card update until Paystack moves the subscription onto it", async () => {
+    const { organizationId, sub } = await h.subscribe("pro-monthly-ngn");
+    const code = sub.paystackSubscriptionCode ?? "";
+    const charge = h.fake.updateCard(code, newCard, { adopt: false });
+    expect(charge.metadata.transaction_type).toBe("update_card");
+
+    // The webhook arrives before Paystack has switched the card: kept for retry.
+    const event = await h.deliver(chargeSuccess(charge));
+    expect(event).toMatchObject({
+      error: "card update not on the subscription yet",
+      processedAt: null,
+    });
+    expect((await h.billing.getSubscription(organizationId))?.cardLast4).toBe(
+      "4081"
+    );
+
+    // Paystack switches it; reconcile's retry records the new card.
+    h.fake.adoptCard(code, newCard);
+    await h.billing.processEvent(event?.id ?? "");
+    expect(await h.billing.getSubscription(organizationId)).toMatchObject({
+      cardLast4: "1234",
+      cardExp: "09/2031",
+    });
+  });
+
   it("leaves the card alone for a one-off charge on another card", async () => {
     const { organizationId, sub, paid } = await h.subscribe("pro-monthly-ngn");
     const event = await h.deliver(
