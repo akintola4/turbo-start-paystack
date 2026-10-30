@@ -72,6 +72,23 @@
 }
 
 /* Work in progress with no known end: constant speed, so linear. */
+/*
+ * The app top bar: flush on load, a hairline once the page scrolls under it
+ * (scroll-linked, so it tracks the scroll position rather than playing).
+ */
+@keyframes topbar-edge {
+  to {
+    box-shadow: 0 1px 0 var(--border);
+  }
+}
+@supports (animation-timeline: scroll()) {
+  [data-topbar] {
+    animation: topbar-edge linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 12px;
+  }
+}
+
 @keyframes indeterminate {
   from {
     transform: translateX(-100%);
