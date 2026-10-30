@@ -21,6 +21,16 @@ export async function requireSession(callbackPath = "/app") {
   return session;
 }
 
+/** Whether someone is signed in, for pages anyone can see (the landing). */
+export async function isSignedIn() {
+  const requestHeaders = await headers();
+  const { authService } = getServerContext();
+  const session = await authService.auth.api.getSession({
+    headers: requestHeaders,
+  });
+  return session !== null;
+}
+
 /** Membership for `/app/[orgSlug]`. Non-members get a 404 so slugs of other
  *  tenants don't leak. */
 export async function requireOrgBySlug(slug: string) {

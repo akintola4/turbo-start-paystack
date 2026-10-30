@@ -52,7 +52,13 @@ const LINES = ["Every price,", "in their money."];
  * matching tiles light up, rippling out from it, and the example price
  * rolls); a click, tap or arrow key chooses it for the whole page.
  */
-export function Hero({ prices }: { prices: PriceTable }) {
+export function Hero({
+  prices,
+  signedIn = false,
+}: {
+  prices: PriceTable;
+  signedIn?: boolean;
+}) {
   const { currency, shown, origin, setCurrency, preview, interval } =
     useLanding();
   const root = useRef<HTMLDivElement>(null);
@@ -194,9 +200,9 @@ export function Hero({ prices }: { prices: PriceTable }) {
                 buttonVariants({ variant: "ghost" }),
                 "text-panel-foreground"
               )}
-              href="/sign-in"
+              href={signedIn ? "/app" : "/sign-in"}
             >
-              Sign in
+              {signedIn ? "Dashboard" : "Sign in"}
             </Link>
             <a
               className={cn(
@@ -242,9 +248,9 @@ export function Hero({ prices }: { prices: PriceTable }) {
                   buttonVariants({ size: "lg" }),
                   "bg-panel-tile text-panel-foreground hover:bg-panel-line"
                 )}
-                href="/sign-up"
+                href={signedIn ? "/app" : "/sign-up"}
               >
-                Try the live demo
+                {signedIn ? "Open your dashboard" : "Try the live demo"}
               </Link>
             </div>
           </div>
