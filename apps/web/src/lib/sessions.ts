@@ -1,3 +1,5 @@
+import { formatDate } from "@/lib/format";
+
 /**
  * Plain words for a session row: the browser and system from its user
  * agent, and where it signed in from. Pure, so tests cover it without a
@@ -71,4 +73,24 @@ export function describeLocation(ip: string | null | undefined) {
     return "Local network";
   }
   return ip;
+}
+
+/** "Active now", "5 min ago", "3 hours ago", "2 days ago", or a date. */
+export function activeLabel(iso: string, now = Date.now()) {
+  const minutes = Math.floor((now - new Date(iso).getTime()) / 60_000);
+  if (minutes < 2) {
+    return "Active now";
+  }
+  if (minutes < 60) {
+    return `${minutes} min ago`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+  }
+  const days = Math.floor(hours / 24);
+  if (days < 7) {
+    return `${days} ${days === 1 ? "day" : "days"} ago`;
+  }
+  return formatDate(iso);
 }

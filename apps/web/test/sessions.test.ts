@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  activeLabel,
   describeDevice,
   describeLocation,
   deviceLabel,
@@ -49,5 +50,19 @@ describe("describeLocation", () => {
   it("shows a public address as it is, and nothing when none was kept", () => {
     expect(describeLocation("102.89.4.10")).toBe("102.89.4.10");
     expect(describeLocation(null)).toBeNull();
+  });
+});
+
+describe("activeLabel", () => {
+  const now = Date.parse("2026-10-30T12:00:00Z");
+  const ago = (ms: number) => new Date(now - ms).toISOString();
+
+  it("reads like a person would say it", () => {
+    expect(activeLabel(ago(30_000), now)).toBe("Active now");
+    expect(activeLabel(ago(5 * 60_000), now)).toBe("5 min ago");
+    expect(activeLabel(ago(60 * 60_000), now)).toBe("1 hour ago");
+    expect(activeLabel(ago(3 * 60 * 60_000), now)).toBe("3 hours ago");
+    expect(activeLabel(ago(2 * 86_400_000), now)).toBe("2 days ago");
+    expect(activeLabel("2026-09-12T10:00:00Z", now)).toBe("12 Sep 2026");
   });
 });
