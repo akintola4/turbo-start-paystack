@@ -19,7 +19,7 @@ import {
 import { ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 export type NavItem = {
   title: string;
@@ -32,7 +32,7 @@ export type NavItem = {
 
 /**
  * shadcn sidebar-07's nav-main. Items with sub-items are collapsible
- * groups, open while one of their pages is open; the rest are links.
+ * groups that open when you enter one of their pages; the rest are links.
  */
 export function NavMain({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
@@ -40,6 +40,20 @@ export function NavMain({ items }: { items: NavItem[] }) {
   const isActive = (item: NavItem) =>
     item.prefix ? pathname.startsWith(item.url) : pathname === item.url;
   const close = () => setOpenMobile(false);
+  const activeGroup =
+    items.find((item) => item.items?.length && isActive(item))?.title ?? null;
+  // Controlled, so a group can open when navigation enters it (a default
+  // can't change after mount), while the user can still close it.
+  const [open, setOpen] = useState<Record<string, boolean>>(() =>
+    activeGroup ? { [activeGroup]: true } : {}
+  );
+  const entered = useRef(activeGroup);
+  useEffect(() => {
+    if (activeGroup && entered.current !== activeGroup) {
+      setOpen((o) => ({ ...o, [activeGroup]: true }));
+    }
+    entered.current = activeGroup;
+  }, [activeGroup]);
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Workspace</SidebarGroupLabel>
@@ -48,8 +62,11 @@ export function NavMain({ items }: { items: NavItem[] }) {
           item.items?.length ? (
             <Collapsible
               className="group/collapsible"
-              defaultOpen={isActive(item)}
               key={item.title}
+              onOpenChange={(next) =>
+                setOpen((o) => ({ ...o, [item.title]: next }))
+              }
+              open={open[item.title] ?? false}
               render={<SidebarMenuItem />}
             >
               <CollapsibleTrigger

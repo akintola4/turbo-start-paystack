@@ -455,3 +455,40 @@ test("the team switcher lists the user's organizations and Add organization", as
     menu.getByRole("menuitem", { name: "Add organization" })
   ).toBeVisible();
 });
+
+test("navigating and toggling the Billing group leaves the console clean", async ({
+  page,
+}) => {
+  const problems: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "warning" || m.type() === "error") {
+      problems.push(`${m.type()}: ${m.text()}`);
+    }
+  });
+  page.on("pageerror", (e) => problems.push(`pageerror: ${e.message}`));
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page, ORG);
+  const billing = sidebar(page).getByRole("button", { name: "Billing" });
+  await expect(billing).toHaveAttribute("aria-expanded", "false");
+
+  // Client navigation into Billing from the page opens the group.
+  await page.getByRole("link", { name: "Manage billing" }).click();
+  await expect(page).toHaveURL(/\/settings\/billing$/);
+  await expect(billing).toHaveAttribute("aria-expanded", "true");
+
+  const sub = sidebar(page).locator("[data-sidebar=menu-sub]");
+  await sub.getByRole("link", { name: "Invoices" }).click();
+  await expect(page).toHaveURL(/#invoices$/);
+  // The user can still close it while on a billing page.
+  await billing.click();
+  await expect(billing).toHaveAttribute("aria-expanded", "false");
+  await billing.click();
+  await expect(billing).toHaveAttribute("aria-expanded", "true");
+
+  await sidebar(page).getByRole("link", { name: "Members" }).click();
+  await expect(page).toHaveURL(/\/members$/);
+  await sidebar(page).getByRole("link", { name: "Overview" }).click();
+  await expect(page).toHaveURL(/kola-logistics$/);
+  await page.waitForTimeout(300);
+  expect(problems).toEqual([]);
+});
