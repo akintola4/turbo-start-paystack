@@ -3,6 +3,7 @@ import "./globals.css";
 import { env } from "@workspace/env/client";
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { headers } from "next/headers";
 import Script from "next/script";
 import type { ReactNode } from "react";
 
@@ -88,7 +89,14 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-content",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  // Set by src/proxy.ts with the page's CSP. Reading it renders every page
+  // per request, which a nonce needs.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html
       className={`${geistSans.variable} ${geistMono.variable} ${currencySymbols.variable}`}
@@ -96,7 +104,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       suppressHydrationWarning
     >
       <head>
-        <Script id="intro-gate" strategy="beforeInteractive">
+        <Script id="intro-gate" nonce={nonce} strategy="beforeInteractive">
           {INTRO_GATE}
         </Script>
       </head>
@@ -107,7 +115,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           Skip to content
         </a>
-        <Providers>{children}</Providers>
+        <Providers nonce={nonce}>{children}</Providers>
       </body>
     </html>
   );

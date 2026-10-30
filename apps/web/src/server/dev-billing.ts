@@ -426,6 +426,10 @@ export async function handleDevOutboxEmail(
     headers: {
       "content-type": "text/html; charset=utf-8",
       "x-robots-tag": "noindex",
+      // An email as a mail client shows it: its own styles, images and
+      // fonts, and no scripts.
+      "content-security-policy":
+        "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; frame-ancestors 'none'",
     },
   });
 }
