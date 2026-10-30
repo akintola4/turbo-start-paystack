@@ -1,5 +1,5 @@
-import { PageLoading } from "@/components/states";
+import { DashboardLoading } from "@/components/states";
 
 export default function Loading() {
-  return <PageLoading />;
+  return <DashboardLoading />;
 }

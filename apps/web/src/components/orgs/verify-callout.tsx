@@ -1,9 +1,9 @@
 "use client";
 
 import { Button } from "@workspace/ui/components/button";
-import { Loader2Icon, MailIcon } from "lucide-react";
+import { MailIcon } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { authClient } from "@/lib/auth-client";
 
@@ -25,7 +25,7 @@ export function VerifyCallout({ email }: { email: string }) {
         </div>
       </div>
       <Button
-        disabled={pending}
+        pending={pending}
         onClick={async () => {
           setPending(true);
           const result = await authClient.sendVerificationEmail({
@@ -45,7 +45,6 @@ export function VerifyCallout({ email }: { email: string }) {
         }}
         variant="outline"
       >
-        {pending ? <Loader2Icon aria-hidden className="animate-spin" /> : null}
         Resend
       </Button>
     </div>

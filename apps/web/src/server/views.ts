@@ -23,9 +23,13 @@ import { and, count, eq, gt, inArray } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { maskEmail } from "@/lib/format";
+import { planState } from "@/lib/plan-state";
+import { seatUsage } from "@/lib/seats";
 import { formatMoney } from "@/lib/money";
 import { ORG_VIEW_COOKIE } from "@/lib/org-view";
 import type {
+  BillingDeniedData,
   AcceptInviteData,
   BillingData,
   CardCheckRow,
@@ -265,10 +269,9 @@ export async function loadShell(orgSlug: string): Promise<ShellData> {
       members: `${base}/members`,
       billing: can("billing:view") ? `${base}/settings/billing` : null,
     },
-    plan: {
-      name: summary?.planName ?? "Free",
-      status: summary?.status ?? null,
-    },
+    plan: planState(summary?.planName ?? "Free", summary, {
+      withDates: can("billing:view"),
+    }),
   };
 }
 
@@ -309,12 +312,23 @@ export async function loadDashboard(orgSlug: string): Promise<DashboardData> {
       reason: entitlement.reason,
     },
     subscription: can("billing:view") ? summarize(sub) : null,
+    plan: planState(entitlement.plan.name, summarize(sub), {
+      withDates: can("billing:view"),
+    }),
+    currency: (sub?.currency ?? env.BILLING_CURRENCY) as Currency,
     members: {
       total: members.length,
       limit: entitlement.plan.limits.members,
       recent: [...members].reverse().slice(0, 5),
     },
-    pendingInvitations: can("invitation:create") ? (pending?.n ?? 0) : 0,
+    seats: seatUsage(
+      members.length,
+      pending?.n ?? 0,
+      entitlement.plan.limits.members
+    ),
+    // A count only (no addresses), so every role's seat total adds up.
+    pendingInvitations: pending?.n ?? 0,
+    inviteRoles: can("invitation:create") ? inviteRolesFor(member.role) : [],
     recentInvoices: invoices.slice(0, 4).map((i) => invoiceRow(i, orgSlug)),
     can: {
       viewBilling: can("billing:view"),
@@ -326,6 +340,19 @@ export async function loadDashboard(orgSlug: string): Promise<DashboardData> {
       billing: can("billing:view") ? `${base}/settings/billing` : null,
     },
   };
+}
+
+/** Roles ranked at or below `role`: what it may assign. */
+function rolesUpTo(role: string) {
+  const rank = rankOf(role);
+  return (Object.keys(ROLE_RANK) as Role[]).filter((r) => ROLE_RANK[r] <= rank);
+}
+
+/** Roles `role` may invite with: its own rank and below, owner only by owners. */
+function inviteRolesFor(role: string) {
+  return rolesUpTo(role).filter(
+    (r) => r !== "owner" || rankOf(role) >= ROLE_RANK.owner
+  );
 }
 
 export async function loadMembers(orgSlug: string): Promise<MembersData> {
@@ -354,10 +381,7 @@ export async function loadMembers(orgSlug: string): Promise<MembersData> {
       : Promise.resolve([]),
     billing.getEntitlement(organization.id),
   ]);
-  const myRank = rankOf(me.role);
-  const assignableRoles = (Object.keys(ROLE_RANK) as Role[]).filter(
-    (role) => ROLE_RANK[role] <= myRank
-  );
+  const assignableRoles = rolesUpTo(me.role);
   return {
     org: {
       id: organization.id,
@@ -372,17 +396,22 @@ export async function loadMembers(orgSlug: string): Promise<MembersData> {
       expiresAt: inv.expiresAt.toISOString(),
     })),
     assignableRoles,
-    inviteRoles: assignableRoles.filter(
-      (r) => r !== "owner" || myRank >= ROLE_RANK.owner
-    ),
+    inviteRoles: inviteRolesFor(me.role),
     can: {
       invite: canInvite,
       update: can("member:update"),
       remove: can("member:delete"),
+      manageBilling: can("billing:manage"),
     },
+    billingHref: can("billing:view")
+      ? `/app/${organization.slug}/settings/billing`
+      : null,
     limit: {
-      used: members.length + invitations.length,
-      max: entitlement.plan.limits.members,
+      ...seatUsage(
+        members.length,
+        invitations.length,
+        entitlement.plan.limits.members
+      ),
       planName: entitlement.plan.name,
     },
   };
@@ -459,6 +488,33 @@ function planOption(
     isCurrent,
     action,
     change: changeKind(action, plan.rank, currentRank),
+  };
+}
+
+/**
+ * For roles without billing access: who to ask instead of a 404. Null when
+ * the viewer can open billing.
+ */
+export async function loadBillingDenied(
+  orgSlug: string
+): Promise<BillingDeniedData | null> {
+  const { organization, can } = await requireOrgBySlug(orgSlug);
+  if (can("billing:view")) {
+    return null;
+  }
+  const { db } = getServerContext();
+  const rows = await db
+    .select({ name: schema.user.name, role: schema.member.role })
+    .from(schema.member)
+    .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
+    .where(eq(schema.member.organizationId, organization.id))
+    .orderBy(schema.member.createdAt);
+  return {
+    orgName: organization.name,
+    managers: rows
+      .filter((r) => roleHasPermission(r.role, "billing:manage"))
+      .map((r) => ({ name: r.name, role: r.role })),
+    overviewHref: `/app/${orgSlug}`,
   };
 }
 
@@ -634,9 +690,10 @@ export async function loadAcceptInvite(id: string): Promise<AcceptInviteData> {
   const [row] = await db
     .select({
       orgName: schema.organization.name,
-      orgSlug: schema.organization.slug,
       role: schema.invitation.role,
       email: schema.invitation.email,
+      status: schema.invitation.status,
+      expiresAt: schema.invitation.expiresAt,
       inviter: schema.user.name,
     })
     .from(schema.invitation)
@@ -645,30 +702,46 @@ export async function loadAcceptInvite(id: string): Promise<AcceptInviteData> {
       eq(schema.invitation.organizationId, schema.organization.id)
     )
     .leftJoin(schema.user, eq(schema.invitation.inviterId, schema.user.id))
-    .where(
-      and(
-        eq(schema.invitation.id, id),
-        eq(schema.invitation.status, "pending"),
-        gt(schema.invitation.expiresAt, new Date())
-      )
-    )
+    .where(eq(schema.invitation.id, id))
     .limit(1);
+  const usable =
+    row?.status === "pending" && row.expiresAt.getTime() > Date.now();
+  const signedInAs = session?.user.email ?? null;
   return {
     invitationId: id,
     signedIn: Boolean(session),
-    signedInAs: session?.user.email ?? null,
-    invite: row
-      ? {
-          orgName: row.orgName,
-          orgSlug: row.orgSlug,
-          role: row.role ?? "member",
-          inviter: row.inviter,
-          email: session ? row.email : "",
-        }
-      : null,
+    signedInAs,
+    invite:
+      row && usable
+        ? {
+            orgName: row.orgName,
+            role: row.role ?? "member",
+            inviter: row.inviter,
+            forEmail: maskEmail(row.email),
+            otherAccount: Boolean(
+              signedInAs && signedInAs.toLowerCase() !== row.email.toLowerCase()
+            ),
+          }
+        : null,
+    unusable: usable ? null : inviteProblem(row),
     hrefs: {
       signUp: `/sign-up?callbackURL=${encodeURIComponent(callback)}`,
       signIn: `/sign-in?callbackURL=${encodeURIComponent(callback)}`,
     },
   };
+}
+
+function inviteProblem(
+  row: { status: string; expiresAt: Date } | undefined
+): NonNullable<AcceptInviteData["unusable"]> {
+  if (!row) {
+    return "unknown";
+  }
+  if (row.status === "accepted") {
+    return "accepted";
+  }
+  if (row.status === "canceled" || row.status === "rejected") {
+    return "revoked";
+  }
+  return "expired";
 }

@@ -1,41 +1,52 @@
-import { AuthForm, AuthSwitch } from "@/components/auth/auth-form";
-import { GlyphMosaic, Wordmark } from "@/components/primitives";
+import type { ReactNode } from "react";
 
-export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
+import { AuthPanel } from "@/components/auth/auth-panel";
+import { Wordmark } from "@/components/primitives";
+
+/**
+ * The frame every auth page shares. On desktop the page is exactly one
+ * screen tall: the form column scrolls if it must, and the panel sizes its
+ * art from the space it has, so neither ever pushes the page past the fold.
+ */
+export function AuthScreen({
+  title,
+  description,
+  variant,
+  currency,
+  children,
+  footer,
+}: {
+  title: ReactNode;
+  description: ReactNode;
+  /** Which page the panel speaks to. */
+  variant: "sign-in" | "sign-up";
+  /** The visitor's likely currency, passed through to the panel. */
+  currency?: string;
+  children: ReactNode;
+  footer?: ReactNode;
+}) {
   return (
-    <div className="grid min-h-dvh bg-background lg:grid-cols-[1fr_1fr]">
-      <div className="flex flex-col px-4 py-6 sm:px-10 sm:py-8">
-        <Wordmark />
-        <main className="flex flex-1 items-center py-12">
+    <div className="grid min-h-dvh grid-rows-[auto_1fr] bg-background lg:h-dvh lg:grid-cols-2 lg:grid-rows-1 lg:overflow-hidden">
+      <div className="flex flex-col px-4 py-6 sm:px-10 sm:py-8 lg:overflow-y-auto">
+        <Wordmark className="self-start" />
+        <main
+          className="flex flex-1 items-center py-12 outline-none"
+          id="content"
+          tabIndex={-1}
+        >
           <div className="mx-auto grid w-full max-w-sm gap-8">
             <div className="grid gap-2">
-              <h1 className="font-semibold text-[32px] leading-tight tracking-[-0.02em]">
-                {mode === "sign-in" ? "Welcome back" : "Create your account"}
+              <h1 className="text-balance font-display font-semibold text-[32px] leading-[1.1] tracking-[-0.02em] sm:text-[40px]">
+                {title}
               </h1>
-              <p className="text-muted-foreground">
-                {mode === "sign-in"
-                  ? "Sign in to manage your team and billing."
-                  : "You'll verify your email, then set up your organization."}
-              </p>
+              <p className="text-muted-foreground">{description}</p>
             </div>
-            <AuthForm
-              className="[&_[data-slot=input]]:h-11 [&_[data-slot=input]]:px-3.5 [&_[data-slot=input]]:text-[15px]"
-              footer={<AuthSwitch className="text-center" mode={mode} />}
-              mode={mode}
-              submitClassName=""
-            />
+            {children}
+            {footer}
           </div>
         </main>
       </div>
-      <aside
-        data-surface="panel"
-        className="dark relative hidden overflow-hidden p-10 lg:m-3 lg:flex lg:flex-col lg:justify-between lg:rounded-panel"
-      >
-        <GlyphMosaic />
-        <p className="max-w-[28ch] text-balance font-medium text-[28px] leading-tight tracking-[-0.02em]">
-          One subscription engine for every currency Paystack settles.
-        </p>
-      </aside>
+      <AuthPanel currency={currency} variant={variant} />
     </div>
   );
 }

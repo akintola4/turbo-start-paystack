@@ -72,6 +72,34 @@
 }
 
 /* Work in progress with no known end: constant speed, so linear. */
+/*
+ * Focus rings are for keyboard focus only. Unlayered, so it beats the
+ * focus-visible utilities. Text fields keep theirs: a click there is where
+ * typing will go.
+ */
+html[data-modality="pointer"]
+:focus-visible:not(input, textarea, select, [contenteditable="true"]) {
+  outline-color: transparent;
+  --tw-ring-shadow: 0 0 #0000;
+}
+
+/*
+ * The app top bar: flush on load, a hairline once the page scrolls under it
+ * (scroll-linked, so it tracks the scroll position rather than playing).
+ */
+@keyframes topbar-edge {
+  to {
+    box-shadow: 0 1px 0 var(--border);
+  }
+}
+@supports (animation-timeline: scroll()) {
+  [data-topbar] {
+    animation: topbar-edge linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 12px;
+  }
+}
+
 @keyframes indeterminate {
   from {
     transform: translateX(-100%);
@@ -501,6 +529,243 @@ number-flow-react::part(symbol) {
   .puzzle-tile,
   .puzzle-home,
   .puzzle-home[data-shown] {
+    transition: none;
+  }
+}
+
+/* The past-due "Update card" bar (phones): toasts start above it. */
+:root:has([data-sticky-action-bar]) {
+  --toast-offset: 68px;
+}
+
+/*
+ * Auth side panel. The art lives in a size container (the panel minus its
+ * padding), and every length is a share of min(width, height),
+ * so the grid can never outgrow the panel on wide-short or tall-narrow
+ * screens, and the glyphs keep one ratio to their tiles at every size.
+ */
+/*
+ * Auth panel, "Your mark" (auth-panel.tsx). Desktop: the forest island
+ * beside the form, the mark sized from min(width, height) of the space it
+ * has, so nothing passes the fold. Phones and tablets: an 112px band above
+ * the form with an 80px mark.
+ */
+.auth-panel {
+  position: relative;
+  order: -1;
+  height: 112px;
+  margin: 12px 12px 0;
+  overflow: hidden;
+  border-radius: var(--radius-tile);
+  user-select: none;
+  pointer-events: none;
+}
+.auth-art {
+  container: auth-art / size;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center start;
+  padding-left: 16px;
+}
+.auth-mosaic {
+  --S: 80px;
+  --G: 3px;
+  --rad: 3px;
+  --C: calc((var(--S) - 4 * var(--G)) / 5);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: var(--G);
+  width: var(--S);
+  aspect-ratio: 1;
+}
+.auth-mark-cell {
+  position: relative;
+}
+.auth-mark-cell > [data-shape] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--rad);
+  background: var(--panel-tile);
+  color: var(--panel-foreground);
+  font-family: var(--font-money);
+  font-size: calc(var(--C) * 0.4);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease;
+}
+.auth-mark-cell > [data-glyph="KSh"] {
+  font-size: calc(var(--C) * 0.3);
+}
+.auth-mark-cell > [data-colour="seed"] {
+  transform: scale(0.14);
+  border-radius: 50%;
+  background: var(--panel-line);
+}
+.auth-mark-cell > [data-colour="off"] {
+  background: var(--panel-foreground);
+  color: var(--panel);
+}
+.auth-mark-cell > [data-colour="line"] {
+  background: var(--panel-line);
+}
+.auth-mark-cell > [data-colour="ghost"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--panel-line);
+}
+.auth-mark-cell > [data-colour="sun"] {
+  background: var(--highlight);
+  color: var(--highlight-foreground);
+}
+.auth-mosaic[data-error] [data-colour="sun"] {
+  background: var(--destructive);
+  color: var(--panel);
+}
+.auth-panel__meta,
+.auth-panel__note {
+  display: none;
+}
+.auth-panel__caption {
+  position: absolute;
+  top: 50%;
+  left: 124px;
+  right: 20px;
+  translate: 0 -50%;
+  transition: opacity 240ms var(--ease-out);
+}
+.auth-panel__line {
+  max-width: 30ch;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.auth-panel__chip {
+  position: absolute;
+  top: 50%;
+  left: 124px;
+  right: 20px;
+  display: grid;
+  gap: 2px;
+  opacity: 0;
+  translate: 0 calc(-50% + 10px);
+  transition:
+    opacity 320ms var(--ease-out),
+    translate 320ms var(--ease-out);
+}
+.auth-panel__chip-name {
+  overflow: hidden;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.auth-panel__chip-sub {
+  overflow: hidden;
+  color: var(--panel-muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.auth-panel[data-state="success"] .auth-panel__chip {
+  opacity: 1;
+  translate: 0 -50%;
+  transition-delay: 120ms;
+}
+.auth-panel[data-state="success"] .auth-panel__caption {
+  opacity: 0;
+  transition: opacity 160ms var(--ease-exit);
+}
+
+@media (min-width: 64rem) {
+  .auth-panel {
+    order: 0;
+    height: auto;
+    min-height: 0;
+    margin: 12px 12px 12px 0;
+    border-radius: var(--radius-panel);
+  }
+  .auth-art {
+    place-items: center;
+    padding: 0;
+  }
+  .auth-mosaic {
+    --S: min(100cqw - 112px, 100cqh - 250px, 520px);
+    --G: calc(var(--S) * 0.026);
+    --rad: calc(var(--S) * 0.032);
+  }
+  .auth-panel__meta {
+    position: absolute;
+    top: 28px;
+    left: 28px;
+    right: 28px;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    color: var(--panel-muted);
+    font-size: 14px;
+  }
+  .auth-panel__caption {
+    top: auto;
+    bottom: 28px;
+    left: 28px;
+    right: 28px;
+    translate: none;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .auth-panel__line {
+    max-width: 24ch;
+    font-size: 22px;
+    line-height: 1.2;
+  }
+  .auth-panel__note {
+    display: block;
+    max-width: 22ch;
+    color: var(--panel-muted);
+    font-size: 13px;
+    text-align: right;
+  }
+  /* Below the shrunken mark: it scales to 0.56 and lifts by 0.12 S. */
+  .auth-panel__chip {
+    left: 0;
+    right: 0;
+    justify-items: center;
+    gap: 4px;
+    padding-inline: 28px;
+    text-align: center;
+    translate: 0 10px;
+    top: calc(50% + min(100cqw - 112px, 100cqh - 250px, 520px) * 0.16 + 28px);
+  }
+  .auth-panel[data-state="success"] .auth-panel__chip {
+    translate: none;
+    transition-delay: 420ms;
+  }
+  .auth-panel__chip-name {
+    font-size: 34px;
+  }
+  .auth-panel__chip-sub {
+    font-size: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-panel .auth-mark-cell > [data-shape],
+  .auth-panel .auth-panel__chip,
+  .auth-panel .auth-panel__caption,
+  .auth-panel[data-state] .auth-panel__chip,
+  .auth-panel[data-state] .auth-panel__caption {
     transition: none;
   }
 }

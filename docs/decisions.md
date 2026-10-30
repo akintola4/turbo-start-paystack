@@ -271,3 +271,16 @@ can be revisited.
     The link is permission-checked, always shows the invoice's current state
     (a later refund included), and Paystack already emails the card holder
     its own receipt.
+
+### Auth pages
+
+39. **The sign-in mark is decoration, not a security indicator.** The panel
+    beside the sign-in and sign-up forms draws a pattern from the email as it
+    is typed (`apps/web/src/lib/mark.ts`). It is computed in the browser from
+    the email alone, and the algorithm is open source, so a phishing page
+    can draw the identical mark for anyone's email. If people learned "my
+    mark means this is the real site", that lesson would help attackers, so
+    the copy never says the mark verifies, matches or proves anything. The
+    panel never receives the password, its length or which field failed: a
+    failed sign-in looks the same whether the email is unknown or the
+    password is wrong, so it can't be used to find out who has an account.

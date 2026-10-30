@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 import { MailIcon } from "lucide-react";
+import Link from "next/link";
 
 import { InviteForm } from "@/components/members/member-actions";
 import { MembersTable } from "@/components/members/members-table";
@@ -27,14 +28,49 @@ import { PresenceTableRow, RowPresenceProvider } from "@/components/motion";
 import { Chip, PageHeader, Tile } from "@/components/primitives";
 
 const TAB =
-  "h-9 flex-1 gap-2 rounded-chip px-4 font-semibold data-[active]:bg-surface-1 data-[active]:shadow-tile dark:data-[active]:bg-surface-3 sm:flex-none";
+  "h-9 flex-1 gap-2 rounded-chip px-4 font-semibold before:absolute before:-inset-y-1 before:inset-x-0 data-[active]:bg-surface-1 data-[active]:shadow-tile dark:data-[active]:bg-surface-3 sm:flex-none";
+
+/** The invite form, or at the seat limit, the way to more seats. */
+function InviteTile({ data }: { data: MembersData }) {
+  const { full } = data.limit;
+  return (
+    <Tile className="grid gap-5 lg:col-span-2" id="invite">
+      <div className="grid gap-1">
+        <h2 className="font-semibold text-lg">Invite a teammate</h2>
+        <p className="text-muted-foreground text-sm">
+          The link works for 7 days and only for the address you enter.
+        </p>
+      </div>
+      {full ? (
+        <div
+          className="grid justify-items-start gap-4 rounded-card bg-surface-2 p-4"
+          role="status"
+        >
+          <p className="text-sm">
+            Every seat on {data.limit.planName} is taken, pending invitations
+            included.{" "}
+            {data.can.manageBilling
+              ? "Add seats with a bigger plan, or remove someone."
+              : "Ask an owner or billing manager to add seats, or remove someone."}
+          </p>
+          {data.can.manageBilling && data.billingHref ? (
+            <Link
+              className={buttonVariants()}
+              href={`${data.billingHref}#plans`}
+            >
+              Add seats
+            </Link>
+          ) : null}
+        </div>
+      ) : (
+        <InviteForm organizationId={data.org.id} roles={data.inviteRoles} />
+      )}
+    </Tile>
+  );
+}
 
 export function Members({ data }: { data: MembersData }) {
-  const pct = Math.min(
-    100,
-    Math.round((data.limit.used / data.limit.max) * 100)
-  );
-  const full = data.limit.used >= data.limit.max;
+  const { full, pct } = data.limit;
   return (
     <div className="grid animate-content gap-8">
       <PageHeader
@@ -43,30 +79,7 @@ export function Members({ data }: { data: MembersData }) {
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {data.can.invite ? (
-          <Tile
-            className="grid gap-5 bg-primary/[0.06] dark:bg-primary/[0.08] lg:col-span-2"
-            id="invite"
-          >
-            <div className="grid gap-1">
-              <h2 className="font-semibold text-lg">Invite a teammate</h2>
-              <p className="text-muted-foreground text-sm">
-                The link works for 7 days and only for the address you enter.
-              </p>
-            </div>
-            {full ? (
-              <p className="text-sm" role="status">
-                You're using every seat on {data.limit.planName}. Upgrade the
-                plan or remove someone to invite more people.
-              </p>
-            ) : (
-              <InviteForm
-                organizationId={data.org.id}
-                roles={data.inviteRoles}
-              />
-            )}
-          </Tile>
-        ) : null}
+        {data.can.invite ? <InviteTile data={data} /> : null}
         <Tile
           className={
             data.can.invite
@@ -95,7 +108,7 @@ export function Members({ data }: { data: MembersData }) {
               className="h-2 bg-muted"
               value={pct}
             />
-            <p className="text-muted-foreground text-xs">
+            <p className="text-muted-foreground text-sm">
               Pending invitations count toward the limit.
             </p>
           </div>
@@ -125,7 +138,6 @@ export function Members({ data }: { data: MembersData }) {
               <div className="hidden md:block">
                 <MembersTable
                   members={data.members}
-                  monogramShape="circle"
                   organizationId={data.org.id}
                   orgName={data.org.name}
                   roles={data.assignableRoles}
@@ -172,8 +184,13 @@ export function Members({ data }: { data: MembersData }) {
                                 <span className="flex size-8 shrink-0 items-center justify-center rounded-chip bg-surface-3 text-muted-foreground">
                                   <MailIcon aria-hidden className="size-4" />
                                 </span>
-                                <span className="truncate font-medium">
-                                  {inv.email}
+                                <span className="grid min-w-0">
+                                  <span className="truncate font-medium">
+                                    {inv.email}
+                                  </span>
+                                  <span className="text-muted-foreground text-sm tabular-nums md:hidden">
+                                    Expires {formatDate(inv.expiresAt, "short")}
+                                  </span>
                                 </span>
                               </div>
                             </TableCell>
@@ -205,7 +222,6 @@ export function Members({ data }: { data: MembersData }) {
                     className={buttonVariants({
                       variant: "outline",
                       size: "sm",
-                      className: "",
                     })}
                     href="#invite"
                   >

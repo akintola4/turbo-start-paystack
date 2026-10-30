@@ -5,7 +5,7 @@ export default function Loading() {
   return (
     <div
       aria-busy="true"
-      className="mx-auto grid w-full max-w-[860px] gap-6"
+      className="grid w-full max-w-[860px] gap-6"
       role="status"
     >
       <span className="sr-only">Loading invoice</span>

@@ -1,5 +1,3 @@
-import type { SubscriptionStatus } from "@/lib/view-models";
-
 /** Dates render in UTC so server and client output match (no hydration drift). */
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -33,29 +31,6 @@ export function daysUntil(value: string | null | undefined, now = Date.now()) {
   }
   return Math.ceil((new Date(value).getTime() - now) / 86_400_000);
 }
-
-export type Tone = "positive" | "info" | "warning" | "negative" | "neutral";
-
-export const STATUS_META: Record<
-  SubscriptionStatus | "free",
-  { label: string; tone: Tone }
-> = {
-  active: { label: "Active", tone: "positive" },
-  trialing: { label: "Trial", tone: "info" },
-  past_due: { label: "Past due", tone: "warning" },
-  non_renewing: { label: "Cancels at period end", tone: "neutral" },
-  canceled: { label: "Canceled", tone: "negative" },
-  expired: { label: "Expired", tone: "negative" },
-  incomplete: { label: "Incomplete", tone: "neutral" },
-  free: { label: "Free", tone: "neutral" },
-};
-
-export const INVOICE_META: Record<string, { label: string; tone: Tone }> = {
-  paid: { label: "Paid", tone: "positive" },
-  pending: { label: "Pending", tone: "info" },
-  failed: { label: "Failed", tone: "negative" },
-  void: { label: "Refunded", tone: "neutral" },
-};
 
 export const ROLE_META: Record<string, { label: string; description: string }> =
   {
@@ -91,15 +66,6 @@ export function initials(name: string) {
   return (first + last).toUpperCase();
 }
 
-/** Stable 0-359 hue from a string (integer hash, no floating trig). */
-export function hueOf(value: string) {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash * 31 + value.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) % 360;
-}
-
 export function intervalLabel(
   interval: string,
   style: "short" | "long" = "short"
@@ -108,6 +74,11 @@ export function intervalLabel(
     return style === "short" ? "yr" : "year";
   }
   return style === "short" ? "mo" : "month";
+}
+
+/** "monthly" / "yearly", for "Pro, monthly billing" and scheduled changes. */
+export function intervalAdverb(interval: string) {
+  return interval === "annually" ? "yearly" : "monthly";
 }
 
 /** Splits "₦30,000.00" into symbol / whole / decimals for typographic money. */
@@ -122,4 +93,10 @@ export function splitMoney(label: string) {
     decimals: match[3] ?? "",
     suffix: match[4] ?? "",
   };
+}
+
+/** "tunde@kola.test" → "t***@kola.test": enough to recognise, not to harvest. */
+export function maskEmail(email: string) {
+  const [local = "", domain = ""] = email.split("@");
+  return `${local.slice(0, 1)}***@${domain}`;
 }

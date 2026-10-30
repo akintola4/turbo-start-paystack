@@ -156,7 +156,14 @@ export function createAuth(options: CreateAuthOptions) {
         await mailer.verifyEmail({ to: user.email, name: user.name, url });
       },
     },
-    rateLimit: { enabled: true, window: 60, max: 100 },
+    rateLimit: {
+      enabled: true,
+      window: 60,
+      max: 100,
+      // Each request sends an email: three a minute per address is plenty
+      // for a person and too few to spam an inbox with.
+      customRules: { "/request-password-reset": { window: 60, max: 3 } },
+    },
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path === "/organization/list-invitations") {

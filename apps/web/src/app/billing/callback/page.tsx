@@ -1,3 +1,4 @@
+import { isAuthError } from "@workspace/auth/permissions";
 import { schema } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
@@ -44,7 +45,12 @@ export default async function BillingCallbackPage({
       intent.organizationId,
       "billing:view"
     );
-  } catch {
+  } catch (error) {
+    // Signed out or not allowed: sign in and come back. Anything else (a
+    // database error) is a real failure and goes to the error boundary.
+    if (!isAuthError(error)) {
+      throw error;
+    }
     redirect(
       `/sign-in?callbackURL=${encodeURIComponent(`/billing/callback?reference=${ref}`)}`
     );

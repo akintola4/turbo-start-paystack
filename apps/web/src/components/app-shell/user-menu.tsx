@@ -22,7 +22,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 
 import type { UserRef } from "@/lib/view-models";
 import { authClient } from "@/lib/auth-client";
@@ -51,6 +51,15 @@ export function ThemeRadio() {
       </DropdownMenuRadioItem>
     </DropdownMenuRadioGroup>
   );
+}
+
+const THEME_ICON = { light: SunIcon, dark: MoonIcon, system: MonitorIcon };
+
+function ThemeIcon() {
+  const { theme } = useTheme();
+  const Icon =
+    THEME_ICON[(theme as keyof typeof THEME_ICON) ?? "system"] ?? MonitorIcon;
+  return <Icon className="size-4 text-muted-foreground" />;
 }
 
 export function UserMenu({
@@ -89,7 +98,7 @@ export function UserMenu({
         </DropdownMenuItem>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className="gap-2">
-            <SunIcon className="size-4 text-muted-foreground" />
+            <ThemeIcon />
             Theme
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
@@ -103,20 +112,5 @@ export function UserMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-export function SignOutButton({
-  children,
-  className,
-}: {
-  children?: ReactNode;
-  className?: string;
-}) {
-  const signOut = useSignOut();
-  return (
-    <button className={className} onClick={signOut} type="button">
-      {children ?? "Sign out"}
-    </button>
   );
 }

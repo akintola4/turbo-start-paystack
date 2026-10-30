@@ -40,7 +40,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
           <LoaderCircleIcon className="size-[18px] animate-spin text-muted-foreground motion-reduce:animate-none" />
         ),
       }}
-      mobileOffset={{ bottom: "calc(16px + env(safe-area-inset-bottom, 0px))" }}
+      // --toast-offset lifts toasts over a sticky bottom bar (set in CSS by
+      // the page that shows one), so a toast never covers its action.
+      mobileOffset={{
+        bottom:
+          "calc(16px + env(safe-area-inset-bottom, 0px) + var(--toast-offset, 0px))",
+      }}
       position={narrow ? "bottom-center" : "bottom-right"}
       style={
         {

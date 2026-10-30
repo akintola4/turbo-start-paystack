@@ -8,6 +8,7 @@ import {
   UserPlusIcon,
 } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
 import { Monogram } from "@/components/avatars";
@@ -23,30 +24,22 @@ import {
   Tile,
 } from "@/components/primitives";
 import { daysUntil, formatDate, intervalLabel, roleLabel } from "@/lib/format";
-import type { DashboardData, Role } from "@/lib/view-models";
-
-const RANK: Record<string, number> = {
-  owner: 4,
-  admin: 3,
-  billing: 2,
-  member: 2,
-  viewer: 1,
-};
-const INVITABLE: Role[] = ["admin", "billing", "member", "viewer"];
+import { formatMoney } from "@/lib/money";
+import type { DashboardData } from "@/lib/view-models";
 
 const linkClass =
-  "rounded-chip font-semibold text-link text-sm underline-offset-4 hover:underline";
+  "relative rounded-chip font-semibold text-link text-sm underline-offset-4 before:absolute before:-inset-x-1 before:-inset-y-3 hover:underline";
 
-function chargeLine(data: DashboardData) {
-  const sub = data.subscription;
-  if (!sub) {
-    return null;
-  }
+/**
+ * The panel's one line under the amount. Past due and ending say the
+ * fact only: the banner and the badge already carry the alarm and the date.
+ */
+function chargeLine(sub: NonNullable<DashboardData["subscription"]>) {
   if (sub.status === "past_due") {
-    return `Payment failed. Update the card before ${formatDate(sub.graceUntil, "short")}.`;
+    return `Renewal was due ${formatDate(sub.currentPeriodEnd, "short")}.`;
   }
   if (sub.cancelAtPeriodEnd || sub.status === "non_renewing") {
-    return `Access ends ${formatDate(sub.currentPeriodEnd, "short")}.`;
+    return "No further charges.";
   }
   const when =
     sub.status === "trialing" ? sub.trialEndsAt : sub.currentPeriodEnd;
@@ -62,16 +55,57 @@ function chargeLine(data: DashboardData) {
 
 function PlanPanel({ data }: { data: DashboardData }) {
   const sub = data.subscription;
+  const { plan } = data;
+  const pastDue = plan.status === "past_due";
+  let body: ReactNode;
+  if (sub) {
+    body = (
+      <div className="grid gap-3">
+        <Money
+          label={sub.priceLabel}
+          per={intervalLabel(sub.interval, "long")}
+          size="xl"
+        />
+        <p className="flex items-center gap-2 text-panel-muted">
+          <CalendarIcon aria-hidden className="size-4 shrink-0" />
+          <span>{chargeLine(sub)}</span>
+        </p>
+      </div>
+    );
+  } else if (plan.status) {
+    // A paid plan seen by a role without billing access: no amounts.
+    body = (
+      <p className="max-w-[44ch] text-panel-muted">
+        Billing is handled by owners and billing managers.
+      </p>
+    );
+  } else {
+    body = (
+      <div className="grid gap-3">
+        {data.can.viewBilling ? (
+          <Money label={formatMoney(0, data.currency)} per="month" size="xl" />
+        ) : null}
+        <p className="max-w-[44ch] text-panel-muted">
+          {data.can.viewBilling
+            ? `Up to ${data.members.limit} members. Paid plans add seats and support, and start with a 14-day trial.`
+            : "Ask an owner or billing manager about upgrading."}
+        </p>
+      </div>
+    );
+  }
   return (
-    <Panel className="grid content-between gap-8 md:col-span-2">
+    <Panel className="grid content-between gap-8 lg:col-span-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <h2 className="font-semibold text-xl">
-            {sub ? `${sub.planName} plan` : `${data.entitlement.planName} plan`}
+            {plan.status ? `${plan.name} plan` : "Free"}
           </h2>
-          <StatusBadge status={sub?.status ?? "free"} />
+          {plan.status ? (
+            <StatusBadge endsAt={plan.endsAt} status={plan.status} />
+          ) : null}
         </div>
-        {data.hrefs.billing ? (
+        {/* Past due has one action, in the banner above. */}
+        {data.hrefs.billing && !pastDue ? (
           <Link
             className={buttonVariants({ variant: "default", size: "sm" })}
             href={data.hrefs.billing}
@@ -80,34 +114,35 @@ function PlanPanel({ data }: { data: DashboardData }) {
           </Link>
         ) : null}
       </div>
-      {sub ? (
-        <div className="grid gap-3">
-          <Money
-            label={sub.priceLabel}
-            per={intervalLabel(sub.interval, "long")}
-            size="xl"
-          />
-          <p className="flex items-center gap-2 text-panel-muted">
-            <CalendarIcon aria-hidden className="size-4 shrink-0" />
-            <span>{chargeLine(data)}</span>
-          </p>
-        </div>
-      ) : (
-        <p className="max-w-[44ch] text-panel-muted">
-          {data.can.viewBilling
-            ? "Up to 3 members. Paid plans add seats and support, and start with a 14-day trial."
-            : "Ask an owner or billing manager about upgrading."}
-        </p>
-      )}
+      {body}
     </Panel>
   );
 }
 
-function SeatsTile({ data }: { data: DashboardData }) {
-  const used = data.members.total;
-  const pct = Math.min(100, Math.round((used / data.members.limit) * 100));
+/** At the seat limit, the way forward: more seats, or who to ask. */
+function AddSeats({ data }: { data: DashboardData }) {
+  if (data.can.manageBilling && data.hrefs.billing) {
+    return (
+      <Link
+        className={buttonVariants({ variant: "outline" })}
+        href={`${data.hrefs.billing}#plans`}
+      >
+        <UserPlusIcon aria-hidden />
+        Add seats
+      </Link>
+    );
+  }
   return (
-    <Tile className="grid content-between gap-6">
+    <p className="text-muted-foreground text-sm">
+      All {data.seats.max} seats are in use. Ask an owner to add more.
+    </p>
+  );
+}
+
+function SeatsTile({ data }: { data: DashboardData }) {
+  const { seats } = data;
+  return (
+    <Tile className="grid content-start gap-6">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Seats</h2>
         <Link className={linkClass} href={data.hrefs.members}>
@@ -118,20 +153,20 @@ function SeatsTile({ data }: { data: DashboardData }) {
         <p className="tabular-nums leading-none">
           <AnimatedNumber
             className="font-semibold text-[40px] tracking-[-0.02em]"
-            value={used}
+            value={seats.used}
           />
-          <span className="text-lg text-muted-foreground">
-            {" "}
-            of {data.members.limit}
-          </span>
+          <span className="text-lg text-muted-foreground"> of {seats.max}</span>
         </p>
-        <Progress aria-label="Seats used" value={pct} />
+        <Progress aria-label="Seats used" value={seats.pct} />
         <p className="text-muted-foreground text-sm">
           {data.pendingInvitations ? (
             <>
-              <AnimatedNumber value={data.pendingInvitations} /> invitation
-              {data.pendingInvitations === 1 ? "" : "s"} waiting
+              Includes <AnimatedNumber value={data.pendingInvitations} />{" "}
+              pending invitation
+              {data.pendingInvitations === 1 ? "" : "s"}
             </>
+          ) : seats.full ? (
+            "Every seat is taken."
           ) : (
             "No pending invitations"
           )}
@@ -146,7 +181,7 @@ function TeamTile({ data }: { data: DashboardData }) {
     <Tile
       className={cn(
         "grid content-start gap-5",
-        data.can.viewBilling ? "md:col-span-1" : "md:col-span-3"
+        data.can.viewBilling ? "lg:col-span-1" : "lg:col-span-3"
       )}
     >
       <div className="flex items-center justify-between">
@@ -175,7 +210,7 @@ function TeamTile({ data }: { data: DashboardData }) {
 
 function PaymentsTile({ data }: { data: DashboardData }) {
   return (
-    <Tile className="grid content-start gap-4 md:col-span-2">
+    <Tile className="grid content-start gap-4 lg:col-span-2">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">Recent payments</h2>
         {data.hrefs.billing ? (
@@ -225,38 +260,34 @@ function PaymentsTile({ data }: { data: DashboardData }) {
 
 export function Dashboard({ data }: { data: DashboardData }) {
   const sub = data.subscription;
-  const rank = RANK[data.role] ?? 0;
-  const inviteRoles = INVITABLE.filter((r) => (RANK[r] ?? 0) <= rank);
   const pastDue = sub?.status === "past_due";
+  let action: ReactNode = null;
+  if (data.can.invite) {
+    action = data.seats.full ? (
+      <AddSeats data={data} />
+    ) : (
+      <InviteDialog
+        organizationId={data.org.id}
+        roles={data.inviteRoles}
+        trigger={
+          <button
+            className={buttonVariants({ variant: "outline" })}
+            type="button"
+          >
+            <UserPlusIcon aria-hidden />
+            Invite teammate
+          </button>
+        }
+      />
+    );
+  }
   return (
     <div className="grid animate-content gap-8">
       <PageHeader
-        actions={
-          data.can.invite ? (
-            <InviteDialog
-              organizationId={data.org.id}
-              roles={inviteRoles}
-              trigger={
-                <button
-                  className={buttonVariants({ variant: "outline" })}
-                  type="button"
-                >
-                  <UserPlusIcon aria-hidden />
-                  Invite teammate
-                </button>
-              }
-            />
-          ) : null
-        }
-        description={
-          sub ? (
-            <span className="inline-flex flex-wrap items-center gap-x-1.5">
-              {chargeLine(data)}
-            </span>
-          ) : (
-            `${data.entitlement.planName} plan`
-          )
-        }
+        actions={action}
+        description={`${roleLabel(data.role)} · ${data.members.total} ${
+          data.members.total === 1 ? "member" : "members"
+        }`}
         title={data.org.name}
       />
       {pastDue && sub ? (
@@ -285,11 +316,11 @@ export function Dashboard({ data }: { data: DashboardData }) {
           ) : null}
         </div>
       ) : null}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         <PlanPanel data={data} />
         <SeatsTile data={data} />
       </div>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         <TeamTile data={data} />
         {data.can.viewBilling ? <PaymentsTile data={data} /> : null}
       </div>

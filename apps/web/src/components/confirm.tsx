@@ -59,7 +59,7 @@ export function Confirm({
       <Sheet onOpenChange={onOpenChange} open={open}>
         <SheetContent showCloseButton={false} side="bottom">
           <SheetHeader className="gap-2 px-5 pt-6">
-            <SheetTitle className="font-semibold text-xl">{title}</SheetTitle>
+            <SheetTitle>{title}</SheetTitle>
             <SheetDescription className="text-[15px]">
               {description}
             </SheetDescription>

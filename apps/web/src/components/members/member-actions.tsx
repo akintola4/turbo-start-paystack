@@ -14,12 +14,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu";
 import { Input } from "@workspace/ui/components/input";
@@ -40,28 +34,18 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select";
 import { cn } from "@workspace/tailwind-config/utils";
-import {
-  CopyIcon,
-  Loader2Icon,
-  MoreHorizontalIcon,
-  UserMinusIcon,
-  XIcon,
-} from "lucide-react";
+import { MoreHorizontalIcon, UserMinusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import {
-  type FormEvent,
-  type ReactElement,
-  type ReactNode,
-  useState,
-} from "react";
-import { toast } from "sonner";
+import { type FormEvent, type ReactElement, useState } from "react";
+import { toast } from "@/lib/toast";
 
 import type { MemberRow, Role } from "@/lib/view-models";
 import { Confirm } from "@/components/confirm";
 import { useRowPresenceActions } from "@/components/motion";
 import { authClient } from "@/lib/auth-client";
+import { toastFailure } from "@/lib/toast-error";
 import { useNarrow } from "@/lib/use-narrow";
-import { ROLE_META, roleLabel } from "@/lib/format";
+import { roleLabel } from "@/lib/format";
 
 /* ------------------------------------------------------------------ invite */
 
@@ -81,7 +65,7 @@ export function InviteFields({
     <div
       className={cn(
         "grid gap-4",
-        layout === "row" && "sm:grid-cols-[1fr_11rem] sm:items-end"
+        layout === "row" && "lg:grid-cols-[1fr_11rem] lg:items-end"
       )}
     >
       <div className="grid gap-2">
@@ -137,7 +121,7 @@ export function useInvite(organizationId: string, onDone?: () => void) {
     });
     setPending(false);
     if (result.error) {
-      toast.error(result.error.message ?? "Could not send the invitation");
+      toastFailure(result.error, "Couldn't send the invitation");
       return;
     }
     formEl.reset();
@@ -167,14 +151,13 @@ export function InviteForm({
     <form
       className={cn(
         "grid gap-4",
-        layout === "row" && "sm:grid-cols-[1fr_auto] sm:items-end",
+        layout === "row" && "lg:grid-cols-[1fr_auto] lg:items-end",
         className
       )}
       onSubmit={onSubmit}
     >
       <InviteFields idPrefix="inline-invite" layout={layout} roles={roles} />
-      <Button disabled={pending} type="submit">
-        {pending ? <Loader2Icon aria-hidden className="animate-spin" /> : null}
+      <Button pending={pending} type="submit">
         {submitLabel}
       </Button>
     </form>
@@ -185,12 +168,10 @@ export function InviteDialog({
   organizationId,
   roles,
   trigger,
-  seatsNote,
 }: {
   organizationId: string;
   roles: Role[];
   trigger: ReactElement;
-  seatsNote?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const narrow = useNarrow();
@@ -198,14 +179,10 @@ export function InviteDialog({
   const body = (
     <>
       <InviteFields idPrefix="dialog-invite" roles={roles} />
-      {seatsNote ? (
-        <div className="text-muted-foreground text-sm">{seatsNote}</div>
-      ) : null}
     </>
   );
   const submit = (
-    <Button disabled={pending} type="submit">
-      {pending ? <Loader2Icon aria-hidden className="animate-spin" /> : null}
+    <Button pending={pending} type="submit">
       Send invite
     </Button>
   );
@@ -219,7 +196,7 @@ export function InviteDialog({
         <SheetContent showCloseButton={false} side="bottom">
           <form className="grid gap-5 px-5 pt-6" onSubmit={onSubmit}>
             <SheetHeader className="gap-2 p-0">
-              <SheetTitle className="font-semibold text-xl">{title}</SheetTitle>
+              <SheetTitle>{title}</SheetTitle>
               <SheetDescription className="text-[15px]">
                 {description}
               </SheetDescription>
@@ -304,7 +281,7 @@ export function RoleSelect({
         setPending(false);
         if (result.error) {
           setValue(previous);
-          toast.error(result.error.message ?? "Could not change the role");
+          toastFailure(result.error, "Couldn't change the role");
           return;
         }
         toast.success(
@@ -316,7 +293,12 @@ export function RoleSelect({
     >
       <SelectTrigger
         aria-label={`Role for ${member.name}`}
-        className={className}
+        className={cn(
+          // 36px tall in a table row: reach 44 without growing the row.
+          size === "sm" &&
+            "relative before:absolute before:-inset-y-1 before:inset-x-0",
+          className
+        )}
         size={size}
       >
         <SelectValue />
@@ -351,7 +333,7 @@ function useRemoveMember(
     setPending(false);
     if (result.error) {
       presence?.unmark(member.id);
-      toast.error(result.error.message ?? "Could not remove the member");
+      toastFailure(result.error, "Couldn't remove the member");
       return;
     }
     toast.success(`${member.name} was removed`);
@@ -386,62 +368,18 @@ function RemoveDialog({
   );
 }
 
-export function RemoveMemberButton({
-  organizationId,
-  orgName,
-  member,
-  className,
-  label = "Remove",
-}: {
-  organizationId: string;
-  orgName: string;
-  member: Pick<MemberRow, "id" | "name" | "email">;
-  className?: string;
-  label?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const { remove, pending } = useRemoveMember(organizationId, member);
-  return (
-    <>
-      <Button
-        aria-label={`Remove ${member.name}`}
-        className={className}
-        disabled={pending}
-        onClick={() => setOpen(true)}
-        size="sm"
-        variant="ghost"
-      >
-        {label}
-      </Button>
-      <RemoveDialog
-        member={member}
-        onConfirm={remove}
-        onOpenChange={setOpen}
-        open={open}
-        orgName={orgName}
-      />
-    </>
-  );
-}
-
-/** Row "…" menu: change role (radio) and remove. */
 export function MemberRowMenu({
   organizationId,
   orgName,
   member,
-  roles,
-  triggerClassName,
 }: {
   organizationId: string;
   orgName: string;
   member: MemberRow;
-  roles: Role[];
-  triggerClassName?: string;
 }) {
-  const router = useRouter();
   const [confirm, setConfirm] = useState(false);
   const { remove } = useRemoveMember(organizationId, member);
-  if (!(member.canUpdate || member.canRemove)) {
+  if (!member.canRemove) {
     return null;
   }
   return (
@@ -451,8 +389,7 @@ export function MemberRowMenu({
           render={
             <Button
               aria-label={`Actions for ${member.name}`}
-              className={cn("size-8", triggerClassName)}
-              size="icon"
+              size="icon-sm"
               variant="ghost"
             />
           }
@@ -463,59 +400,13 @@ export function MemberRowMenu({
           <div className="truncate px-2 py-1.5 text-muted-foreground text-xs">
             {member.email}
           </div>
-          {member.canUpdate ? (
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Change role</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-56">
-                <DropdownMenuRadioGroup
-                  onValueChange={async (next) => {
-                    const result =
-                      await authClient.organization.updateMemberRole({
-                        organizationId,
-                        memberId: member.id,
-                        role: next as Role,
-                      });
-                    if (result.error) {
-                      toast.error(
-                        result.error.message ?? "Could not change the role"
-                      );
-                      return;
-                    }
-                    toast.success(`Role changed to ${roleLabel(next)}`);
-                    router.refresh();
-                  }}
-                  value={member.role}
-                >
-                  {[...new Set([member.role, ...roles])].map((r) => (
-                    <DropdownMenuRadioItem
-                      className="items-start"
-                      key={r}
-                      value={r}
-                    >
-                      <span className="grid gap-0.5">
-                        <span>{roleLabel(r)}</span>
-                        <span className="text-muted-foreground text-xs">
-                          {ROLE_META[r]?.description}
-                        </span>
-                      </span>
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          ) : null}
-          {member.canRemove ? (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setConfirm(true)}
-                variant="destructive"
-              >
-                <UserMinusIcon />
-                Remove from organization
-              </DropdownMenuItem>
-            </>
-          ) : null}
+          <DropdownMenuItem
+            onClick={() => setConfirm(true)}
+            variant="destructive"
+          >
+            <UserMinusIcon />
+            Remove from organization
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <RemoveDialog
@@ -526,76 +417,5 @@ export function MemberRowMenu({
         orgName={orgName}
       />
     </>
-  );
-}
-
-/* ------------------------------------------------------------- invitations */
-
-export function CancelInvitationButton({
-  invitationId,
-  email,
-  className,
-  iconOnly = false,
-}: {
-  invitationId: string;
-  email: string;
-  className?: string;
-  iconOnly?: boolean;
-}) {
-  const router = useRouter();
-  const [pending, setPending] = useState(false);
-  return (
-    <Button
-      aria-label={`Revoke invitation for ${email}`}
-      className={className}
-      disabled={pending}
-      onClick={async () => {
-        setPending(true);
-        const result = await authClient.organization.cancelInvitation({
-          invitationId,
-        });
-        setPending(false);
-        if (result.error) {
-          toast.error(
-            result.error.message ?? "Could not revoke the invitation"
-          );
-          return;
-        }
-        toast.success(`Invitation for ${email} revoked`);
-        router.refresh();
-      }}
-      size={iconOnly ? "icon" : "sm"}
-      variant="ghost"
-    >
-      {iconOnly ? <XIcon /> : "Revoke"}
-    </Button>
-  );
-}
-
-export function CopyInviteLinkButton({
-  invitationId,
-  className,
-  iconOnly = false,
-}: {
-  invitationId: string;
-  className?: string;
-  iconOnly?: boolean;
-}) {
-  return (
-    <Button
-      aria-label="Copy invite link"
-      className={className}
-      onClick={async () => {
-        await navigator.clipboard.writeText(
-          `${window.location.origin}/accept-invite/${invitationId}`
-        );
-        toast.success("Invite link copied");
-      }}
-      size={iconOnly ? "icon" : "sm"}
-      variant="ghost"
-    >
-      <CopyIcon />
-      {iconOnly ? null : "Copy link"}
-    </Button>
   );
 }

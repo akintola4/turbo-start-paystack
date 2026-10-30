@@ -2,6 +2,9 @@
  * Serializable view models. Server loaders in `server/views.ts` build them;
  * page components render them.
  */
+import type { PlanState } from "@/lib/plan-state";
+import type { SeatUsage } from "@/lib/seats";
+
 export type Role = "owner" | "admin" | "billing" | "member" | "viewer";
 
 export type SubscriptionStatus =
@@ -29,7 +32,7 @@ export type ShellData = {
   role: string;
   /** Hrefs. `billing` is null when the role can't view billing. */
   nav: { overview: string; members: string; billing: string | null };
-  plan: { name: string; status: SubscriptionStatus | null };
+  plan: PlanState;
 };
 
 export type SubscriptionSummary = {
@@ -114,9 +117,16 @@ export type DashboardData = {
   user: UserRef;
   role: string;
   entitlement: { planName: string; active: boolean; reason: string };
+  /** Amounts and dates: only for roles that can view billing. */
   subscription: SubscriptionSummary | null;
+  /** Plan name and status word, for every role. */
+  plan: PlanState;
+  currency: string;
   members: { total: number; limit: number; recent: MemberRow[] };
+  seats: SeatUsage;
   pendingInvitations: number;
+  /** Roles the viewer may invite with (same rule as the members page). */
+  inviteRoles: Role[];
   recentInvoices: InvoiceRow[];
   can: { viewBilling: boolean; manageBilling: boolean; invite: boolean };
   hrefs: { members: string; billing: string | null };
@@ -130,8 +140,15 @@ export type MembersData = {
   assignableRoles: Role[];
   /** Roles the viewer may invite with. */
   inviteRoles: Role[];
-  can: { invite: boolean; update: boolean; remove: boolean };
-  limit: { used: number; max: number; planName: string };
+  can: {
+    invite: boolean;
+    update: boolean;
+    remove: boolean;
+    manageBilling: boolean;
+  };
+  limit: SeatUsage & { planName: string };
+  /** Where "Add seats" goes; null when the role can't open billing. */
+  billingHref: string | null;
 };
 
 export type PlanOption = {
@@ -212,11 +229,21 @@ export type AcceptInviteData = {
   signedInAs: string | null;
   invite: {
     orgName: string;
-    /** Seeds the org monogram so its colour matches the rest of the app. */
-    orgSlug: string;
     role: string;
     inviter: string | null;
-    email: string;
+    /** The invited address, masked: "t***@kola.test". */
+    forEmail: string;
+    /** Signed in, but as someone other than the invited address. */
+    otherAccount: boolean;
   } | null;
+  /** Why the link can't be used, when it can't. */
+  unusable: "expired" | "accepted" | "revoked" | "unknown" | null;
   hrefs: { signUp: string; signIn: string };
+};
+
+export type BillingDeniedData = {
+  orgName: string;
+  /** People who can manage billing, oldest member first. */
+  managers: { name: string; role: string }[];
+  overviewHref: string;
 };

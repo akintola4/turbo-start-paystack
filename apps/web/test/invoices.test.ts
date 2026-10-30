@@ -14,6 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { handleBillingAction } from "../src/server/billing-routes";
 import { handleInvoicePdf, loadViewableInvoice } from "../src/server/invoices";
+import { handleSearch } from "../src/server/search";
 
 const SELLER = {
   name: "Turbo Start Ltd",
@@ -122,6 +123,7 @@ async function paidInvoice(orgId: string, email: string) {
 const roles: Record<string, Headers> = {};
 let invoiceId: string;
 let otherInvoiceId: string;
+let kolaId: string;
 
 beforeAll(async () => {
   ctx = await setup();
@@ -131,6 +133,7 @@ beforeAll(async () => {
     body: { name: "Kola Logistics", slug: "kola-logistics" },
   });
   const orgId = org?.id ?? "";
+  kolaId = orgId;
   for (const role of ["admin", "billing", "member", "viewer"]) {
     roles[role] = await addMember(orgId, `${role}@kola.test`, role);
   }
@@ -271,5 +274,74 @@ describe("billing details route", () => {
       taxId: null,
       email: "ada@kola.test",
     });
+  });
+});
+
+describe("palette search", () => {
+  type Body = {
+    results: { item: { group: string; title: string; href?: string } }[];
+  };
+  const search = async (role: string, query: string, orgId = kolaId) => {
+    const res = await handleSearch(ctx, {
+      headers: roles[role] ?? new Headers(),
+      organizationId: orgId,
+      query,
+    });
+    return { status: res.status, body: (await res.json()) as Body };
+  };
+  const groups = (body: Body) => new Set(body.results.map((r) => r.item.group));
+
+  it("finds an invoice by its number for roles with billing:view", async () => {
+    const invoice = await view(roles.owner ?? new Headers());
+    const number = invoice?.doc.number ?? "";
+    for (const role of ["owner", "admin", "billing"]) {
+      const { status, body } = await search(role, number.slice(-6));
+      expect(status).toBe(200);
+      const hit = body.results.find((r) => r.item.group === "Invoices");
+      expect(hit?.item.title).toBe(number);
+      expect(hit?.item.href).toBe(
+        `/app/kola-logistics/settings/billing/invoices/${invoiceId}`
+      );
+    }
+  });
+
+  it("finds an invoice by amount and by status", async () => {
+    const [row] = await ctx.billing.listInvoices(kolaId);
+    const major = Math.trunc(Number(row?.amountSubunit) / 100);
+    for (const query of [
+      "paid",
+      String(major),
+      major.toLocaleString("en-GB"),
+    ]) {
+      const { body } = await search("owner", query);
+      expect(groups(body).has("Invoices")).toBe(true);
+    }
+  });
+
+  it("never returns invoices to members or viewers", async () => {
+    for (const role of ["member", "viewer"]) {
+      for (const query of ["INV", "paid", "000"]) {
+        const { status, body } = await search(role, query);
+        expect(status).toBe(200);
+        expect(groups(body).has("Invoices")).toBe(false);
+      }
+    }
+  });
+
+  it("finds members and the user's own organizations", async () => {
+    const { body } = await search("member", "billing@");
+    expect(body.results.map((r) => r.item.title)).toContain(
+      "billing@kola.test"
+    );
+    const orgs = await search("owner", "kola");
+    expect(orgs.body.results[0]?.item).toMatchObject({
+      group: "Organizations",
+      title: "Kola Logistics",
+    });
+  });
+
+  it("refuses outsiders and signed-out requests for the org in the URL", async () => {
+    expect((await search("outsider", "kola")).status).toBe(403);
+    expect((await search("nobody", "kola")).status).toBe(401);
   });
 });

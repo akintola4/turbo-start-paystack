@@ -12,6 +12,7 @@ import {
 import { Money } from "@/components/primitives";
 import { formatDate, intervalLabel } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
+import { freeTileCopy } from "@/lib/payment-copy";
 import type {
   BillingData,
   PlanOption,
@@ -81,9 +82,7 @@ function PlanFooter({
     // Free: downgrading means cancelling the paid plan.
     return (
       <p className="flex min-h-11 items-center text-muted-foreground text-sm">
-        {sub
-          ? "To move to Free, cancel your plan above. You keep it until the period ends."
-          : "Your organization is on this plan."}
+        {freeTileCopy(sub)}
       </p>
     );
   }
@@ -128,64 +127,74 @@ function PlanTiles({
         ? "Resume your plan first."
         : null;
   return (
-    <ul className="grid grid-cols-[repeat(auto-fit,minmax(196px,1fr))] gap-4">
-      {plans.map((plan) => (
-        <li
-          className={cn(
-            "flex flex-col gap-5 rounded-tile bg-card p-5 shadow-tile sm:p-6",
-            plan.isCurrent && "ring-2 ring-highlight"
-          )}
-          key={plan.key}
-        >
-          <div className="flex min-h-6 items-center justify-between gap-2">
-            <h3 className="font-semibold text-lg">{plan.name}</h3>
-            {plan.isCurrent ? (
-              <Badge variant="highlight">
-                <CheckIcon aria-hidden />
-                Current plan
-              </Badge>
-            ) : plan.saving ? (
-              <Badge variant="quiet">{plan.saving}</Badge>
-            ) : null}
-          </div>
-          <div className="grid gap-1.5">
-            <Money
-              label={plan.price?.label ?? formatMoney(0, data.currency)}
-              per={intervalLabel(
-                plan.price?.interval ??
-                  plans.find((p) => p.price)?.price?.interval ??
-                  "monthly",
-                "long"
-              )}
-            />
-            <p className="text-muted-foreground text-sm">{plan.description}</p>
-          </div>
-          <ul className="grid gap-2 border-border border-t pt-5 text-sm">
-            {plan.features.map((f) => (
-              <li className="flex items-center gap-2" key={f}>
-                <CheckIcon
-                  aria-hidden
-                  className="size-4 shrink-0 text-success"
-                />
-                {f}
-              </li>
-            ))}
-            {plan.trialDays > 0 && !sub ? (
-              <li className="flex items-center gap-2">
-                <CheckIcon
-                  aria-hidden
-                  className="size-4 shrink-0 text-success"
-                />
-                {plan.trialDays}-day trial, card required
-              </li>
-            ) : null}
-          </ul>
-          <div className="mt-auto">
-            <PlanFooter blocked={blocked} data={data} plan={plan} />
-          </div>
-        </li>
-      ))}
-    </ul>
+    // Three across only when the list itself is 48rem wide (not on an iPad
+    // beside the sidebar); otherwise stacked, the current plan first.
+    <div className="@container">
+      <ul className="grid gap-4 @3xl:grid-cols-3">
+        {plans.map((plan) => (
+          <li
+            className={cn(
+              "flex flex-col gap-5 rounded-tile bg-card p-5 shadow-tile sm:p-6",
+              // One sunflower mark per region: the badge. The ring is neutral.
+              plan.isCurrent && "ring-2 ring-input",
+              plan.isCurrent && "@max-3xl:order-first"
+            )}
+            key={plan.key}
+          >
+            <div className="flex min-h-6 items-center justify-between gap-2">
+              <h3 className="font-semibold text-lg">{plan.name}</h3>
+              {plan.isCurrent ? (
+                <Badge
+                  variant={sub?.status === "past_due" ? "warning" : "highlight"}
+                >
+                  <CheckIcon aria-hidden />
+                  Current plan
+                </Badge>
+              ) : plan.saving ? (
+                <Badge variant="quiet">{plan.saving}</Badge>
+              ) : null}
+            </div>
+            <div className="grid gap-1.5">
+              <Money
+                label={plan.price?.label ?? formatMoney(0, data.currency)}
+                per={intervalLabel(
+                  plan.price?.interval ??
+                    plans.find((p) => p.price)?.price?.interval ??
+                    "monthly",
+                  "long"
+                )}
+              />
+              <p className="text-muted-foreground text-sm">
+                {plan.description}
+              </p>
+            </div>
+            <ul className="grid gap-2 border-border border-t pt-5 text-sm">
+              {plan.features.map((f) => (
+                <li className="flex items-center gap-2" key={f}>
+                  <CheckIcon
+                    aria-hidden
+                    className="size-4 shrink-0 text-success"
+                  />
+                  {f}
+                </li>
+              ))}
+              {plan.trialDays > 0 && !sub ? (
+                <li className="flex items-center gap-2">
+                  <CheckIcon
+                    aria-hidden
+                    className="size-4 shrink-0 text-success"
+                  />
+                  {plan.trialDays}-day trial, card required
+                </li>
+              ) : null}
+            </ul>
+            <div className="mt-auto">
+              <PlanFooter blocked={blocked} data={data} plan={plan} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -230,7 +239,7 @@ function IntervalSwitch({
         <span
           aria-hidden
           className={cn(
-            "absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-chip bg-surface-1 shadow-tile transition-transform duration-(--dur-base) ease-in-out dark:bg-surface-3",
+            "absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-chip bg-surface-1 shadow-tile transition-transform duration-(--dur-base) ease-(--motion-ease-in-out) dark:bg-surface-3",
             value === "annually" && "translate-x-full"
           )}
         />

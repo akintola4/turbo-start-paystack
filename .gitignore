@@ -41,3 +41,6 @@ npm-debug.log*
 .claude/settings.local.json
 .paystack-mock.json
 scripts/.paystack-mock.json
+
+# Written by `next dev` on first run (agent rules); not part of the repo.
+apps/web/AGENTS.md

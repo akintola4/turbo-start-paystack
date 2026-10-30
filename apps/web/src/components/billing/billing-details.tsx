@@ -19,10 +19,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@workspace/ui/components/sheet";
-import { Loader2Icon, PencilIcon } from "lucide-react";
+import { PencilIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 import { Tile } from "@/components/primitives";
 import { useNarrow } from "@/lib/use-narrow";
@@ -149,8 +149,7 @@ function DetailsForm({
           {error}
         </p>
       ) : null}
-      <Button className="justify-self-start" disabled={pending} type="submit">
-        {pending ? <Loader2Icon aria-hidden className="animate-spin" /> : null}
+      <Button className="justify-self-start" pending={pending} type="submit">
         Save details
       </Button>
     </form>
@@ -208,7 +207,7 @@ export function BillingDetails({
         <SheetContent showCloseButton={false} side="bottom">
           <div className="grid gap-5 px-5 pt-6 pb-[calc(16px+env(safe-area-inset-bottom,0px))]">
             <SheetHeader className="gap-2 p-0">
-              <SheetTitle className="font-semibold text-xl">{TITLE}</SheetTitle>
+              <SheetTitle>{TITLE}</SheetTitle>
               <SheetDescription className="text-[15px]">
                 {DESCRIPTION}
               </SheetDescription>

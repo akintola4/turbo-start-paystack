@@ -108,18 +108,22 @@ export function useRowPresence(id: string): "entering" | "leaving" | undefined {
 /** Table row wired to the row presence above, with a quiet hover. */
 export function PresenceTableRow({
   id,
+  anchor,
   children,
   className,
 }: {
   id: string;
+  /** DOM id, for links that land on this row. */
+  anchor?: string;
   children: ReactNode;
   className?: string;
 }) {
   const presence = useRowPresence(id);
   return (
     <TableRow
-      className={cn("transition-colors duration-(--duration-hover)", className)}
+      className={cn("transition-colors duration-(--dur-fast)", className)}
       data-presence={presence}
+      id={anchor}
     >
       {children}
     </TableRow>

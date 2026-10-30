@@ -5,7 +5,7 @@ import { initials } from "@/lib/format";
 /**
  * Initials only, from the palette: people sit on surface-3; organizations
  * are a mini reference tile (panel-tile with off-white initials) in both
- * themes. `seed` is kept for call sites that pass it but no longer tints.
+ * themes.
  */
 export function Monogram({
   name,
@@ -14,7 +14,6 @@ export function Monogram({
   shape = "rounded",
 }: {
   name: string;
-  seed?: string;
   className?: string;
   tone?: "soft" | "solid" | "mono";
   shape?: "rounded" | "circle" | "square";

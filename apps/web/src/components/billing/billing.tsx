@@ -1,5 +1,6 @@
 import {
   CalendarIcon,
+  CircleXIcon,
   CreditCardIcon,
   type LucideIcon,
   TriangleAlertIcon,
@@ -26,7 +27,12 @@ import {
   Panel,
   StatusBadge,
 } from "@/components/primitives";
-import { daysUntil, formatDate, intervalLabel } from "@/lib/format";
+import {
+  daysUntil,
+  formatDate,
+  intervalAdverb,
+  intervalLabel,
+} from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import type { BillingData, SubscriptionSummary } from "@/lib/view-models";
 
@@ -65,7 +71,7 @@ function daysPhrase(days: number | null) {
 function nextCharge(sub: SubscriptionSummary) {
   if (sub.cancelAtPeriodEnd || sub.status === "non_renewing") {
     return {
-      label: "Access ends",
+      label: "Ends",
       value: formatDate(sub.currentPeriodEnd),
     };
   }
@@ -90,6 +96,51 @@ function nextCharge(sub: SubscriptionSummary) {
   };
 }
 
+/** Cancel sits apart from the panel's actions, with its own confirm. */
+function CancelRow({
+  data,
+  sub,
+}: {
+  data: BillingData;
+  sub: SubscriptionSummary;
+}) {
+  if (
+    !data.canManage ||
+    sub.status === "non_renewing" ||
+    sub.cancelAtPeriodEnd ||
+    sub.status === "past_due"
+  ) {
+    return null;
+  }
+  const cancelConfirm: BillingConfirm = {
+    title: "Cancel at the end of this period?",
+    description: `${data.org.name} keeps ${sub.planName} until ${formatDate(sub.currentPeriodEnd)}, then moves to the Free plan (up to 3 members). You can resume any time before then.`,
+    confirmLabel: "Cancel plan",
+    cancelLabel: `Keep ${sub.planName}`,
+    destructive: true,
+  };
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
+      <p className="text-muted-foreground text-sm">
+        Cancelling keeps {sub.planName} until {formatDate(sub.currentPeriodEnd)}
+        .
+      </p>
+      <BillingAction
+        action="cancel"
+        className="max-sm:-ml-3"
+        confirm={cancelConfirm}
+        orgId={data.org.id}
+        size="sm"
+        successMessage={`${sub.planName} ends on ${formatDate(sub.currentPeriodEnd)}`}
+        undo={{ label: `Resume ${sub.planName}`, action: "resume" }}
+        variant="ghost"
+      >
+        Cancel plan
+      </BillingAction>
+    </div>
+  );
+}
+
 function CurrentPlan({ data }: { data: BillingData }) {
   const sub = data.subscription;
 
@@ -97,8 +148,7 @@ function CurrentPlan({ data }: { data: BillingData }) {
     return (
       <Panel className="grid gap-6">
         <div className="flex items-center gap-2">
-          <h2 className="font-semibold text-xl">Free plan</h2>
-          <StatusBadge status="free" />
+          <h2 className="font-semibold text-xl">Free</h2>
         </div>
         <Money label={formatMoney(0, data.currency)} per="month" size="xl" />
         <p className="max-w-[52ch] text-panel-muted">
@@ -113,18 +163,16 @@ function CurrentPlan({ data }: { data: BillingData }) {
   const grace = daysUntil(sub.graceUntil);
   const trialDays = daysUntil(sub.trialEndsAt);
   const charge = nextCharge(sub);
-  const cancelConfirm: BillingConfirm = {
-    title: "Cancel at the end of this period?",
-    description: `${data.org.name} keeps ${sub.planName} until ${formatDate(sub.currentPeriodEnd)}, then moves to the Free plan (up to 3 members). You can resume any time before then.`,
-    confirmLabel: "Cancel plan",
-    cancelLabel: `Keep ${sub.planName}`,
-    destructive: true,
-  };
 
   return (
     <div className="grid gap-3">
-      <Panel aria-labelledby="current-plan" className="grid gap-6 sm:gap-8">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      {/* A container: beside an open sidebar on a tablet the panel is
+          narrower than the viewport breakpoints assume. */}
+      <Panel
+        aria-labelledby="current-plan"
+        className="@container grid gap-6 sm:gap-8"
+      >
+        <div className="flex flex-col gap-5 @2xl:flex-row @2xl:items-start @2xl:justify-between">
           <div className="grid gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <SwapOnChange value={sub.planName}>
@@ -141,12 +189,18 @@ function CurrentPlan({ data }: { data: BillingData }) {
                         ? `Trial, ${Math.max(trialDays, 0)} days left`
                         : undefined
                     }
-                    status={sub.status}
+                    endsAt={sub.currentPeriodEnd}
+                    status={
+                      sub.cancelAtPeriodEnd && sub.status === "active"
+                        ? "non_renewing"
+                        : sub.status
+                    }
                   />
                 </SwapOnChange>
               </span>
             </div>
             <Money
+              className="@max-md:text-[40px]"
               label={sub.priceLabel}
               per={intervalLabel(sub.interval, "long")}
               size="xl"
@@ -175,7 +229,7 @@ function CurrentPlan({ data }: { data: BillingData }) {
             </div>
           ) : null}
         </div>
-        <dl className="grid gap-3 max-sm:gap-0 max-sm:divide-y max-sm:divide-panel-line max-sm:rounded-card max-sm:bg-panel-tile max-sm:px-4 sm:grid-cols-3">
+        <dl className="grid gap-3 max-sm:gap-0 max-sm:divide-y max-sm:divide-panel-line max-sm:rounded-card max-sm:bg-panel-tile max-sm:px-4 sm:grid-cols-2 lg:grid-cols-3">
           <Meta icon={CalendarIcon} label={charge.label}>
             {charge.value}
           </Meta>
@@ -193,32 +247,37 @@ function CurrentPlan({ data }: { data: BillingData }) {
         {sub.scheduled ? (
           <p className="text-panel-muted text-sm">
             Moves to {sub.scheduled.planName} (
-            {intervalLabel(sub.scheduled.interval, "long")}ly) on{" "}
+            {intervalAdverb(sub.scheduled.interval)}) on{" "}
             {formatDate(sub.currentPeriodEnd)}.
           </p>
         ) : null}
       </Panel>
-      {data.canManage &&
-      sub.status !== "non_renewing" &&
-      !sub.cancelAtPeriodEnd &&
-      sub.status !== "past_due" ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-          <p className="text-muted-foreground text-sm">
-            Cancelling keeps {sub.planName} until{" "}
-            {formatDate(sub.currentPeriodEnd)}.
-          </p>
-          <BillingAction
-            action="cancel"
-            confirm={cancelConfirm}
-            orgId={data.org.id}
-            size="sm"
-            successMessage={`${sub.planName} ends on ${formatDate(sub.currentPeriodEnd)}`}
-            variant="ghost"
-          >
-            Cancel plan
-          </BillingAction>
-        </div>
-      ) : null}
+      <CancelRow data={data} sub={sub} />
+    </div>
+  );
+}
+
+/** A checkout that failed: said on the page, not only in a toast. */
+function PaymentFailed({ payment }: { payment: string | null }) {
+  if (payment !== "failed" && payment !== "abandoned") {
+    return null;
+  }
+  return (
+    <div
+      className="flex items-start gap-3 rounded-tile bg-destructive-bg p-4 sm:p-5"
+      role="alert"
+    >
+      <CircleXIcon
+        aria-hidden
+        className="mt-0.5 size-5 shrink-0 text-destructive"
+      />
+      <div className="grid gap-1">
+        <p className="font-semibold">Payment didn't go through</p>
+        <p className="text-muted-foreground">
+          Nothing was charged. Pick the plan again to retry, or use another
+          card.
+        </p>
+      </div>
     </div>
   );
 }
@@ -245,7 +304,10 @@ function PastDueBanner({ data }: { data: BillingData }) {
         </div>
       </div>
       {data.canManage ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 bg-background px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom,0px))] shadow-tile sm:hidden">
+        <div
+          className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-3 bg-background px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom,0px))] shadow-tile sm:hidden"
+          data-sticky-action-bar
+        >
           <p className="min-w-0 flex-1 text-sm">
             <span className="font-semibold">Payment failed.</span>{" "}
             <span className="text-muted-foreground">Fix by {deadline}</span>
@@ -262,18 +324,20 @@ function PastDueBanner({ data }: { data: BillingData }) {
 export function Billing({ data }: { data: BillingData }) {
   const sub = data.subscription;
   const description = sub
-    ? `${sub.planName}, ${intervalLabel(sub.interval, "long")}ly billing in ${data.currency}`
+    ? `${sub.planName}, ${intervalAdverb(sub.interval)} billing in ${data.currency}`
     : `Free plan, prices in ${data.currency}`;
   return (
     <div className="grid animate-content gap-10 pb-24 sm:gap-12 sm:pb-0">
-      <PaymentToast payment={data.payment} status={sub?.status ?? null} />
+      <PaymentToast payment={data.payment} sub={sub} />
       <PageHeader description={description} title="Billing" />
+      <PaymentFailed payment={data.payment} />
       <PastDueBanner data={data} />
       <CurrentPlan data={data} />
-      {data.devTools ? (
-        <DevBillingPanel orgId={data.org.id} status={sub?.status ?? null} />
-      ) : null}
-      <section aria-labelledby="plans-title" className="grid gap-5">
+      <section
+        aria-labelledby="plans-title"
+        className="grid scroll-mt-20 gap-5"
+        id="plans"
+      >
         <PlanPicker
           data={data}
           heading={
@@ -296,12 +360,17 @@ export function Billing({ data }: { data: BillingData }) {
       </section>
       <div className="grid gap-4">
         <InvoiceList data={data} />
-        <BillingDetails
-          canManage={data.canManage}
-          details={data.billingDetails}
-          orgId={data.org.id}
-        />
+        <div className="scroll-mt-20" id="billing-details">
+          <BillingDetails
+            canManage={data.canManage}
+            details={data.billingDetails}
+            orgId={data.org.id}
+          />
+        </div>
       </div>
+      {data.devTools ? (
+        <DevBillingPanel orgId={data.org.id} status={sub?.status ?? null} />
+      ) : null}
     </div>
   );
 }
