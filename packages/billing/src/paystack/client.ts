@@ -95,10 +95,10 @@ export function createPaystackClient(options: PaystackClientOptions) {
       metadata?: Record<string, unknown>;
     }) => request("POST", "/customer", customerSchema, input),
 
-    fetchCustomer: (code: string) =>
+    fetchCustomer: (emailOrCode: string) =>
       request(
         "GET",
-        `/customer/${encodeURIComponent(code)}`,
+        `/customer/${encodeURIComponent(emailOrCode)}`,
         customerDetailSchema
       ),
 

@@ -11,7 +11,8 @@ export type BillingErrorCode =
   | "upgrade_failed"
   | "downgrade_failed"
   | "paystack_error"
-  | "email_unverified";
+  | "email_unverified"
+  | "customer_email_unavailable";
 
 /** Expected, user-facing billing failures. Route handlers map these to 4xx. */
 export class BillingError extends Error {

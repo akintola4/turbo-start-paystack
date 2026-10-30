@@ -571,7 +571,8 @@ describe("a second downgrade (audit #1: no orphaned scheduled subscription)", ()
 
 describe("cancel and resume (PLAN §2.3 #11)", () => {
   it("disables with the code and token from the database and keeps access", async () => {
-    const { organizationId, actor, sub } = await h.subscribe("pro-monthly-ngn");
+    const { organizationId, actor, sub, paid } =
+      await h.subscribe("pro-monthly-ngn");
     const remote = h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "");
     const before = h.fake.calls.length;
     await h.billing.cancel({ organizationId, actor });
@@ -596,11 +597,85 @@ describe("cancel and resume (PLAN §2.3 #11)", () => {
     });
 
     await h.billing.resume({ organizationId, actor });
+    const resumed = await h.billing.getSubscription(organizationId);
+    expect(resumed).toMatchObject({
+      status: "active",
+      cancelAtPeriodEnd: false,
+      canceledAt: null,
+    });
+    // Paystack can't re-enable a disabled subscription: resume starts a new
+    // one on the same plan and card, first charged at the period end.
+    expect(h.fake.callsTo("POST", "/subscription/enable")).toEqual([]);
+    expect(remote?.status).toBe("non-renewing");
+    expect(resumed?.paystackSubscriptionCode).not.toBe(
+      remote?.subscription_code
+    );
+    const [create] = h.fake.callsTo("POST", "/subscription").slice(-1);
+    expect(create?.body).toMatchObject({
+      plan: planCode("pro-monthly-ngn"),
+      start_date: sub.currentPeriodEnd?.toISOString(),
+    });
+    expect(
+      h.fake.subscriptions.get(resumed?.paystackSubscriptionCode ?? "")?.status
+    ).toBe("active");
+
+    // The old subscription's closing webhook doesn't cancel the resumed one.
+    await h.deliver(
+      subscriptionStatusEvent({
+        event: "subscription.disable",
+        subscriptionCode: remote?.subscription_code ?? "",
+        status: "cancelled",
+        planCode: planCode("pro-monthly-ngn"),
+        customer: paid.customer,
+      })
+    );
+    expect(await h.billing.getSubscription(organizationId)).toMatchObject({
+      status: "active",
+      paystackSubscriptionCode: resumed?.paystackSubscriptionCode,
+    });
+
+    // Cancel and resume again: same path, no 500.
+    await h.billing.cancel({ organizationId, actor });
+    await h.billing.resume({ organizationId, actor });
     expect(await h.billing.getSubscription(organizationId)).toMatchObject({
       status: "active",
       cancelAtPeriodEnd: false,
     });
-    expect(remote?.status).toBe("active");
+  });
+
+  it("cancel succeeds when Paystack already has the subscription off", async () => {
+    const { organizationId, actor, sub } = await h.subscribe("pro-monthly-ngn");
+    const remote = h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "");
+    if (remote) {
+      remote.status = "non-renewing";
+    }
+    await h.billing.cancel({ organizationId, actor });
+    expect(await h.billing.getSubscription(organizationId)).toMatchObject({
+      status: "non_renewing",
+      cancelAtPeriodEnd: true,
+    });
+  });
+
+  it("cancel retries with Paystack's token when the stored one is stale", async () => {
+    const { organizationId, actor, sub } = await h.subscribe("pro-monthly-ngn");
+    const remote = h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "");
+    if (remote) {
+      remote.email_token = "tok_rotated";
+    }
+    await h.billing.cancel({ organizationId, actor });
+    expect(remote?.status).toBe("non-renewing");
+  });
+
+  it("resume reports a Paystack refusal as a billing error, not a crash", async () => {
+    const { organizationId, actor } = await h.subscribe("pro-monthly-ngn");
+    await h.billing.cancel({ organizationId, actor });
+    h.fake.failNext("POST", /^\/subscription$/, 400, "Plan not found");
+    await expect(
+      h.billing.resume({ organizationId, actor })
+    ).rejects.toMatchObject({ code: "paystack_error" });
+    expect(await h.billing.getSubscription(organizationId)).toMatchObject({
+      status: "non_renewing",
+    });
   });
 
   it("cannot resume after the period has ended", async () => {

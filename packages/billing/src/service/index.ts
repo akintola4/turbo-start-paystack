@@ -19,12 +19,20 @@ import {
   liveSubscription,
   transactionWithNotifications,
 } from "./context";
+import { paystackEmailFor } from "./customer-email";
 import {
   cancelSubscription,
   changePlan,
   getManageCardLink,
   resumeSubscription,
 } from "./plan-change";
+
+export {
+  type CustomerEmailSource,
+  customerEmailCandidates,
+  type PaystackEmailView,
+  taggedEmail,
+} from "./customer-email";
 
 /** The date an invoice is listed under: paid date, else the period it is
  *  for, else when we first heard of it. */
@@ -181,6 +189,11 @@ export function createBillingService(options: CreateBillingServiceOptions) {
         );
       return row ?? null;
     },
+
+    /** The address Paystack bills the organization at, or would at a first
+     *  checkout started by `actorEmail` (see customer-email.ts). */
+    paystackEmail: (organizationId: string, actorEmail: string) =>
+      paystackEmailFor(deps.db, organizationId, actorEmail),
 
     getBillingDetails: (organizationId: string) =>
       getBillingDetails(deps.db, organizationId),

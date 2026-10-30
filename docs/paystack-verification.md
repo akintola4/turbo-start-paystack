@@ -61,8 +61,19 @@ URL, `pnpm billing:sync`, and watch the `webhook_event` table.
 - [ ] `/enable` works on a non-renewing subscription before its period ends.
 - [ ] `GET /subscription/:code/manage/link` returns `{ link }`.
 - [ ] Renewal `charge.success` carries `plan` and `customer` (no metadata).
-      Two organizations billed to the same email on the same plan both get
-      resynced; check that is acceptable for your customers.
+      Organizations from before customers were per organization can share a
+      customer: all of them on that plan get resynced, and the invoice goes
+      to the one whose period moved.
+
+## Customers
+
+- [ ] `POST /customer` with an email Paystack already knows returns that
+      customer (same `customer_code`) rather than an error. If it errors
+      instead, the app fetches `GET /customer/:email` and adopts it.
+- [ ] Paystack accepts plus-tagged addresses (`you+3f9a2c1b@gmail.com`) as
+      customer emails, and its receipts for them land in the plain inbox.
+- [ ] One person, two organizations, both on Starter: two customers, two
+      active subscriptions, and both card checks refunded.
 
 ## Invoices and failures
 

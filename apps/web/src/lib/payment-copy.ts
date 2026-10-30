@@ -1,5 +1,5 @@
 import { formatDate } from "@/lib/format";
-import type { SubscriptionSummary } from "@/lib/view-models";
+import type { PaystackEmailData, SubscriptionSummary } from "@/lib/view-models";
 
 export type PaymentOutcome = {
   kind: "success" | "loading" | "info" | "error";
@@ -80,4 +80,36 @@ export function freeTileCopy(
     return `${sub.planName} already ends ${formatDate(sub.currentPeriodEnd, "short")}; then you're on Free.`;
   }
   return "To move to Free, cancel your plan above. You keep it until the period ends.";
+}
+
+/**
+ * Which address Paystack bills and sends receipts to, said on the billing
+ * page until the organization has a subscription. Null once it has one.
+ */
+export function paystackEmailNote(
+  paystack: PaystackEmailData | null,
+  hasSubscription: boolean
+): string | null {
+  if (!paystack || hasSubscription) {
+    return null;
+  }
+  if (paystack.locked) {
+    return `Paystack bills this organization as ${paystack.email} and sends receipts there.`;
+  }
+  const base = `Paystack will bill this organization as ${paystack.email} and send receipts there.`;
+  if (paystack.source === "billing_email") {
+    return base;
+  }
+  if (paystack.source === "tagged") {
+    return `${base} Most mail providers deliver it to your usual inbox. Set a billing email in Billing details to use another address.`;
+  }
+  return `${base} Set a billing email in Billing details to use another address.`;
+}
+
+/** The line under the billing email field in Billing details. */
+export function billingEmailHint(paystack: PaystackEmailData | null): string {
+  if (paystack?.locked) {
+    return `Paystack keeps billing ${paystack.email}. The billing email only changes what invoices show.`;
+  }
+  return "Set a billing email before the first payment to give this organization its own Paystack address. Paystack bills it and sends receipts there.";
 }

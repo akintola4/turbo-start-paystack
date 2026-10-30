@@ -459,10 +459,41 @@ async function refundStaleUpgrade(
 }
 
 /**
+ * Organizations created before each got its own Paystack customer can share
+ * one, so a renewal charge can match several rows. Paystack's view, applied
+ * by the resync, moved the period (or swapped the plan) of the one that
+ * renewed: that is the one the charge was for, if exactly one moved.
+ */
+async function renewedAmong(
+  tx: DbOrTx,
+  before: SubscriptionRow[]
+): Promise<SubscriptionRow | undefined> {
+  const after = await tx
+    .select()
+    .from(schema.subscription)
+    .where(
+      inArray(
+        schema.subscription.id,
+        before.map((s) => s.id)
+      )
+    );
+  const moved = before.filter((old) => {
+    const now = after.find((s) => s.id === old.id);
+    return (
+      now &&
+      (now.currentPeriodEnd?.getTime() !== old.currentPeriodEnd?.getTime() ||
+        now.planPriceId !== old.planPriceId)
+    );
+  });
+  return moved.length === 1 ? moved[0] : undefined;
+}
+
+/**
  * A charge we did not initiate directly: a Paystack-scheduled renewal (or the
  * first charge after a trial or a scheduled downgrade). Matched on customer +
- * plan code, then re-derived from `GET /subscription/:code`, because one
- * Paystack customer (email) can pay for several organizations.
+ * plan code, then re-derived from `GET /subscription/:code`, because a
+ * Paystack customer from before customers were per organization can still
+ * pay for several of them.
  */
 async function applyRenewalCharge(
   deps: BillingDeps,
@@ -515,7 +546,10 @@ async function applyRenewalCharge(
   for (const sub of candidates) {
     await resyncSubscription(deps, tx, sub, { paidAt });
   }
-  const only = candidates.length === 1 ? candidates[0] : undefined;
+  const only =
+    candidates.length === 1
+      ? candidates[0]
+      : await renewedAmong(tx, candidates);
   if (only) {
     await tx
       .update(schema.subscription)
