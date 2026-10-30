@@ -1,8 +1,8 @@
 import { type Database, schema } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { getPlan, getPlanPrice } from "../catalog";
-import { BillingError } from "../errors";
+import { BillingError, PaystackError } from "../errors";
 import { type Currency, TOKENIZATION_AMOUNT } from "../money";
 import {
   audit,
@@ -12,45 +12,101 @@ import {
   newReference,
   planPriceRow,
 } from "./context";
+import {
+  availableCustomerEmails,
+  emailTakenByAnotherOrg,
+  noCustomerEmail,
+} from "./customer-email";
 
 /** The signed-in user acting for the organization. `emailVerified` comes
  *  from the session: an unverified address may not be the user's, so it is
  *  never sent to Paystack as the paying customer's email. */
 export type Actor = { userId: string; email: string; emailVerified: boolean };
 
+/** `POST /customer`. Paystack customers are unique by email, so for an
+ *  address it already knows it answers with that customer; if it refuses
+ *  instead, the existing customer is fetched by email and adopted. */
+async function createOrAdoptCustomer(
+  deps: BillingDeps,
+  email: string,
+  organizationId: string
+) {
+  try {
+    return await deps.paystack.createCustomer({
+      email,
+      metadata: { organization_id: organizationId },
+    });
+  } catch (error) {
+    if (!(error instanceof PaystackError && error.httpStatus < 500)) {
+      throw error;
+    }
+    const existing = await deps.paystack.fetchCustomer(email).catch(() => null);
+    if (!existing) {
+      throw error;
+    }
+    return existing;
+  }
+}
+
+/**
+ * The organization's own Paystack customer, created at its first checkout.
+ * The email is chosen as described in customer-email.ts and then locked,
+ * like the currency: it is never changed silently later.
+ */
 export async function ensureCustomer(
   deps: BillingDeps,
   db: Database,
   organizationId: string,
-  email: string,
+  actorEmail: string,
   currency: Currency
 ) {
-  const existing = await billingCustomer(db, organizationId);
-  if (existing) {
-    if (existing.currency !== currency) {
-      throw new BillingError(
-        "currency_locked",
-        `This organization is billed in ${existing.currency}.`
-      );
-    }
-    return existing;
-  }
-  const created = await deps.paystack.createCustomer({
-    email,
-    metadata: { organization_id: organizationId },
-  });
-  await db
-    .insert(schema.billingCustomer)
-    .values({
-      organizationId,
-      paystackCustomerCode: created.customer_code,
-      email: created.email,
-      currency,
-    })
-    .onConflictDoNothing();
-  const row = await billingCustomer(db, organizationId);
+  let row = await billingCustomer(db, organizationId);
   if (!row) {
-    throw new Error("billing customer was not stored");
+    const candidates = await availableCustomerEmails(
+      db,
+      organizationId,
+      actorEmail
+    );
+    for (const candidate of candidates) {
+      const created = await createOrAdoptCustomer(
+        deps,
+        candidate.email,
+        organizationId
+      );
+      // Another organization may have claimed the address since the
+      // check above. The lock makes check-and-insert atomic per address.
+      const stored = await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext(${`paystack-email:${candidate.email}`}))`
+        );
+        if (await emailTakenByAnotherOrg(tx, organizationId, candidate.email)) {
+          return false;
+        }
+        await tx
+          .insert(schema.billingCustomer)
+          .values({
+            organizationId,
+            paystackCustomerCode: created.customer_code,
+            email: candidate.email,
+            currency,
+          })
+          .onConflictDoNothing();
+        return true;
+      });
+      if (stored) {
+        break;
+      }
+    }
+    row = await billingCustomer(db, organizationId);
+    if (!row) {
+      throw noCustomerEmail();
+    }
+  }
+  if (row.currency !== currency) {
+    throw new BillingError(
+      "currency_locked",
+      `This organization is billed in ${row.currency}.`
+    );
   }
   return row;
 }
@@ -58,9 +114,9 @@ export async function ensureCustomer(
 /**
  * Starts a Paystack checkout for a plan price. Everything that matters is
  * decided here on the server: the amount (from the catalog), the plan code,
- * the email (the org's billing email), and the metadata. The browser only
- * ever receives the `access_code` / `authorization_url`. Nothing is granted
- * until a verified charge arrives (PLAN §2.3 #6).
+ * the email (the organization's own Paystack customer), and the metadata.
+ * The browser only ever receives the `access_code` / `authorization_url`.
+ * Nothing is granted until a verified charge arrives (PLAN §2.3 #6).
  */
 export async function startCheckout(
   deps: BillingDeps,

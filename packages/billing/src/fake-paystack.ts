@@ -91,7 +91,10 @@ export function createFakePaystack(options?: {
   const fail = (status: number, message: string) =>
     Response.json({ status: false, message }, { status });
 
-  function customerFor(email: string) {
+  /** One customer per email, as on Paystack: asking again for an address
+   *  it knows (in any case) returns the existing customer. */
+  function customerFor(rawEmail: string) {
+    const email = rawEmail.toLowerCase();
     let customer = customers.get(email);
     if (!customer) {
       customer = { customer_code: id("CUS"), email, id: nextNumericId++ };
@@ -276,7 +279,9 @@ export function createFakePaystack(options?: {
 
     const fetchCustomer = path.match(/^\/customer\/([^/]+)$/);
     if (method === "GET" && fetchCustomer?.[1]) {
-      const customer = customerByCode(decodeURIComponent(fetchCustomer[1]));
+      // `GET /customer/:email_or_code`
+      const key = decodeURIComponent(fetchCustomer[1]);
+      const customer = customerByCode(key) ?? customers.get(key.toLowerCase());
       return customer
         ? ok({ ...customer, id: numericId(customer) })
         : fail(404, "Customer not found");
@@ -403,7 +408,7 @@ export function createFakePaystack(options?: {
   }
 
   function restore(state: ReturnType<typeof snapshot>) {
-    for (const c of state.customers) customers.set(c.email, c);
+    for (const c of state.customers) customers.set(c.email.toLowerCase(), c);
     for (const t of state.transactions) transactions.set(t.reference, t);
     for (const s of state.subscriptions)
       subscriptions.set(s.subscription_code, s);

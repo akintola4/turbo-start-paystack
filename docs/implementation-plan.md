@@ -254,9 +254,10 @@ above, the reason is in `docs/decisions.md`; the main ones:
 - The billing service was split into focused modules under
   `packages/billing/src/service/` (checkout, charge, switch-plan, plan-change,
   sync-remote, invoices) rather than one `service.ts`.
-- `billing_customer.paystack_customer_code` is not unique (one Paystack
-  customer per email can pay for several organizations); renewals are matched
-  on customer + plan and re-derived from `GET /subscription/:code`.
+- Each organization gets its own Paystack customer and email (decision 15).
+  `billing_customer.paystack_customer_code` stays non-unique because older
+  rows can share one; renewals are matched on customer + plan and re-derived
+  from `GET /subscription/:code`.
 - Added `replaced_subscription.email_token`/`disabled_at` so a failed disable
   during a plan change is retried by reconcile.
 - Added `BILLING_TRIAL_MODE=card|off` and `EMAIL_TRANSPORT=log`.
