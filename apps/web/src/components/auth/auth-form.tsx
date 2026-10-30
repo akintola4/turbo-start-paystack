@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { toast } from "@/lib/toast";
 
+import { useMarkSignals } from "@/components/auth/mark-signals";
 import { authClient } from "@/lib/auth-client";
 import { type AuthFormError, authFormError } from "@/lib/auth-errors";
 
@@ -185,6 +186,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const [error, setError] = useState<AuthFormError | null>(null);
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const signal = useMarkSignals();
 
   // Plain /app may skip the picker after sign-in (see app/app/page.tsx).
   const landing = callbackURL === "/app" ? "/app?from=sign-in" : callbackURL;
@@ -193,6 +195,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     event.preventDefault();
     setPending(true);
     setError(null);
+    signal({ type: "submit" });
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password"));
     const result =
@@ -209,10 +212,13 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             callbackURL: landing,
           });
     if (result.error) {
+      const formError = authFormError(result.error, mode);
       setPending(false);
-      setError(authFormError(result.error, mode));
+      setError(formError);
+      signal({ type: "error", field: formError.field ?? null });
       return;
     }
+    signal({ type: "success" });
     if (mode === "sign-up") {
       setPending(false);
       setSentTo(email);
@@ -227,7 +233,10 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       <CheckEmail
         callbackURL={callbackURL}
         email={sentTo}
-        onChangeEmail={() => setSentTo(null)}
+        onChangeEmail={() => {
+          setSentTo(null);
+          signal({ type: "reset" });
+        }}
       />
     );
   }
@@ -245,6 +254,9 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
             autoComplete="name"
             id="name"
             name="name"
+            onChange={(e) =>
+              signal({ type: "input", field: "name", value: e.target.value })
+            }
             placeholder="Adaeze Okafor"
           />
         </div>
@@ -259,7 +271,13 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           id="email"
           inputMode="email"
           name="email"
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (error) {
+              signal({ type: "clear" });
+            }
+            signal({ type: "input", field: "email", value: e.target.value });
+          }}
           placeholder="you@company.com"
           required
           spellCheck={false}
@@ -295,7 +313,14 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           id="password"
           minLength={10}
           name="password"
-          onChange={() => error?.field === "password" && setError(null)}
+          onChange={() => {
+            if (error?.field === "password") {
+              setError(null);
+            }
+            if (error) {
+              signal({ type: "clear" });
+            }
+          }}
           required
           type="password"
         />

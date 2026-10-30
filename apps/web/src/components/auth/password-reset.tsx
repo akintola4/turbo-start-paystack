@@ -6,10 +6,11 @@ import { Label } from "@workspace/ui/components/label";
 import { MailCheckIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { toast } from "@/lib/toast";
 
 import { FormAlert, inlineLinkClass } from "@/components/auth/auth-form";
+import { useMarkSignals } from "@/components/auth/mark-signals";
 import { authClient } from "@/lib/auth-client";
 import {
   type AuthFormError,
@@ -27,6 +28,11 @@ export function ForgotPasswordForm() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<AuthFormError | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const signal = useMarkSignals();
+  // Includes an email carried over from sign-in in the URL.
+  useEffect(() => {
+    signal({ type: "input", field: "email", value: email });
+  }, [signal, email]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -20,13 +20,13 @@ export function AuthScreen({
   description: ReactNode;
   /** Which page the panel speaks to. */
   variant: "sign-in" | "sign-up";
-  /** The visitor's likely currency, for the panel's lit tile. */
+  /** The visitor's likely currency, passed through to the panel. */
   currency?: string;
   children: ReactNode;
   footer?: ReactNode;
 }) {
   return (
-    <div className="grid min-h-dvh bg-background lg:h-dvh lg:grid-cols-2 lg:overflow-hidden">
+    <div className="grid min-h-dvh grid-rows-[auto_1fr] bg-background lg:h-dvh lg:grid-cols-2 lg:grid-rows-1 lg:overflow-hidden">
       <div className="flex flex-col px-4 py-6 sm:px-10 sm:py-8 lg:overflow-y-auto">
         <Wordmark className="self-start" />
         <main
