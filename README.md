@@ -441,6 +441,9 @@ changes an issued invoice.
   invoice number. It is listed apart under "Card checks", with a receipt that
   shows the charge and the refund.
 - **Receipt email.** "View invoice" opens that payment's invoice.
+- **Kept after a delete.** Deleting an organization keeps its issued invoices
+  for accounting (no cascade); they just can't be opened in the app anymore.
+  See `docs/decisions.md` #40.
 
 Webhooks are verified with a constant-time HMAC-SHA512 check, stored once
 (duplicates are acknowledged and ignored), answered with 200, then processed.

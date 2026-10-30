@@ -166,12 +166,20 @@ export const replacedSubscription = pgTable("replaced_subscription", {
   disabledAt: timestamp("disabled_at", tz),
 });
 
+/**
+ * Invoices are accounting records, so they outlive the organization: no
+ * foreign key cascades them away. organization_id keeps the id it was
+ * issued to (ids are never reused), and the buyer snapshot keeps its name.
+ * Deleting an organization detaches its invoices from the subscription.
+ */
 export const invoice = pgTable(
   "invoice",
   {
     id: text("id").primaryKey(),
-    organizationId: orgId(),
-    subscriptionId: text("subscription_id").references(() => subscription.id),
+    organizationId: text("organization_id").notNull(),
+    subscriptionId: text("subscription_id").references(() => subscription.id, {
+      onDelete: "set null",
+    }),
     paystackInvoiceCode: text("paystack_invoice_code").unique(),
     reference: text("reference").unique(),
     amountSubunit: money("amount_subunit").notNull(),
