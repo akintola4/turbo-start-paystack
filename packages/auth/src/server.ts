@@ -14,6 +14,7 @@ import { AuthError } from "./errors";
 import { nameProblem, slugProblem } from "./org-rules";
 import {
   ac,
+  canGrantRole,
   type Permission,
   type Role,
   rankOf,
@@ -266,11 +267,13 @@ export function createAuth(options: CreateAuthOptions) {
     const nextRole = Array.isArray(body.role)
       ? body.role.join(",")
       : (body.role ?? "");
-    const myRank = rankOf(me.role);
-    if (rankOf(nextRole) > myRank || rankOf(target.role) > myRank) {
+    if (rankOf(target.role) > rankOf(me.role)) {
       throw new APIError("FORBIDDEN", {
-        message: "You cannot assign a role above your own",
+        message: "You cannot change the role of someone above you",
       });
+    }
+    if (!canGrantRole(me.role, nextRole)) {
+      throw new APIError("FORBIDDEN", { message: grantDenied(nextRole) });
     }
   }
 
@@ -500,9 +503,9 @@ export function createAuth(options: CreateAuthOptions) {
             organization: org,
           }) => {
             const me = await findMember(org.id, inviter.id);
-            if (!me || rankOf(invitation.role) > rankOf(me.role)) {
+            if (!(me && canGrantRole(me.role, invitation.role))) {
               throw new APIError("FORBIDDEN", {
-                message: "You cannot invite someone to a role above your own",
+                message: grantDenied(invitation.role),
               });
             }
             const [members] = await db
@@ -649,6 +652,12 @@ export function createAuth(options: CreateAuthOptions) {
     soleOwnedOrganizations,
     pendingEmail,
   };
+}
+
+function grantDenied(role: string) {
+  return role.split(",").some((r) => r.trim() === "billing")
+    ? "Only someone who manages billing (an owner) can give the billing role"
+    : "You cannot give someone a role above your own";
 }
 
 function isOwner(role: string) {

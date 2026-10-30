@@ -1,5 +1,7 @@
 export { AuthError, isAuthError } from "./errors";
 export {
+  canGrantRole,
+  grantableRoles,
   isRole,
   type Permission,
   ROLE_RANK,
