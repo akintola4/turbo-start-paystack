@@ -46,6 +46,12 @@ const ICON_MOTION = {
   pop: "animate-icon-pop",
 } as const;
 
+/** A segment submits its value when the control sits in a GET form. */
+const submitProps = (name: string | undefined, value: string) =>
+  name
+    ? ({ type: "submit", name, value } as const)
+    : ({ type: "button" } as const);
+
 /**
  * The one segmented control on the landing: equal segments, one thumb that
  * slides on a transform with a slight spring, arrow keys and press feedback.
@@ -59,6 +65,7 @@ export function Segmented<T extends string>({
   onChange,
   tone = "page",
   size = "sm",
+  name,
   className,
 }: {
   label: string;
@@ -67,6 +74,9 @@ export function Segmented<T extends string>({
   onChange: (value: T, from: HTMLElement) => void;
   tone?: keyof typeof TONES;
   size?: "sm" | "md";
+  /** Inside a GET form: segments submit `name=value`, so the choice still
+   *  works without JavaScript. With it, the click is handled in place. */
+  name?: string;
   className?: string;
 }) {
   const t = TONES[tone];
@@ -138,13 +148,16 @@ export function Segmented<T extends string>({
             )}
             data-segment={o.value}
             key={o.value}
-            onClick={() => pick(i)}
+            {...submitProps(name, o.value)}
+            onClick={(e) => {
+              e.preventDefault();
+              pick(i);
+            }}
             ref={(el) => {
               refs.current[i] = el;
             }}
             role="radio"
             tabIndex={(index < 0 ? i === 0 : on) ? 0 : -1}
-            type="button"
           >
             {Icon ? (
               <Icon

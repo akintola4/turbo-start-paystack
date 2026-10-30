@@ -1,7 +1,7 @@
 "use client";
 
-import { buttonVariants } from "@workspace/ui/components/button";
 import { cn } from "@workspace/tailwind-config/utils";
+import { buttonVariants } from "@workspace/ui/components/button";
 import { ArrowUpIcon, CheckIcon } from "lucide-react";
 import Link from "next/link";
 
@@ -10,7 +10,7 @@ import {
   useLanding,
 } from "@/components/landing/currency-context";
 import { opticalEdge } from "@/components/landing/display";
-import { type SegmentOption, Segmented } from "@/components/landing/segmented";
+import { Segmented, type SegmentOption } from "@/components/landing/segmented";
 import type { PlanInfo, PriceTable } from "@/components/landing/types";
 import { Money, Panel } from "@/components/primitives";
 import { currencyMeta } from "@/lib/landing";
@@ -75,15 +75,19 @@ export function Pricing({
             Priced in {currencyMeta(currency).word}. Pick another on the wall
             <ArrowUpIcon aria-hidden className="size-4" />
           </a>
-          <Segmented
-            className="w-full sm:w-[19rem]"
-            label="Billing interval"
-            onChange={setInterval}
-            options={INTERVALS}
-            size="md"
-            tone="panel"
-            value={interval}
-          />
+          {/* A GET form so the switch works without JavaScript too. */}
+          <form action="/#pricing" className="w-full sm:w-[19rem]" method="get">
+            <input name="currency" type="hidden" value={currency} />
+            <Segmented
+              label="Billing interval"
+              name="interval"
+              onChange={setInterval}
+              options={INTERVALS}
+              size="md"
+              tone="panel"
+              value={interval}
+            />
+          </form>
         </div>
         <ul className="grid gap-3 md:grid-cols-3 md:gap-4">
           {plans.map((plan) => {

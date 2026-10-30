@@ -64,6 +64,83 @@ type Box = { x: number; y: number; w: number; h: number };
 /** Header bar shared by the code and the demo, so both start on one line. */
 const BAR = "flex h-12 items-center justify-between gap-3 border-b px-5";
 
+/** One feature's code and its working demo. */
+function FeaturePanel({
+  feature,
+  active,
+}: {
+  feature: Feature;
+  active: boolean;
+}) {
+  const Demo = DEMOS[feature.id];
+  const lines = feature.code.split("\n");
+  return (
+    <div
+      aria-labelledby={`feature-tab-${feature.id}`}
+      className={cn(
+        "gap-3 lg:grid-cols-[minmax(0,7fr)_minmax(0,6fr)] lg:gap-4",
+        active ? "grid" : "hidden no-js:grid"
+      )}
+      id={`feature-panel-${feature.id}`}
+      role="tabpanel"
+    >
+      <figure
+        className="grid grid-rows-[auto_1fr] overflow-hidden rounded-tile bg-(--code-bg) text-(--code-text) shadow-[0_0_0_1px_var(--code-ring)]"
+        data-code
+      >
+        <figcaption className={cn(BAR, "border-(--code-ring)")}>
+          <span className="min-w-0 truncate font-mono text-(--code-comment) text-xs">
+            {feature.path}
+          </span>
+          <a
+            className="pressable pressable-sm relative inline-flex shrink-0 items-center gap-1 rounded-chip font-medium text-(--code-comment) text-xs before:absolute before:-inset-x-2 before:-inset-y-3 hover:text-(--code-text)"
+            href={fileUrl(feature.path)}
+          >
+            Read the file
+            <ArrowUpRightIcon aria-hidden className="size-3.5" />
+          </a>
+        </figcaption>
+        <pre
+          className="animate-content overflow-x-auto px-5 py-4 font-mono text-[13px] leading-6"
+          key={feature.id}
+        >
+          <code className="grid grid-cols-[2rem_minmax(0,1fr)]">
+            {lines.map((line, i) => (
+              <Fragment key={`${feature.id}-${i}`}>
+                <span aria-hidden className="select-none text-(--code-gutter)">
+                  {i + 1}
+                </span>
+                <span className="whitespace-pre">{highlight(line)}</span>
+              </Fragment>
+            ))}
+          </code>
+        </pre>
+      </figure>
+      <section
+        aria-label={`${feature.title}, working`}
+        className="grid grid-rows-[auto_1fr] overflow-hidden rounded-tile bg-card shadow-tile"
+      >
+        <div className={cn(BAR, "border-border")}>
+          <h3 className="truncate font-semibold text-[15px]">
+            {feature.title}
+          </h3>
+          <span className="shrink-0 text-muted-foreground text-xs">
+            What it does
+          </span>
+        </div>
+        <div className="flex flex-col gap-5 p-5">
+          <p className="text-pretty text-[15px] text-muted-foreground">
+            {feature.short}
+          </p>
+          <div className="mt-auto animate-content" key={feature.id}>
+            <Demo />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 /**
  * "Code + outcome": one tab per feature, captioned with its file. Each tab
  * pairs a real excerpt from that file with the thing it produces, working.
@@ -78,6 +155,8 @@ export function CodeOutcome() {
   const list = useRef<HTMLDivElement>(null);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const feature = featureAt(index);
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
 
   // Measure the active tab for the indicator, again whenever the row resizes
   // (viewport, late font swap). Paint only, never layout.
@@ -115,13 +194,10 @@ export function CodeOutcome() {
     sc.scrollTo({ left: t.offsetLeft, behavior: reduce ? "auto" : "smooth" });
   }, [index]);
 
-  const Demo = DEMOS[feature.id];
-  const lines = feature.code.split("\n");
-
   return (
     <div className="grid gap-4">
       <div
-        className="-mx-(--gut) snap-x snap-mandatory scroll-px-(--gut) overflow-x-auto px-(--gut) py-2 [scrollbar-width:none] lg:mx-0 lg:overflow-visible lg:px-0"
+        className="-mx-(--gut) snap-x snap-mandatory scroll-px-(--gut) overflow-x-auto px-(--gut) py-2 [scrollbar-width:none] no-js:hidden lg:mx-0 lg:overflow-visible lg:px-0"
         ref={scroller}
       >
         <div
@@ -158,7 +234,7 @@ export function CodeOutcome() {
             const on = i === index;
             return (
               <button
-                aria-controls="feature-panel"
+                aria-controls={`feature-panel-${f.id}`}
                 aria-selected={on}
                 className={cn(
                   "pressable pressable-lg relative grid w-[11rem] shrink-0 snap-start grid-rows-[1fr_auto] gap-1 rounded-card px-4 py-3 text-left lg:w-auto",
@@ -197,69 +273,13 @@ export function CodeOutcome() {
         </div>
       </div>
 
-      <div
-        aria-labelledby={`feature-tab-${feature.id}`}
-        className="grid gap-3 lg:grid-cols-[minmax(0,7fr)_minmax(0,6fr)] lg:gap-4"
-        id="feature-panel"
-        role="tabpanel"
-      >
-        <figure
-          className="grid grid-rows-[auto_1fr] overflow-hidden rounded-tile bg-(--code-bg) text-(--code-text) shadow-[0_0_0_1px_var(--code-ring)]"
-          data-code
-        >
-          <figcaption className={cn(BAR, "border-(--code-ring)")}>
-            <span className="min-w-0 truncate font-mono text-(--code-comment) text-xs">
-              {feature.path}
-            </span>
-            <a
-              className="pressable pressable-sm relative inline-flex shrink-0 items-center gap-1 rounded-chip font-medium text-(--code-comment) text-xs before:absolute before:-inset-x-2 before:-inset-y-3 hover:text-(--code-text)"
-              href={fileUrl(feature.path)}
-            >
-              Read the file
-              <ArrowUpRightIcon aria-hidden className="size-3.5" />
-            </a>
-          </figcaption>
-          <pre
-            className="animate-content overflow-x-auto px-5 py-4 font-mono text-[13px] leading-6"
-            key={feature.id}
-          >
-            <code className="grid grid-cols-[2rem_minmax(0,1fr)]">
-              {lines.map((line, i) => (
-                <Fragment key={`${feature.id}-${i}`}>
-                  <span
-                    aria-hidden
-                    className="select-none text-(--code-gutter)"
-                  >
-                    {i + 1}
-                  </span>
-                  <span className="whitespace-pre">{highlight(line)}</span>
-                </Fragment>
-              ))}
-            </code>
-          </pre>
-        </figure>
-        <section
-          aria-label={`${feature.title}, working`}
-          className="grid grid-rows-[auto_1fr] overflow-hidden rounded-tile bg-card shadow-tile"
-        >
-          <div className={cn(BAR, "border-border")}>
-            <h3 className="truncate font-semibold text-[15px]">
-              {feature.title}
-            </h3>
-            <span className="shrink-0 text-muted-foreground text-xs">
-              What it does
-            </span>
-          </div>
-          <div className="flex flex-col gap-5 p-5">
-            <p className="text-pretty text-[15px] text-muted-foreground">
-              {feature.short}
-            </p>
-            <div className="mt-auto animate-content" key={feature.id}>
-              <Demo />
-            </div>
-          </div>
-        </section>
-      </div>
+      {/* The server sends every panel, so they're all readable without
+          JavaScript (stacked, tabs hidden). With it, inactive panels are
+          hidden from first paint and, once hydrated, only the active one is
+          rendered. */}
+      {(hydrated ? [feature] : FEATURES).map((f) => (
+        <FeaturePanel active={f.id === feature.id} feature={f} key={f.id} />
+      ))}
     </div>
   );
 }

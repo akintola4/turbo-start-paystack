@@ -1,8 +1,8 @@
 "use client";
 
 import type { Currency } from "@workspace/billing/money";
-import { buttonVariants } from "@workspace/ui/components/button";
 import { cn } from "@workspace/tailwind-config/utils";
+import { buttonVariants } from "@workspace/ui/components/button";
 import { MousePointer2Icon } from "lucide-react";
 import Link from "next/link";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
@@ -11,9 +11,9 @@ import { useLanding } from "@/components/landing/currency-context";
 import { opticalEdge } from "@/components/landing/display";
 import type { PriceTable } from "@/components/landing/types";
 import { Money, Panel, Wordmark } from "@/components/primitives";
-import { formatMoney } from "@/lib/money";
 import { gsap, MOTION_QUERIES, SplitText, useGSAP } from "@/lib/gsap";
 import { currencyMeta, REPO, rippleDelay, WALL } from "@/lib/landing";
+import { formatMoney } from "@/lib/money";
 
 const NAV = [
   { label: "How billing works", href: "#webhooks" },
@@ -52,7 +52,8 @@ const LINES = ["Every price,", "in their money."];
  * rolls); a click, tap or arrow key chooses it for the whole page.
  */
 export function Hero({ prices }: { prices: PriceTable }) {
-  const { currency, shown, origin, setCurrency, preview } = useLanding();
+  const { currency, shown, origin, setCurrency, preview, interval } =
+    useLanding();
   const root = useRef<HTMLDivElement>(null);
   const wall = useRef<HTMLDivElement>(null);
   const tiles = useRef<(HTMLButtonElement | null)[]>([]);
@@ -253,69 +254,78 @@ export function Hero({ prices }: { prices: PriceTable }) {
               size="md"
             />
           </p>
-          <p className="hidden items-center gap-2 text-panel-muted text-sm pointer-fine:sm:flex">
+          <p className="hidden items-center gap-2 text-panel-muted text-sm pointer-fine:sm:flex no-js:hidden">
             <MousePointer2Icon aria-hidden className="size-4" />
             Point at a currency
           </p>
         </div>
 
-        <div
-          aria-label="Currency for every price on this page"
-          className="grid min-w-0 scroll-mt-8 grid-cols-4 gap-2 sm:gap-3 lg:grid-cols-8 lg:gap-4"
-          data-wall
-          id="currency"
-          onPointerLeave={() => preview(null)}
-          ref={wall}
-          role="radiogroup"
-        >
-          {WALL.map((code, i) => {
-            const meta = currencyMeta(code);
-            const lit = code === shown;
-            return (
-              // biome-ignore lint/a11y/useSemanticElements: ARIA radio group with roving focus over a grid of tiles.
-              <button
-                aria-checked={code === currency}
-                aria-label={meta.word}
-                className={cn(
-                  "wall-tile pressable pressable-sm grid aspect-square select-none place-items-center rounded-card font-bold sm:rounded-tile",
-                  "touch-manipulation max-lg:[&:nth-child(n+13)]:hidden",
-                  lit
-                    ? "bg-highlight text-highlight-foreground"
-                    : "bg-panel-tile text-panel-foreground hover:bg-panel-line",
-                  meta.glyph === "KSh"
-                    ? "text-[clamp(18px,3vw,46px)]"
-                    : "text-[clamp(26px,4.2vw,64px)]"
-                )}
-                data-currency={code}
-                data-wall-tile
-                key={`${code}-${i}`}
-                onClick={() => choose(code, i)}
-                onFocus={() => setFocusIndex(i)}
-                onKeyDown={(e) => onKeyDown(e, i)}
-                onPointerEnter={(e) => {
-                  if (e.pointerType === "mouse") {
-                    preview(code, { source: "wall", index: i });
+        {/* A GET form so a tile still picks the currency without JavaScript. */}
+        <form action="/#currency" className="min-w-0" method="get">
+          <input name="interval" type="hidden" value={interval} />
+          <div
+            aria-label="Currency for every price on this page"
+            className="grid min-w-0 scroll-mt-8 grid-cols-4 gap-2 sm:gap-3 lg:grid-cols-8 lg:gap-4"
+            data-wall
+            id="currency"
+            onPointerLeave={() => preview(null)}
+            ref={wall}
+            role="radiogroup"
+          >
+            {WALL.map((code, i) => {
+              const meta = currencyMeta(code);
+              const lit = code === shown;
+              return (
+                // biome-ignore lint/a11y/useSemanticElements: ARIA radio group with roving focus over a grid of tiles.
+                <button
+                  aria-checked={code === currency}
+                  aria-label={meta.word}
+                  className={cn(
+                    "wall-tile pressable pressable-sm grid aspect-square select-none place-items-center rounded-card font-bold sm:rounded-tile",
+                    "touch-manipulation max-lg:[&:nth-child(n+13)]:hidden",
+                    lit
+                      ? "bg-highlight text-highlight-foreground"
+                      : "bg-panel-tile text-panel-foreground hover:bg-panel-line",
+                    meta.glyph === "KSh"
+                      ? "text-[clamp(18px,3vw,46px)]"
+                      : "text-[clamp(26px,4.2vw,64px)]"
+                  )}
+                  data-currency={code}
+                  data-wall-tile
+                  key={`${code}-${i}`}
+                  name="currency"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    choose(code, i);
+                  }}
+                  onFocus={() => setFocusIndex(i)}
+                  onKeyDown={(e) => onKeyDown(e, i)}
+                  onPointerEnter={(e) => {
+                    if (e.pointerType === "mouse") {
+                      preview(code, { source: "wall", index: i });
+                    }
+                  }}
+                  ref={(el) => {
+                    tiles.current[i] = el;
+                  }}
+                  role="radio"
+                  style={
+                    {
+                      "--ripple": `${rippleDelay(i, from, columns)}ms`,
+                    } as React.CSSProperties
                   }
-                }}
-                ref={(el) => {
-                  tiles.current[i] = el;
-                }}
-                role="radio"
-                style={
-                  {
-                    "--ripple": `${rippleDelay(i, from, columns)}ms`,
-                  } as React.CSSProperties
-                }
-                tabIndex={i === focusIndex ? 0 : -1}
-                type="button"
-              >
-                <span className="currency-glyph" data-glyph={code}>
-                  {meta.glyph}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                  tabIndex={i === focusIndex ? 0 : -1}
+                  type="submit"
+                  value={code}
+                >
+                  <span className="currency-glyph" data-glyph={code}>
+                    {meta.glyph}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </form>
       </div>
     </Panel>
   );

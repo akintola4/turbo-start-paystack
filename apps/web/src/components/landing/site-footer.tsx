@@ -122,7 +122,7 @@ function useFillWidth(
 function ThemeSwitch() {
   const { current, setTheme } = useThemeChoice();
   return (
-    <div className="grid justify-items-start gap-3">
+    <div className="grid justify-items-start gap-3 no-js:hidden">
       <h3 className={HEADING} id="footer-theme">
         Theme
       </h3>
@@ -218,7 +218,7 @@ export function SiteFooter({ build }: { build: BuildInfo }) {
           </div>
 
           <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 border-panel-line border-t pt-5 text-[13px] text-panel-muted lg:justify-between">
-            <PaystackStatus className="max-w-[min(100%,30rem)]" />
+            <PaystackStatus className="max-w-[min(100%,30rem)] no-js:hidden" />
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <span>Version {build.version}</span>
               {/* Each separator travels with the item after it, so a wrap
