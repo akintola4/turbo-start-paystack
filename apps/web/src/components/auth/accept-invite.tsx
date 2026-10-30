@@ -5,7 +5,7 @@ import {
   AcceptInviteButton,
   SwitchAccountButton,
 } from "@/components/auth/accept-invite-button";
-import { Monogram } from "@/components/avatars";
+import { MarkAvatar } from "@/components/mark-avatar";
 import type { AcceptInviteData } from "@/lib/view-models";
 import { roleLabel } from "@/lib/format";
 import { Tile, Wordmark } from "@/components/primitives";
@@ -47,10 +47,10 @@ export function AcceptInvite({ data }: { data: AcceptInviteData }) {
           {invite ? (
             <>
               <div className="grid justify-items-start gap-5">
-                <Monogram
-                  className="size-16 rounded-control text-xl"
-                  name={invite.orgName}
-                  tone="solid"
+                <MarkAvatar
+                  className="size-16 rounded-control"
+                  seed={invite.orgId}
+                  size="md"
                 />
                 <div className="grid gap-2">
                   <h1 className="text-balance font-display font-semibold text-[32px] leading-[1.1] tracking-[-0.02em]">

@@ -734,6 +734,7 @@ export async function loadAcceptInvite(id: string): Promise<AcceptInviteData> {
   // it is for adds nothing an attacker without the link could learn.
   const [row] = await db
     .select({
+      orgId: schema.organization.id,
       orgName: schema.organization.name,
       role: schema.invitation.role,
       email: schema.invitation.email,
@@ -759,6 +760,7 @@ export async function loadAcceptInvite(id: string): Promise<AcceptInviteData> {
     invite:
       row && usable
         ? {
+            orgId: row.orgId,
             orgName: row.orgName,
             role: row.role ?? "member",
             inviter: row.inviter,
