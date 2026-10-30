@@ -11,6 +11,7 @@ import { organization } from "better-auth/plugins/organization";
 import { and, count, eq, gt } from "drizzle-orm";
 
 import { AuthError } from "./errors";
+import { nameProblem, slugProblem } from "./org-rules";
 import {
   ac,
   type Permission,
@@ -273,6 +274,43 @@ export function createAuth(options: CreateAuthOptions) {
     }
   }
 
+  // Better Auth's own create/update endpoints get the same name and address
+  // rules as the settings page.
+  function guardOrganizationFields(ctx: HookCtx) {
+    const body = ctx.body as
+      | {
+          name?: unknown;
+          slug?: unknown;
+          data?: { name?: unknown; slug?: unknown };
+        }
+      | undefined;
+    const fields = ctx.path === "/organization/update" ? body?.data : body;
+    if (fields?.slug !== undefined) {
+      const problem =
+        typeof fields.slug === "string"
+          ? slugProblem(fields.slug)
+          : "Enter an address.";
+      if (problem) {
+        throw new APIError("BAD_REQUEST", {
+          code: "INVALID_SLUG",
+          message: problem,
+        });
+      }
+    }
+    if (fields?.name !== undefined || ctx.path === "/organization/create") {
+      const problem =
+        typeof fields?.name === "string"
+          ? nameProblem(fields.name)
+          : "Enter a name.";
+      if (problem) {
+        throw new APIError("BAD_REQUEST", {
+          code: "INVALID_NAME",
+          message: problem,
+        });
+      }
+    }
+  }
+
   // Changing the sign-in address needs the current password again, so a
   // session left open somewhere can't move the account (and its reset
   // links) to someone else's inbox.
@@ -403,6 +441,12 @@ export function createAuth(options: CreateAuthOptions) {
         }
         if (ctx.path === "/change-email") {
           await guardChangeEmail(ctx);
+        }
+        if (
+          ctx.path === "/organization/create" ||
+          ctx.path === "/organization/update"
+        ) {
+          guardOrganizationFields(ctx);
         }
         if (
           ctx.path === "/organization/create" ||

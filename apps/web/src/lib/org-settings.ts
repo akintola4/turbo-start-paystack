@@ -1,3 +1,5 @@
+import { SLUG_MAX } from "@workspace/auth/org-rules";
+
 import { formatDate } from "@/lib/format";
 
 /**
@@ -6,9 +8,13 @@ import { formatDate } from "@/lib/format";
  * server and the browser agree and tests need no database.
  */
 
-export const SLUG_MIN = 3;
-export const SLUG_MAX = 48;
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export {
+  NAME_MAX,
+  nameProblem,
+  SLUG_MAX,
+  SLUG_MIN,
+  slugProblem,
+} from "@workspace/auth/org-rules";
 
 /** Name → address, for a new organization. */
 export function slugify(value: string) {
@@ -32,20 +38,6 @@ export function slugInput(value: string) {
     .replace(/-{2,}/g, "-")
     .replace(/^-+/, "")
     .slice(0, SLUG_MAX);
-}
-
-/** Why a slug can't be used, in one sentence, or null when it can. */
-export function slugProblem(slug: string): string | null {
-  if (slug.length < SLUG_MIN) {
-    return `Use at least ${SLUG_MIN} characters.`;
-  }
-  if (slug.length > SLUG_MAX) {
-    return `Use at most ${SLUG_MAX} characters.`;
-  }
-  if (!SLUG_PATTERN.test(slug)) {
-    return "Use lowercase letters, numbers and single hyphens, with no hyphen at either end.";
-  }
-  return null;
 }
 
 export type SubscriptionForDelete = {

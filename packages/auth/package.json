@@ -29,6 +29,7 @@
     "./client": "./src/client.ts",
     "./permissions": "./src/permissions.ts",
     "./roles": "./src/roles.ts",
+    "./org-rules": "./src/org-rules.ts",
     "./rate-limit": "./src/rate-limit.ts"
   }
 }
