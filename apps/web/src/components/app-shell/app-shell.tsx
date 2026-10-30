@@ -2,7 +2,7 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@workspace/ui/components/sidebar";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { AppSidebar } from "@/components/app-shell/app-sidebar";
 import { CommandPaletteProvider } from "@/components/app-shell/command-palette";
@@ -12,9 +12,9 @@ import { CONTENT } from "@/components/app-shell/top-bar";
 import type { ShellData } from "@/lib/view-models";
 
 /**
- * shadcn's dashboard-01 layout: SidebarProvider at the root (its open
- * state in the `sidebar_state` cookie, read on the server), the sidebar,
- * and SidebarInset with the site header and the page column.
+ * shadcn's sidebar-07 layout: SidebarProvider at the root (its open state
+ * in the `sidebar_state` cookie, read on the server), the sidebar, and
+ * SidebarInset with the header and the centred page column.
  */
 export function AppShell({
   data,
@@ -26,16 +26,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   return (
-    <SidebarProvider
-      className="bg-background"
-      defaultOpen={sidebarOpen}
-      style={
-        {
-          "--sidebar-width": "18rem",
-          "--header-height": "4rem",
-        } as CSSProperties
-      }
-    >
+    <SidebarProvider className="bg-background" defaultOpen={sidebarOpen}>
       <CommandPaletteProvider org={data.org} role={data.role}>
         <AppSidebar data={data} />
         <RememberOrg slug={data.org.slug} />

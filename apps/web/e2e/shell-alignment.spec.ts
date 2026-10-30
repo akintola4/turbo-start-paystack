@@ -27,11 +27,19 @@ async function signIn(page: Page, email = "ada@kolalogistics.test") {
 
 // One sign-in per run: the auth endpoint rate-limits repeated sign-ins.
 let session: Cookie[] = [];
+let memberSession: Cookie[] = [];
 test.beforeAll(async ({ browser }) => {
-  const context = await browser.newContext();
-  await signIn(await context.newPage());
-  session = await context.cookies();
-  await context.close();
+  for (const email of ["ada@kolalogistics.test", "chioma@kolalogistics.test"]) {
+    const context = await browser.newContext();
+    await signIn(await context.newPage(), email);
+    const cookies = await context.cookies();
+    if (email.startsWith("ada")) {
+      session = cookies;
+    } else {
+      memberSession = cookies;
+    }
+    await context.close();
+  }
 });
 test.beforeEach(async ({ context }) => {
   await context.addCookies(session);
@@ -387,4 +395,63 @@ test("phones open the sidebar as a sheet", async ({ page }) => {
   await sheet.getByRole("link", { name: "Members" }).click();
   await expect(page).toHaveURL(/\/members$/);
   await expect(sheet).toBeHidden();
+});
+
+/* --------------------------------------------- sidebar-07 navigation */
+
+const sidebar = (page: Page) => page.locator('[data-slot="sidebar"]').first();
+
+test("Billing is a collapsible group with Plan, Invoices and Billing details", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page, ORG);
+  const billing = sidebar(page).getByRole("button", { name: "Billing" });
+  const sub = sidebar(page).locator("[data-sidebar=menu-sub]");
+  await expect(billing).toHaveAttribute("aria-expanded", "false");
+  await billing.click();
+  await expect(billing).toHaveAttribute("aria-expanded", "true");
+  await expect(sub.getByRole("link")).toHaveText([
+    "Plan",
+    "Invoices",
+    "Billing details",
+  ]);
+  await sub.getByRole("link", { name: "Invoices" }).click();
+  await expect(page).toHaveURL(/\/settings\/billing#invoices$/);
+  // On a billing page the group starts open.
+  await page.reload();
+  await expect(
+    sidebar(page).getByRole("button", { name: "Billing" })
+  ).toHaveAttribute("aria-expanded", "true");
+});
+
+test("a member's sidebar has no Billing group", async ({ page }) => {
+  await page.context().clearCookies();
+  await page.context().addCookies(memberSession);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page, ORG);
+  await expect(
+    sidebar(page).getByRole("link", { name: "Members" })
+  ).toBeVisible();
+  await expect(
+    sidebar(page).getByRole("button", { name: "Billing" })
+  ).toHaveCount(0);
+  await expect(sidebar(page).getByText("Invoices")).toHaveCount(0);
+});
+
+test("the team switcher lists the user's organizations and Add organization", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page, ORG);
+  await sidebar(page)
+    .getByRole("button", { name: /Switch organization/ })
+    .click();
+  const menu = page.getByRole("menu");
+  await expect(
+    menu.getByRole("menuitem", { name: /Kola Logistics/ })
+  ).toBeVisible();
+  await expect(
+    menu.getByRole("menuitem", { name: "Add organization" })
+  ).toBeVisible();
 });
