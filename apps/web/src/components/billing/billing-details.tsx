@@ -25,6 +25,7 @@ import { type FormEvent, useState } from "react";
 import { toast } from "@/lib/toast";
 
 import { Tile } from "@/components/primitives";
+import { billingEmailHint } from "@/lib/payment-copy";
 import { useNarrow } from "@/lib/use-narrow";
 import type { BillingDetailsData } from "@/lib/view-models";
 
@@ -140,10 +141,13 @@ function DetailsForm({
           />
         </div>
       </div>
-      <p className="text-muted-foreground text-sm">
-        Leave a field blank to use the organization name and the email Paystack
-        bills.
-      </p>
+      <div className="grid gap-1 text-muted-foreground text-sm">
+        <p>{billingEmailHint(details.paystackEmail)}</p>
+        <p>
+          Leave a field blank to use the organization name and the email
+          Paystack bills.
+        </p>
+      </div>
       {error ? (
         <p className="text-destructive text-sm" id="bd-error" role="alert">
           {error}

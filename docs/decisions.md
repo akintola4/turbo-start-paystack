@@ -71,10 +71,23 @@ can be revisited.
     subscribers keep their plan code.
 14. **Billing currency is locked per organization** at its first checkout.
     Plan changes must stay in that currency.
-15. **Paystack customers are per email, not per organization.** Two
-    organizations billed to the same email share a customer code. Renewals
-    (which carry customer and plan, not our metadata) are matched on both,
-    then each match is re-derived from `GET /subscription/:code`.
+15. **Each organization has its own Paystack customer.** Paystack keys
+    customers by email and allows one active subscription per customer and
+    plan, so one person with two organizations on the same plan used to have
+    the second subscription refused ("already in place") and its card check
+    left unrefunded. The address is picked at the first checkout and then
+    locked on `billing_customer.email`, like the currency: the billing email
+    if no other organization's customer has it; with no billing email, the
+    checking-out person's own email if no other organization's customer has
+    it; otherwise that email tagged with the organization
+    (`you+3f9a2c1b@example.com`, eight hex characters of a sha256 of the
+    organization id, so renames don't change it). The check is repeated
+    under an advisory lock on the address when the row is stored, so two
+    first checkouts can't both claim it. Organizations from before this can
+    still share a customer code: lookups by code expect several
+    organizations, renewals are matched on customer and plan and re-derived
+    from `GET /subscription/:code`, and when several match, the one whose
+    period Paystack moved gets the invoice.
 16. **Webhook processing is serialised per Paystack customer** with a
     transaction-scoped Postgres advisory lock. Found during the end-to-end
     smoke: `charge.success` and `subscription.create` arrive back to back and

@@ -98,9 +98,12 @@ export const billingCustomer = pgTable(
     organizationId: text("organization_id")
       .primaryKey()
       .references(() => organization.id, { onDelete: "cascade" }),
-    // Not unique: Paystack has one customer per email, so two organizations
-    // billed to the same address share a customer code.
+    // Each organization gets its own Paystack customer (and so its own
+    // email) at its first checkout; see customer-email.ts in
+    // @workspace/billing. Not unique: rows from before that can share a
+    // code, so lookups by code must expect several organizations.
     paystackCustomerCode: text("paystack_customer_code").notNull(),
+    // The address Paystack bills. Locked at first checkout, like currency.
     email: text("email").notNull(),
     // Locked at first checkout. Changing currency means a new subscription.
     currency: char("currency", { length: 3 }).notNull(),
