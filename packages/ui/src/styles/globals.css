@@ -471,6 +471,17 @@
   [role="button"] {
     touch-action: manipulation;
   }
+  /* A long press on a control shouldn't select its label. Links and body
+     text stay selectable: those are content. */
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="radio"],
+  [role="menuitem"] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
   [data-money] {
     font-family: var(--font-money);
     font-variant-numeric: tabular-nums;

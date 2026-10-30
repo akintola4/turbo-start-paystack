@@ -319,7 +319,7 @@ function PasswordSection({ email }: { email: string }) {
         {/* Password managers pair the new password with this account. */}
         <input
           autoComplete="username"
-          className="sr-only"
+          className="sr-only text-base"
           readOnly
           tabIndex={-1}
           type="email"

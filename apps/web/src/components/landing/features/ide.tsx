@@ -143,7 +143,7 @@ export function FeatureIde() {
         </div>
         <div
           aria-label="Features"
-          className="relative flex gap-1 overflow-x-auto p-2 [scrollbar-width:none] lg:grid lg:overflow-visible"
+          className="relative flex gap-1 overflow-x-auto overscroll-x-contain p-2 [scrollbar-width:none] lg:grid lg:overflow-visible"
           onKeyDown={(e) => {
             const next = nextRadioIndex(e, index, FEATURES.length);
             if (next !== null) {

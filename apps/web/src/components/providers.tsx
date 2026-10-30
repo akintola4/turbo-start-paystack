@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 
 import { FocusModality } from "@/components/focus-modality";
 import { PressFeedback } from "@/components/press-feedback";
+import { ThemeColor } from "@/components/theme-color";
 
 export function Providers({
   children,
@@ -29,6 +30,7 @@ export function Providers({
         <Toaster />
         <PressFeedback />
         <FocusModality />
+        <ThemeColor />
       </TooltipProvider>
     </ThemeProvider>
   );

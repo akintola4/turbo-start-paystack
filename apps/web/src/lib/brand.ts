@@ -39,3 +39,6 @@ export const BRAND = {
   paper: "#e8efeb",
   muted: "#b9cfc3",
 } as const;
+
+/** The browser chrome's colour per theme: --background (neutral-50 / -950). */
+export const THEME_COLOR = { light: "#f3f8f6", dark: "#0e1311" } as const;
