@@ -34,7 +34,7 @@ import {
   intervalLabel,
 } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
-import { paystackEmailNote } from "@/lib/payment-copy";
+import { nextChargeLabel, paystackEmailNote } from "@/lib/payment-copy";
 import type { BillingData, SubscriptionSummary } from "@/lib/view-models";
 
 /** One meta well on the money panel: icon, label, value. */
@@ -88,7 +88,7 @@ function nextCharge(sub: SubscriptionSummary) {
     label: sub.status === "trialing" ? "First charge" : "Next charge",
     value: (
       <>
-        <Amount label={sub.priceLabel} /> on {formatDate(when, "short")}
+        <Amount label={nextChargeLabel(sub)} /> on {formatDate(when, "short")}
         <span className="font-normal text-panel-muted">
           {daysPhrase(daysUntil(when))}
         </span>

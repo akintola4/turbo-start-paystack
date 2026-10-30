@@ -28,6 +28,7 @@ import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { formatDate, maskEmail } from "@/lib/format";
+import { nextChargeLabel } from "@/lib/payment-copy";
 import { deleteBlock, deleteBlockMessage } from "@/lib/org-settings";
 import {
   activeLabel,
@@ -117,6 +118,7 @@ function summarize(
       ? {
           planName: getPlan(scheduled.planKey)?.name ?? scheduled.planKey,
           interval: scheduled.interval,
+          priceLabel: formatMoney(scheduled.amountSubunit, scheduled.currency),
         }
       : null,
   };
@@ -656,13 +658,13 @@ function orgBilling(summary: SubscriptionSummary | null) {
   }
   if (summary.status === "trialing") {
     return {
-      priceLabel: summary.priceLabel,
+      priceLabel: nextChargeLabel(summary),
       date: summary.trialEndsAt,
       kind: "trial" as const,
     };
   }
   return {
-    priceLabel: summary.priceLabel,
+    priceLabel: nextChargeLabel(summary),
     date: summary.currentPeriodEnd,
     kind: "charge" as const,
   };

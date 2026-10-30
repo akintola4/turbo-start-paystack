@@ -56,7 +56,8 @@ export type SubscriptionSummary = {
   graceUntil: string | null;
   cancelAtPeriodEnd: boolean;
   card: { brand: string | null; last4: string; exp: string | null } | null;
-  scheduled: { planName: string; interval: string } | null;
+  /** A downgrade waiting for the period end; its price is the next charge. */
+  scheduled: { planName: string; interval: string; priceLabel: string } | null;
 };
 
 export type InvoiceRow = {

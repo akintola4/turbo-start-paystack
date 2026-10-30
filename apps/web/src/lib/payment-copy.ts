@@ -113,3 +113,14 @@ export function billingEmailHint(paystack: PaystackEmailData | null): string {
   }
   return "Set a billing email before the first payment to give this organization its own Paystack address. Paystack bills it and sends receipts there.";
 }
+
+/**
+ * What the next charge (or a trial's first one) will be. A scheduled
+ * downgrade takes effect at the period end, so that charge is for the
+ * scheduled plan, not the current one.
+ */
+export function nextChargeLabel(
+  sub: Pick<SubscriptionSummary, "priceLabel" | "scheduled">
+) {
+  return sub.scheduled?.priceLabel ?? sub.priceLabel;
+}
