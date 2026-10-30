@@ -175,6 +175,7 @@ refuses to boot if a required one is missing or malformed.
 | `PAYSTACK_API_URL` | no | Leave unset in production. Point at the local mock in development |
 | `PAYSTACK_MOCK_PORT`, `PAYSTACK_MOCK_WEBHOOK_URL` | no | Local mock only: its port, and where it sends webhooks |
 | `PAYSTACK_WEBHOOK_IP_ALLOWLIST` | no | `true` to also reject webhooks not from Paystack's IPs |
+| `CLIENT_IP_HEADER` | no | Header your proxy writes the client IP into (right-most entry is used). Default `x-vercel-forwarded-for` on Vercel, else `x-forwarded-for` |
 | `BILLING_ENCRYPTION_KEY` | yes | 64 hex chars (`openssl rand -hex 32`). Encrypts email tokens and card authorizations |
 | `BILLING_CURRENCY` | no | `NGN` (default), `GHS`, `ZAR`, `KES` or `USD` |
 | `BILLING_GRACE_DAYS` | no | Days a failed renewal keeps access. Default 7 |
@@ -298,7 +299,8 @@ is set.
 
 | Template | Sent when |
 |---|---|
-| Verify email | Sign-up |
+| Verify email | Sign-up, a sign-in before the address is confirmed, and the new address in an email change |
+| Approve email change | Sent to the current address when someone asks to change it |
 | Reset password | Password reset requested |
 | Organization invitation | Someone is invited (inviter, organization, role, 7-day expiry) |
 | Payment receipt | First checkout charge and each renewal |
@@ -379,7 +381,8 @@ Roles belong to a membership in one organization. There is no global admin.
 
 Every route and page checks the role on the server with
 `requirePermission(headers, organizationId, permission)`. Nobody can invite or
-promote someone above their own role, an organization always keeps an owner,
+promote someone above their own role, only owners can give the `billing` role,
+an organization always keeps an owner,
 and invitations expire after 7 days, only work for the invited email (which
 must be verified) and can be used once.
 
@@ -447,6 +450,9 @@ changes an issued invoice.
 
 Webhooks are verified with a constant-time HMAC-SHA512 check, stored once
 (duplicates are acknowledged and ignored), answered with 200, then processed.
+Authorization codes and email tokens inside stored payloads are encrypted with
+`BILLING_ENCRYPTION_KEY`; `pnpm payloads:redact` cleans rows stored before
+that.
 Processing is ordered per Paystack customer and derives state from the payload
 and Paystack's API, so retries and out-of-order delivery end in the same state.
 
