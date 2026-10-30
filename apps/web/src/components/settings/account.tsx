@@ -352,7 +352,7 @@ function PasswordSection({ email }: { email: string }) {
             />
           </div>
         </div>
-        <Label className="flex w-fit cursor-pointer items-center gap-3 font-normal">
+        <Label className="flex min-h-11 w-fit cursor-pointer items-center gap-3 font-normal">
           <Checkbox
             checked={signOutOthers}
             onCheckedChange={(checked) => setSignOutOthers(checked === true)}

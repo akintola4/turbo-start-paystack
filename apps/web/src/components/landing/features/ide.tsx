@@ -172,7 +172,7 @@ export function FeatureIde() {
                 aria-controls={`ide-${f.id}`}
                 aria-selected={on}
                 className={cn(
-                  "pressable pressable-lg relative grid shrink-0 grid-cols-[1rem_minmax(0,1fr)] gap-x-3 gap-y-0.5 rounded-card px-3 py-2.5 text-left transition-colors duration-(--dur-fast)",
+                  "pressable pressable-lg relative grid shrink-0 grid-cols-[1rem_minmax(0,1fr)] gap-x-3 gap-y-0.5 rounded-card px-3 py-2.5 text-left transition-colors duration-(--dur-fast) max-lg:before:absolute max-lg:before:-inset-y-0.5 max-lg:before:inset-x-0",
                   on
                     ? "text-(--code-text) max-lg:bg-(--code-ring)"
                     : "text-(--code-comment) hover:text-(--code-text)",

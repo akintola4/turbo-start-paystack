@@ -79,8 +79,9 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
 const HEADING =
   "font-semibold text-[13px] text-panel-muted [text-box:trim-both_cap_alphabetic]";
 
+/** 34.5px tall for a mouse; a full 44px row on touch screens. */
 const link =
-  "pressable pressable-lg inline-flex items-center gap-1 rounded-chip py-1.5 text-[15px] underline-offset-4 transition-colors duration-(--dur-fast) hover:underline active:text-panel-muted";
+  "pressable pressable-lg inline-flex items-center gap-1 rounded-chip py-1.5 text-[15px] underline-offset-4 transition-colors duration-(--dur-fast) hover:underline active:text-panel-muted pointer-coarse:min-h-11";
 
 /**
  * Sets the wordmark's font size so it runs exactly from the content edge
@@ -236,7 +237,7 @@ export function SiteFooter({ build }: { build: BuildInfo }) {
               <span className="inline-flex items-center gap-2 whitespace-nowrap">
                 <span aria-hidden>·</span>
                 <a
-                  className="pressable pressable-sm rounded-chip underline-offset-4 transition-colors duration-(--dur-fast) hover:text-panel-foreground hover:underline"
+                  className="pressable pressable-sm relative rounded-chip underline-offset-4 transition-colors duration-(--dur-fast) before:absolute before:-inset-x-1 before:-inset-y-2.5 hover:text-panel-foreground hover:underline"
                   href={fileUrl("LICENSE")}
                 >
                   MIT licence

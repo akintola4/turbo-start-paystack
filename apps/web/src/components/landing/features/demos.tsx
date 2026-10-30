@@ -525,9 +525,11 @@ function Steps({ steps }: { steps: { label: string; state: StepState }[] }) {
   );
 }
 
+// Short labels: "Paystack answers" needs 133px a segment, and a 320px
+// phone gives it 108. The group's label names Paystack.
 const PAYSTACK: readonly SegmentOption<"answers" | "fails">[] = [
-  { value: "answers", label: "Paystack answers" },
-  { value: "fails", label: "Paystack fails" },
+  { value: "answers", label: "Answers" },
+  { value: "fails", label: "Fails" },
 ];
 
 const SWAP_STEP_MS = 450;

@@ -248,7 +248,7 @@ function IntervalSwitch({
           <button
             aria-checked={value === o.key}
             className={cn(
-              "relative z-10 flex items-center justify-center rounded-chip px-4 font-semibold text-sm transition-colors duration-(--dur-fast)",
+              "pressable relative z-10 flex items-center justify-center rounded-chip px-4 font-semibold text-sm transition-colors duration-(--dur-fast) before:absolute before:-inset-y-1 before:inset-x-0",
               value === o.key
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground"
