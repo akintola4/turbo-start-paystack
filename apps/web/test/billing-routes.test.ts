@@ -10,15 +10,20 @@ import { chargeSuccess, subscriptionCreate } from "@workspace/billing/fixtures";
 import { schema } from "@workspace/db";
 import { createTestDb } from "@workspace/db/testing";
 import { createMailer } from "@workspace/email";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   handleBillingAction,
   handlePaystackWebhook,
   isAuthorizedCron,
+  readBodyWithin,
+  trustedClientIp,
+  WEBHOOK_MAX_BYTES,
 } from "../src/server/billing-routes";
 
 const SECRET = "sk_test_routes";
+const KEY = "f".repeat(64);
 let ctx: Awaited<ReturnType<typeof setup>>;
 
 async function setup() {
@@ -32,7 +37,7 @@ async function setup() {
   const billing = createBillingService({
     db,
     paystack,
-    encryptionKey: "f".repeat(64),
+    encryptionKey: KEY,
     callbackUrl: "http://localhost:3000/billing/callback",
     graceDays: 7,
     logger: { info() {}, warn() {}, error() {} },
@@ -67,6 +72,11 @@ async function signUp(email: string) {
   await auth.api.signUpEmail({
     body: { email, password: "correct-horse-battery", name: email },
   });
+  // Sign-in needs a verified email.
+  await ctx.db
+    .update(schema.user)
+    .set({ emailVerified: true })
+    .where(eq(schema.user.email, email));
   const res = await auth.api.signInEmail({
     body: { email, password: "correct-horse-battery" },
     asResponse: true,
@@ -201,6 +211,19 @@ describe("billing routes: authentication and authorization", () => {
     expect(body.accessCode).toBeTruthy();
   });
 
+  it("refuses checkout while the caller's email is unverified (audit #13)", async () => {
+    const lapsed = await addMember(orgId, "lapsed@acme.test", "billing");
+    await ctx.db
+      .update(schema.user)
+      .set({ emailVerified: false })
+      .where(eq(schema.user.email, "lapsed@acme.test"));
+    const res = await call(lapsed, "checkout", {
+      planPriceId: "starter-monthly-ngn",
+    });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "email_unverified" });
+  });
+
   it("returns 404 for unknown actions", async () => {
     expect((await call(owner, "refund-everything")).status).toBe(404);
   });
@@ -214,6 +237,89 @@ describe("webhook route", () => {
       headers: signature ? { "x-paystack-signature": signature } : {},
     });
 
+  it("413s a body over 1 MB before verifying or storing it (audit #9)", async () => {
+    const big = JSON.stringify({
+      event: "charge.success",
+      data: { pad: "x".repeat(WEBHOOK_MAX_BYTES) },
+    });
+    const tasks: (() => Promise<unknown>)[] = [];
+    const res = await handlePaystackWebhook(ctx, {
+      request: request(big, signPaystackPayload(big, SECRET)),
+      secretKey: SECRET,
+      encryptionKey: KEY,
+      enforceIpAllowlist: false,
+      schedule: (t) => tasks.push(t),
+    });
+    expect(res.status).toBe(413);
+    expect(tasks).toHaveLength(0);
+    // Chunked, with no Content-Length to go by.
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < 20; i++) {
+          controller.enqueue(encoder.encode("y".repeat(64 * 1024)));
+        }
+        controller.close();
+      },
+    });
+    expect(
+      await readBodyWithin(
+        new Request("http://localhost/", {
+          method: "POST",
+          body: stream,
+          duplex: "half",
+        } as RequestInit),
+        WEBHOOK_MAX_BYTES
+      )
+    ).toBeNull();
+  });
+
+  it("checks the allow-list against the proxy's client IP, not the first forwarded hop (audit #9)", async () => {
+    const raw = JSON.stringify({ event: "charge.success", data: { n: 9 } });
+    const send = (headers: Record<string, string>, clientIpHeader?: string) =>
+      handlePaystackWebhook(ctx, {
+        request: new Request("http://localhost/api/webhooks/paystack", {
+          method: "POST",
+          body: raw,
+          headers: {
+            "x-paystack-signature": signPaystackPayload(raw, SECRET),
+            ...headers,
+          },
+        }),
+        secretKey: SECRET,
+        encryptionKey: KEY,
+        enforceIpAllowlist: true,
+        clientIpHeader,
+        schedule: () => undefined,
+      });
+    // A forged first hop with Paystack's IP, appended to by the real proxy.
+    expect(
+      (await send({ "x-forwarded-for": "52.31.139.75, 203.0.113.9" })).status
+    ).toBe(401);
+    expect(
+      (await send({ "x-forwarded-for": "203.0.113.9, 52.31.139.75" })).status
+    ).toBe(200);
+    // On Vercel the platform header wins over anything in x-forwarded-for.
+    expect(
+      (
+        await send(
+          {
+            "x-forwarded-for": "52.31.139.75",
+            "x-vercel-forwarded-for": "203.0.113.9",
+          },
+          "x-vercel-forwarded-for"
+        )
+      ).status
+    ).toBe(401);
+    expect(
+      trustedClientIp(
+        new Headers({ "x-real-ip": " 52.31.139.75 " }),
+        "x-real-ip"
+      )
+    ).toBe("52.31.139.75");
+    expect(trustedClientIp(new Headers(), "x-forwarded-for")).toBeNull();
+  });
+
   it("401s an unsigned or badly signed body", async () => {
     const raw = JSON.stringify({ event: "charge.success", data: {} });
     const tasks: (() => Promise<unknown>)[] = [];
@@ -226,6 +332,7 @@ describe("webhook route", () => {
       const res = await handlePaystackWebhook(ctx, {
         request: request(raw, sig),
         secretKey: SECRET,
+        encryptionKey: KEY,
         enforceIpAllowlist: false,
         schedule,
       });
@@ -286,6 +393,7 @@ describe("webhook route", () => {
       const res = await handlePaystackWebhook(ctx, {
         request: request(raw, signPaystackPayload(raw, SECRET)),
         secretKey: SECRET,
+        encryptionKey: KEY,
         enforceIpAllowlist: false,
         schedule: (t) => tasks.push(t),
       });
@@ -297,6 +405,7 @@ describe("webhook route", () => {
       const dup = await handlePaystackWebhook(ctx, {
         request: request(raw, signPaystackPayload(raw, SECRET)),
         secretKey: SECRET,
+        encryptionKey: KEY,
         enforceIpAllowlist: false,
         schedule: (t) => again.push(t),
       });
@@ -328,5 +437,25 @@ describe("cron auth", () => {
         "s3cret-s3cret-s3cret"
       )
     ).toBe(true);
+  });
+});
+
+describe("per-user rate limit on billing mutations (audit #7)", () => {
+  it("answers 429 after 20 mutations a minute, and still serves status", async () => {
+    const busy = await signUp("busy@initech.test");
+    const org = await ctx.authService.auth.api.createOrganization({
+      headers: busy,
+      body: { name: "Busy Co", slug: "busy-co" },
+    });
+    const busyOrg = org?.id ?? "";
+    for (let i = 0; i < 20; i++) {
+      expect((await call(busy, "cancel", {}, busyOrg)).status).toBe(409);
+    }
+    const limited = await call(busy, "cancel", {}, busyOrg);
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toMatch(/^\d+$/);
+    expect((await call(busy, "status", {}, busyOrg)).status).toBe(200);
+    // Someone else is unaffected.
+    expect((await call(owner, "cancel")).status).not.toBe(429);
   });
 });

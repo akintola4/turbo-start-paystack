@@ -10,6 +10,7 @@ import {
   audit,
   type BillingDeps,
   billingCustomer,
+  isReplacedCode,
   liveSubscription,
   newReference,
   planPriceRow,
@@ -34,6 +35,24 @@ export type ChangePlanResult =
       amountSubunit: number;
     }
   | { kind: "downgrade_scheduled"; effectiveAt: Date };
+
+/** How long an upgrade checkout stays payable. The prorated amount is only
+ *  right for the moment it was priced, so it is kept short. */
+export const UPGRADE_INTENT_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** The billing period an upgrade intent was priced for, and when it stops
+ *  being payable: a day later, or the period end if that comes first. */
+function upgradeIntentWindow(
+  sub: { currentPeriodStart: Date | null; currentPeriodEnd: Date | null },
+  now: Date
+) {
+  const ttl = new Date(now.getTime() + UPGRADE_INTENT_TTL_MS);
+  const end = sub.currentPeriodEnd;
+  return {
+    periodStart: sub.currentPeriodStart,
+    expiresAt: end && end < ttl ? end : ttl,
+  };
+}
 
 /**
  * Upgrade: immediate, prorated. Charge the difference for the rest of the
@@ -132,11 +151,18 @@ export async function changePlan(
             `${targetPlan.name} allows ${targetPlan.limits.members} members; remove ${input.memberCount - targetPlan.limits.members} first.`
           );
         }
+        const effectiveAt = sub.currentPeriodEnd ?? deps.now();
+        // Asking for the downgrade that is already scheduled changes nothing.
+        if (
+          sub.scheduledSubscriptionCode &&
+          sub.scheduledPlanPriceId === target.id
+        ) {
+          return { kind: "downgrade_scheduled", effectiveAt };
+        }
         const customer = await billingCustomer(tx, input.organizationId);
         if (!customer) {
           throw new BillingError("no_subscription", "No billing customer");
         }
-        const effectiveAt = sub.currentPeriodEnd ?? deps.now();
         const created = await deps.paystack
           .createSubscription({
             customer: customer.paystackCustomerCode,
@@ -150,7 +176,22 @@ export async function changePlan(
               "Could not schedule the downgrade. Nothing was changed."
             );
           });
-        if (sub.paystackSubscriptionCode) {
+        // A different downgrade was already scheduled: its Paystack
+        // subscription would still start (and charge) at period end, so it is
+        // retired now that its replacement exists.
+        if (sub.scheduledSubscriptionCode) {
+          await retireSubscription(
+            deps,
+            tx,
+            sub.organizationId,
+            sub.scheduledSubscriptionCode,
+            sub.scheduledEmailToken
+          );
+        }
+        const currentRetired =
+          sub.paystackSubscriptionCode &&
+          (await isReplacedCode(tx, sub.paystackSubscriptionCode))?.disabledAt;
+        if (sub.paystackSubscriptionCode && !currentRetired) {
           await retireSubscription(
             deps,
             tx,
@@ -221,6 +262,7 @@ export async function changePlan(
       }
 
       const reference = newReference();
+      const anchor = upgradeIntentWindow(sub, now);
       await tx.insert(schema.paymentIntent).values({
         id: reference,
         organizationId: sub.organizationId,
@@ -230,6 +272,7 @@ export async function changePlan(
         currency: sub.currency,
         createdByUserId: input.actor.userId,
         createdAt: deps.now(),
+        ...anchor,
       });
       const customer = await billingCustomer(tx, sub.organizationId);
       const email =
@@ -335,6 +378,7 @@ export async function changePlan(
         currency: sub.currency,
         createdByUserId: input.actor.userId,
         createdAt: deps.now(),
+        ...anchor,
       });
       const init = await deps.paystack.initializeTransaction({
         email,

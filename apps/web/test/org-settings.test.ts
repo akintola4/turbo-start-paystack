@@ -1,3 +1,4 @@
+import { slugProblem } from "@workspace/auth/org-rules";
 import { describe, expect, it } from "vitest";
 
 import type { DeleteBlock } from "../src/lib/org-settings";
@@ -6,7 +7,6 @@ import {
   deleteBlock,
   deleteBlockMessage,
   slugInput,
-  slugProblem,
 } from "../src/lib/org-settings";
 
 describe("slugs", () => {
@@ -19,8 +19,11 @@ describe("slugs", () => {
   it("accepts lowercase words joined by single hyphens", () => {
     expect(slugProblem("kola-logistics")).toBeNull();
     expect(slugProblem("k9")).toMatch(/at least 3/);
-    expect(slugProblem("kola-")).toMatch(/hyphen/);
+    expect(slugProblem("kola-")).toMatch(/start or end with a hyphen/);
+    expect(slugProblem("-kola")).toMatch(/start or end with a hyphen/);
+    expect(slugProblem("kola--ng")).toMatch(/one hyphen at a time/);
     expect(slugProblem("Kola")).toMatch(/lowercase/);
+    expect(slugProblem("kola_ng")).toMatch(/lowercase/);
     expect(slugProblem("a".repeat(49))).toMatch(/at most 48/);
   });
 });

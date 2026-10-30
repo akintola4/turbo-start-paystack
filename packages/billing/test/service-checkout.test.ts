@@ -49,6 +49,24 @@ describe("startCheckout (PLAN §2.3 #6)", () => {
     );
   });
 
+  it("refuses an actor whose email is not verified, before calling Paystack (audit #13)", async () => {
+    const org = await h.createOrg({ previouslySubscribed: true });
+    const before = h.fake.calls.length;
+    await expect(
+      h.billing.startCheckout({
+        ...org,
+        actor: { ...org.actor, emailVerified: false },
+        planPriceId: "pro-monthly-ngn",
+      })
+    ).rejects.toMatchObject({ code: "email_unverified" });
+    expect(h.fake.calls.slice(before)).toEqual([]);
+    const intents = await h.db
+      .select()
+      .from(schema.paymentIntent)
+      .where(eq(schema.paymentIntent.organizationId, org.organizationId));
+    expect(intents).toEqual([]);
+  });
+
   it("refuses unknown plans and a second subscription", async () => {
     const { organizationId, actor } = await h.subscribe();
     await expect(

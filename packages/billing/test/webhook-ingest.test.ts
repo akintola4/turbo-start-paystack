@@ -11,6 +11,7 @@ import {
 } from "../src/webhook/verify";
 
 const SECRET = "sk_test_webhook_secret";
+const KEY = "ab".repeat(32);
 const body = JSON.stringify({
   event: "charge.success",
   data: { reference: "r1" },
@@ -74,6 +75,7 @@ describe("ingestWebhook (PLAN §2.3 #9)", () => {
       rawBody: body,
       signature: null,
       secretKey: SECRET,
+      encryptionKey: KEY,
     });
     expect(res.status).toBe(401);
     expect(await db.select().from(schema.webhookEvent)).toHaveLength(0);
@@ -86,12 +88,14 @@ describe("ingestWebhook (PLAN §2.3 #9)", () => {
       rawBody: body,
       signature,
       secretKey: SECRET,
+      encryptionKey: KEY,
     });
     const second = await ingestWebhook({
       db,
       rawBody: body,
       signature,
       secretKey: SECRET,
+      encryptionKey: KEY,
     });
     expect(first).toMatchObject({ status: 200, duplicate: false });
     expect(second).toMatchObject({ status: 200, duplicate: true });
@@ -108,6 +112,7 @@ describe("ingestWebhook (PLAN §2.3 #9)", () => {
       rawBody: raw,
       signature: signPaystackPayload(raw, SECRET),
       secretKey: SECRET,
+      encryptionKey: KEY,
     });
     expect(res.status).toBe(400);
   });
@@ -123,6 +128,7 @@ describe("ingestWebhook (PLAN §2.3 #9)", () => {
       rawBody: raw,
       signature,
       secretKey: SECRET,
+      encryptionKey: KEY,
       ip: "1.2.3.4",
       enforceIpAllowlist: true,
     });
@@ -132,6 +138,7 @@ describe("ingestWebhook (PLAN §2.3 #9)", () => {
       rawBody: raw,
       signature,
       secretKey: SECRET,
+      encryptionKey: KEY,
       ip: "52.49.173.169",
       enforceIpAllowlist: true,
     });

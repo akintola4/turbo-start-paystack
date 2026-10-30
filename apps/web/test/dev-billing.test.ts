@@ -30,6 +30,7 @@ import {
 } from "../src/server/dev-billing";
 
 const SECRET = "sk_test_local_mock";
+const KEY = "e".repeat(64);
 
 async function setup(trialMode: "card" | "off") {
   const { db, close } = await createTestDb();
@@ -42,7 +43,7 @@ async function setup(trialMode: "card" | "off") {
       baseUrl: "http://paystack.fake",
       fetch: (input, init) => fake.handle(new Request(input, init)),
     }),
-    encryptionKey: "e".repeat(64),
+    encryptionKey: KEY,
     callbackUrl: "http://localhost:3000/billing/callback",
     graceDays: 7,
     trialMode,
@@ -91,6 +92,7 @@ async function setup(trialMode: "card" | "off") {
             headers: signature ? { "x-paystack-signature": signature } : {},
           }),
           secretKey: SECRET,
+          encryptionKey: KEY,
           enforceIpAllowlist: false,
           schedule: (task) => {
             tasks.push(task());
@@ -119,14 +121,31 @@ async function setup(trialMode: "card" | "off") {
       throw error;
     }
   };
+  const sentAt = new Date().toISOString();
   const outbox: DevOutboxEntry[] = [
     {
       id: "e1",
-      to: "ada@kola.test",
+      to: "owner@kola.test",
       subject: "Payment failed",
       text: "Update your card",
       html: "<p>Update your card</p>",
-      sentAt: new Date().toISOString(),
+      sentAt,
+    },
+    {
+      id: "e2",
+      to: "stranger@elsewhere.test",
+      subject: "Reset your password",
+      text: "Reset link for someone else",
+      html: "<p>Reset link for someone else</p>",
+      sentAt,
+    },
+    {
+      id: "e3",
+      to: "Clerk@Kola.test",
+      subject: "Plan changed",
+      text: "Pro from today",
+      html: "<p>Pro from today</p>",
+      sentAt,
     },
   ];
   const deps: DevDeps = {
@@ -148,6 +167,11 @@ async function signUp(ctx: Ctx, email: string) {
   await auth.api.signUpEmail({
     body: { email, password: "correct-horse-battery", name: email },
   });
+  // Sign-in needs a verified email.
+  await ctx.db
+    .update(schema.user)
+    .set({ emailVerified: true })
+    .where(eq(schema.user.email, email));
   const res = await auth.api.signInEmail({
     body: { email, password: "correct-horse-battery" },
     asResponse: true,
@@ -182,7 +206,7 @@ async function subscribe(
     .where(eq(schema.user.email, email));
   const checkout = await ctx.billing.startCheckout({
     organizationId: orgId,
-    actor: { userId: user?.id ?? "", email },
+    actor: { userId: user?.id ?? "", email, emailVerified: true },
     planPriceId,
   });
   const { transaction, subscription } = ctx.fake.pay(checkout.reference);
@@ -220,6 +244,7 @@ async function subscribe(
         headers: { "x-paystack-signature": signPaystackPayload(body, SECRET) },
       }),
       secretKey: SECRET,
+      encryptionKey: KEY,
       enforceIpAllowlist: false,
       schedule: (task) => {
         tasks.push(task());
@@ -367,15 +392,38 @@ describe("dev routes", () => {
   });
 
   it("list the outbox newest first and serve one email's HTML", async () => {
+    const clerk = await signUp(ctx, "clerk@kola.test");
+    await ctx.db.insert(schema.member).values({
+      id: "m_clerk",
+      organizationId: orgId,
+      userId:
+        (
+          await ctx.db
+            .select({ id: schema.user.id })
+            .from(schema.user)
+            .where(eq(schema.user.email, "clerk@kola.test"))
+        )[0]?.id ?? "",
+      role: "member",
+    });
+    expect(clerk.get("cookie")).toBeTruthy();
     const list = await handleDevOutbox(ctx.deps, {
       headers: owner,
       organizationId: orgId,
     });
+    // Only mail to this org's members (or the caller): never another
+    // user's reset link (audit #11).
     expect(await list.json()).toEqual({
       emails: [
+        expect.objectContaining({ id: "e3", subject: "Plan changed" }),
         expect.objectContaining({ id: "e1", subject: "Payment failed" }),
       ],
     });
+    const hidden = await handleDevOutboxEmail(ctx.deps, {
+      headers: owner,
+      organizationId: orgId,
+      id: "e2",
+    });
+    expect(hidden.status).toBe(404);
     const email = await handleDevOutboxEmail(ctx.deps, {
       headers: owner,
       organizationId: orgId,

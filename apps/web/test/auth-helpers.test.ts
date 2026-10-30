@@ -18,6 +18,15 @@ describe("authFormError", () => {
     expect(RATE_LIMITED).toMatch(/wait a minute/i);
   });
 
+  it("tells an unverified user a new link is on its way (audit #5)", () => {
+    expect(
+      authFormError({ status: 403, code: "EMAIL_NOT_VERIFIED" }, "sign-in")
+    ).toEqual({
+      message: "Confirm your email first. We sent a new link to your inbox.",
+      field: "email",
+    });
+  });
+
   it("puts a wrong password on the password field", () => {
     expect(
       authFormError(

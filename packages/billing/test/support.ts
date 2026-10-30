@@ -6,8 +6,8 @@ import { setupServer } from "msw/node";
 
 import { listPlanPrices } from "../src/catalog";
 import { createFakePaystack } from "../src/fake-paystack";
-import type { InvoicingConfig } from "../src/invoicing";
 import { chargeSuccess, subscriptionCreate } from "../src/fixtures";
+import type { InvoicingConfig } from "../src/invoicing";
 import { createPaystackClient } from "../src/paystack/client";
 import type { BillingNotification } from "../src/service/context";
 import { createBillingService } from "../src/service/index";
@@ -113,7 +113,10 @@ export async function setupBilling(
         currency: "NGN",
       });
     }
-    return { organizationId, actor: { userId, email } };
+    return {
+      organizationId,
+      actor: { userId, email, emailVerified: true },
+    };
   }
 
   async function deliver(payload: unknown) {
@@ -123,6 +126,7 @@ export async function setupBilling(
       rawBody,
       signature: signPaystackPayload(rawBody, SECRET),
       secretKey: SECRET,
+      encryptionKey: KEY,
     });
     if (result.status !== 200) {
       throw new Error(`webhook rejected: ${result.status}`);

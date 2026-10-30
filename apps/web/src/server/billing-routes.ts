@@ -1,4 +1,5 @@
 import { AuthError } from "@workspace/auth/permissions";
+import { userRateLimit } from "@workspace/auth/rate-limit";
 import type { AuthService } from "@workspace/auth/server";
 import {
   BillingError,
@@ -92,7 +93,7 @@ export async function handleBillingAction(
   ) {
     return json({ error: "unsupported_media_type" }, 415);
   }
-  let actor: { userId: string; email: string };
+  let actor: { userId: string; email: string; emailVerified: boolean };
   try {
     actor = await deps.authService.requirePermission(
       input.headers,
@@ -104,6 +105,12 @@ export async function handleBillingAction(
       return json({ error: error.message }, error.status);
     }
     throw error;
+  }
+  if (action !== "status") {
+    const limited = await userRateLimit(deps.db, actor.userId, "orgMutation");
+    if (limited) {
+      return limited;
+    }
   }
 
   try {
@@ -122,7 +129,7 @@ export async function handleBillingAction(
 
 type ActionContext = {
   organizationId: string;
-  actor: { userId: string; email: string };
+  actor: { userId: string; email: string; emailVerified: boolean };
   body: unknown;
 };
 
@@ -233,24 +240,80 @@ const ACTION_HANDLERS: Record<
   ),
 };
 
+/** Paystack events are a few KB; anything near this is not one of them. */
+export const WEBHOOK_MAX_BYTES = 1024 * 1024;
+
+/**
+ * The client IP as the platform's own proxy recorded it. Only the right-most
+ * entry of the header is trusted: that is the one the nearest proxy wrote;
+ * everything to its left came from the caller and can be forged. On Vercel
+ * the header is `x-vercel-forwarded-for`; elsewhere `x-forwarded-for`, or
+ * whatever CLIENT_IP_HEADER names (e.g. `x-real-ip`, `cf-connecting-ip`).
+ */
+export function trustedClientIp(headers: Headers, header: string) {
+  const value = headers.get(header);
+  const ip = value?.split(",").at(-1)?.trim();
+  return ip || null;
+}
+
+/** The body as text, or null once it passes `max` bytes. Content-Length is
+ *  checked first, then the stream is counted (it may be chunked). */
+export async function readBodyWithin(
+  request: Request,
+  max: number
+): Promise<string | null> {
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > max) {
+    return null;
+  }
+  if (!request.body) {
+    return "";
+  }
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 /** POST /api/webhooks/paystack. Persist first, process after responding. */
 export async function handlePaystackWebhook(
   deps: Pick<RouteDeps, "db" | "billing">,
   input: {
     request: Request;
     secretKey: string;
+    encryptionKey: string;
     enforceIpAllowlist: boolean;
+    /** Header carrying the client IP, see `trustedClientIp`. */
+    clientIpHeader?: string;
     schedule: (task: () => Promise<unknown>) => void;
   }
 ): Promise<Response> {
-  const rawBody = await input.request.text();
-  const forwarded = input.request.headers.get("x-forwarded-for");
+  const rawBody = await readBodyWithin(input.request, WEBHOOK_MAX_BYTES);
+  if (rawBody === null) {
+    return json({ ok: false, error: "payload_too_large" }, 413);
+  }
   const result = await ingestWebhook({
     db: deps.db,
     rawBody,
     signature: input.request.headers.get("x-paystack-signature"),
     secretKey: input.secretKey,
-    ip: forwarded?.split(",")[0]?.trim() ?? null,
+    encryptionKey: input.encryptionKey,
+    ip: trustedClientIp(
+      input.request.headers,
+      input.clientIpHeader ?? "x-forwarded-for"
+    ),
     enforceIpAllowlist: input.enforceIpAllowlist,
   });
   if (result.status !== 200) {

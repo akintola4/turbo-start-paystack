@@ -2,6 +2,7 @@ import { type DbOrTx, schema } from "@workspace/db";
 import { eq, inArray, or } from "drizzle-orm";
 
 import { DEFAULT_INVOICING, issueInvoice } from "../invoicing";
+import { redactSecrets } from "../webhook/redact";
 import { type BillingDeps, newId } from "./context";
 
 type InvoiceStatus = "pending" | "paid" | "failed" | "void";
@@ -135,7 +136,7 @@ async function insertRow(tx: DbOrTx, input: InvoiceInput) {
       cardBrand: input.card?.last4 ? (input.card.brand?.trim() ?? null) : null,
       cardLast4: input.card?.last4 ?? null,
       refundedAt: input.refundedAt ?? null,
-      raw: input.raw ?? null,
+      raw: input.raw ? redactSecrets(input.raw) : null,
     })
     .onConflictDoNothing()
     .returning({ id: schema.invoice.id });

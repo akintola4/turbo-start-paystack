@@ -96,3 +96,41 @@ export function roleHasPermission(
       return result.success;
     });
 }
+
+const parts = (roleString: string) =>
+  roleString
+    .split(",")
+    .map((r) => r.trim())
+    .filter(Boolean);
+
+/**
+ * Whether someone holding `actorRole` may give `role` to another member, by
+ * invitation or role change. Nobody grants above their own rank; only owners
+ * grant `owner`; and `billing` (which can spend money) is granted only by
+ * someone who can manage billing themselves, so an admin can't hand it to a
+ * second account they control.
+ */
+export function canGrantRole(actorRole: string, role: string): boolean {
+  const wanted = parts(role);
+  if (wanted.length === 0 || !wanted.every(isRole)) {
+    return false;
+  }
+  if (rankOf(role) > rankOf(actorRole)) {
+    return false;
+  }
+  if (wanted.includes("owner") && rankOf(actorRole) < ROLE_RANK.owner) {
+    return false;
+  }
+  if (
+    wanted.includes("billing") &&
+    !roleHasPermission(actorRole, "billing:manage")
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/** Every role `actorRole` may grant, highest first. */
+export function grantableRoles(actorRole: string): Role[] {
+  return ROLES.filter((r) => canGrantRole(actorRole, r));
+}

@@ -38,7 +38,8 @@
     "db:migrate": "pnpm --filter @workspace/db db:migrate",
     "billing:sync": "pnpm --filter @workspace/scripts billing:sync",
     "paystack:mock": "pnpm --filter @workspace/scripts paystack:mock",
-    "webhook:replay": "pnpm --filter @workspace/scripts webhook:replay"
+    "webhook:replay": "pnpm --filter @workspace/scripts webhook:replay",
+    "payloads:redact": "pnpm --filter @workspace/scripts payloads:redact"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

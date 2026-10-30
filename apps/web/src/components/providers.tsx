@@ -8,13 +8,21 @@ import type { ReactNode } from "react";
 import { FocusModality } from "@/components/focus-modality";
 import { PressFeedback } from "@/components/press-feedback";
 
-export function Providers({ children }: { children: ReactNode }) {
+export function Providers({
+  children,
+  nonce,
+}: {
+  children: ReactNode;
+  /** The page's CSP nonce, for next-themes' inline script. */
+  nonce?: string;
+}) {
   return (
     <ThemeProvider
       attribute="class"
       defaultTheme="system"
       disableTransitionOnChange
       enableSystem
+      nonce={nonce}
     >
       <TooltipProvider delay={300}>
         {children}

@@ -11,6 +11,7 @@
     "billing:sync": "tsx --env-file-if-exists=../apps/web/.env billing-sync.ts",
     "paystack:mock": "tsx --env-file-if-exists=../apps/web/.env paystack-mock.ts",
     "webhook:replay": "tsx --env-file-if-exists=../apps/web/.env webhook-replay.ts",
+    "payloads:redact": "tsx --env-file-if-exists=../apps/web/.env redact-payloads.ts",
     "setup": "tsx setup.ts",
     "dev:all": "tsx dev.ts",
     "test": "vitest run"

@@ -23,6 +23,7 @@ export const DEMO_USERS = [
 
 const SILENT_MAILER: AuthMailer = {
   verifyEmail: async () => undefined,
+  changeEmailApproval: async () => undefined,
   resetPassword: async () => undefined,
   organizationInvitation: async () => undefined,
 };

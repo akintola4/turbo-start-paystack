@@ -8,6 +8,7 @@ import { join } from "node:path";
 import type { NextConfig } from "next";
 
 import { emailAssetHeaders } from "./src/lib/email-assets";
+import { API_CSP, staticSecurityHeaders } from "./src/lib/security-headers";
 
 /**
  * Build info for the footer: the version from the root package.json and the
@@ -55,8 +56,22 @@ const nextConfig: NextConfig = {
       "./node_modules/geist/dist/fonts/geist-mono/GeistMono-Regular.ttf",
     ],
   },
-  // Fonts and icons that transactional emails load from the app.
-  headers: async () => emailAssetHeaders(),
+  headers: async () => [
+    {
+      source: "/:path*",
+      headers: staticSecurityHeaders({
+        production: process.env.NODE_ENV === "production",
+      }),
+    },
+    // Pages get a nonce CSP from src/proxy.ts. API responses get a deny-all
+    // one, except the dev outbox's email preview, which sets its own.
+    {
+      source: "/api/:path((?!dev/orgs/[^/]+/outbox/).*)",
+      headers: [{ key: "Content-Security-Policy", value: API_CSP }],
+    },
+    // Fonts and icons that transactional emails load from the app.
+    ...emailAssetHeaders(),
+  ],
   env: {
     NEXT_PUBLIC_APP_VERSION: build.version,
     NEXT_PUBLIC_LAST_UPDATED: build.updated,

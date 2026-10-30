@@ -72,6 +72,11 @@ async function signUp(email: string) {
   await auth.api.signUpEmail({
     body: { email, password: "correct-horse-battery", name: email },
   });
+  // Sign-in needs a verified email.
+  await ctx.db
+    .update(schema.user)
+    .set({ emailVerified: true })
+    .where(eq(schema.user.email, email));
   const res = await auth.api.signInEmail({
     body: { email, password: "correct-horse-battery" },
     asResponse: true,
@@ -108,7 +113,7 @@ async function paidInvoice(orgId: string, email: string) {
     .where(eq(schema.user.email, email));
   const checkout = await ctx.billing.startCheckout({
     organizationId: orgId,
-    actor: { userId: user?.id ?? "", email },
+    actor: { userId: user?.id ?? "", email, emailVerified: true },
     planPriceId: "pro-monthly-ngn",
   });
   ctx.fake.pay(checkout.reference);
@@ -343,5 +348,31 @@ describe("palette search", () => {
   it("refuses outsiders and signed-out requests for the org in the URL", async () => {
     expect((await search("outsider", "kola")).status).toBe(403);
     expect((await search("nobody", "kola")).status).toBe(401);
+  });
+});
+
+describe("per-user rate limit on the PDF (audit #7)", () => {
+  it("answers 429 once the viewer has rendered 20 in a minute", async () => {
+    const [owner] = await ctx.db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, "billing@kola.test"));
+    // Earlier tests already rendered a few; fill the window up.
+    await ctx.db
+      .insert(schema.rateLimit)
+      .values({
+        id: "pdf-limit-test",
+        key: `user:${owner?.id}|invoicePdf`,
+        count: 20,
+        lastRequest: Date.now(),
+      })
+      .onConflictDoUpdate({
+        target: schema.rateLimit.key,
+        set: { count: 20, lastRequest: Date.now() },
+      });
+    const res = await pdf(roles.billing ?? new Headers());
+    expect(res.status).toBe(429);
+    // Others still get theirs.
+    expect((await pdf(roles.admin ?? new Headers())).status).toBe(200);
   });
 });

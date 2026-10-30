@@ -99,22 +99,28 @@ describe("deleting an account", () => {
 });
 
 describe("changing email", () => {
-  it("sends the link to the new address only, and shows it as pending", async () => {
+  it("records the requested address as pending; the current one approves first", async () => {
     const headers = await signUp(ctx, "old@mail.test");
     ctx.outbox.length = 0;
     await ctx.auth.api.changeEmail({
       headers,
-      body: { newEmail: "New@Mail.test", callbackURL: "/app/account" },
+      body: {
+        newEmail: "New@Mail.test",
+        callbackURL: "/app/account",
+        password: PASSWORD,
+      } as { newEmail: string },
     });
-    expect(ctx.outbox.map((m) => m.to)).toEqual(["new@mail.test"]);
-    expect(ctx.outbox[0]?.subject).toBe("Confirm your new email address");
+    expect(ctx.outbox.map((m) => m.to)).toEqual(["old@mail.test"]);
+    expect(ctx.outbox[0]?.subject).toBe(
+      "Approve the change to your email address"
+    );
     const session = await ctx.auth.api.getSession({ headers });
     const pending = await ctx.pendingEmail(
       session?.user.id ?? "",
       session?.user.email ?? ""
     );
     expect(pending?.email).toBe("new@mail.test");
-    // Nothing changes until the link is used.
+    // Nothing changes until the links are used.
     expect(session?.user.email).toBe("old@mail.test");
   });
 
@@ -122,7 +128,9 @@ describe("changing email", () => {
     const headers = await signUp(ctx, "before@mail.test");
     await ctx.auth.api.changeEmail({
       headers,
-      body: { newEmail: "after@mail.test" },
+      body: { newEmail: "after@mail.test", password: PASSWORD } as {
+        newEmail: string;
+      },
     });
     const session = await ctx.auth.api.getSession({ headers });
     const userId = session?.user.id ?? "";

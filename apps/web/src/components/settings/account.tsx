@@ -49,6 +49,7 @@ function accountError(error: ClientError, fallback: string) {
   }
   switch (error.code) {
     case "SESSION_EXPIRED":
+    case "SESSION_NOT_FRESH":
       return "For your safety, sign out and back in, then try again.";
     case "INVALID_PASSWORD":
       return "That isn't your current password.";
@@ -127,51 +128,44 @@ function EmailSection({ data }: { data: AccountData }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
-  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   // The banner settles in when a send makes it appear, never on page load.
   const pendingAtLoad = useRef(Boolean(data.pendingEmail));
 
-  async function send(newEmail: string) {
-    return authClient.changeEmail({ newEmail, callbackURL: "/app/account" });
-  }
-
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
     const next = email.trim().toLowerCase();
     if (next === data.user.email) {
       setError("That's already your email.");
       return;
     }
+    const password = String(new FormData(form).get("password") ?? "");
     setPending(true);
     setError(null);
-    const result = await send(next);
+    // Better Auth's client type has no `password`; the server's change-email
+    // hook requires it before anything is sent.
+    const body = { newEmail: next, callbackURL: "/app/account", password };
+    const result = await authClient.changeEmail(body);
     setPending(false);
     if (result.error) {
       setError(accountError(result.error, "The link wasn't sent. Try again."));
       return;
     }
     setEmail("");
-    toast.success("Check the new inbox", {
-      description: `We sent a link to ${next}. Your email changes when you open it.`,
+    form.reset();
+    toast.success("Approve it from your current inbox", {
+      description: `We sent a link to ${data.user.email}. Once you approve, ${next} gets a link to confirm.`,
     });
     router.refresh();
   }
 
-  async function resend(address: string) {
-    setResending(true);
-    const result = await send(address);
-    setResending(false);
-    if (result.error) {
-      toast.error("Couldn't send it again", {
-        description: accountError(result.error, "Try again in a moment."),
-      });
-      return;
-    }
-    toast.success("Sent again", {
-      description: `Another link is on its way to ${address}.`,
-    });
-    router.refresh();
+  // Sending again needs the password too, so it refills the form.
+  function sendAgain(address: string) {
+    setEmail(address);
+    setError(null);
+    passwordRef.current?.focus();
   }
 
   return (
@@ -193,16 +187,22 @@ function EmailSection({ data }: { data: AccountData }) {
           data-presence={pendingAtLoad.current ? undefined : "entering"}
           role="status"
         >
-          <MailIcon aria-hidden className="hidden size-4 sm:block" />
+          {/* On the first line, not the middle of the block: 16px icon,
+              20px line. */}
+          <MailIcon
+            aria-hidden
+            className="mt-0.5 hidden size-4 sm:block sm:self-start"
+          />
           <p className="text-pretty text-foreground text-sm">
-            Waiting for you to confirm{" "}
+            Changing to{" "}
             <span className="font-semibold">{data.pendingEmail.email}</span>.
-            The link we sent there works for {data.pendingEmail.expiresIn}.
-            Until it's opened you sign in with {data.user.email}.
+            Approve it from the link we sent to {data.user.email}, then confirm
+            it from the new inbox. The links work for{" "}
+            {data.pendingEmail.expiresIn}. Until then you sign in with your
+            current address.
           </p>
           <Button
-            onClick={() => resend(data.pendingEmail?.email ?? "")}
-            pending={resending}
+            onClick={() => sendAgain(data.pendingEmail?.email ?? "")}
             size="sm"
             variant="outline"
           >
@@ -229,14 +229,26 @@ function EmailSection({ data }: { data: AccountData }) {
             className="text-muted-foreground text-sm"
             id="account-new-email-hint"
           >
-            We send a link to the new address. Nothing changes until it's
+            Your current address gets a link to approve the change, then the new
+            one gets a link to confirm it. Nothing changes until both are
             opened.
           </p>
+        </div>
+        <div className="grid max-w-sm gap-2">
+          <Label htmlFor="account-email-password">Current password</Label>
+          <Input
+            autoComplete="current-password"
+            id="account-email-password"
+            name="password"
+            ref={passwordRef}
+            required
+            type="password"
+          />
         </div>
         {error ? <FormAlert>{error}</FormAlert> : null}
         <div>
           <Button disabled={!email.trim()} pending={pending} type="submit">
-            Send confirmation link
+            Send approval link
           </Button>
         </div>
       </form>

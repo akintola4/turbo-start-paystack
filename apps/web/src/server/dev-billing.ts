@@ -4,7 +4,7 @@ import type { BillingService, ReconcileReport } from "@workspace/billing";
 import type { Delivery, SimulateAction } from "@workspace/billing/simulate";
 import { type Database, schema } from "@workspace/db";
 import { type DevOutboxEntry, textToHtml } from "@workspace/email";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 /**
@@ -353,6 +353,29 @@ export async function handleDevSimulate(
   return json({ action, log, status: after?.status ?? null });
 }
 
+/**
+ * The outbox entries this caller may read for this organization: emails to
+ * its members or to the caller. The outbox holds every user's mail (reset
+ * and verification links included), so nothing else is shown.
+ */
+async function visibleOutbox(
+  deps: DevDeps,
+  headers: Headers,
+  organizationId: string
+) {
+  const session = await deps.authService.auth.api.getSession({ headers });
+  const members = await deps.db
+    .select({ email: schema.user.email })
+    .from(schema.member)
+    .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
+    .where(eq(schema.member.organizationId, organizationId));
+  const allowed = new Set(members.map((m) => m.email.toLowerCase()));
+  if (session) {
+    allowed.add(session.user.email.toLowerCase());
+  }
+  return deps.outbox().filter((e) => allowed.has(e.to.toLowerCase()));
+}
+
 /** GET /api/dev/orgs/:orgId/outbox: the newest emails, without bodies. */
 export async function handleDevOutbox(
   deps: DevDeps,
@@ -365,7 +388,12 @@ export async function handleDevOutbox(
   if (denied) {
     return denied;
   }
-  const emails = [...deps.outbox()]
+  const visible = await visibleOutbox(
+    deps,
+    input.headers,
+    input.organizationId
+  );
+  const emails = [...visible]
     .reverse()
     .slice(0, input.limit ?? 8)
     .map(({ id, to, subject, sentAt }) => ({ id, to, subject, sentAt }));
@@ -384,7 +412,12 @@ export async function handleDevOutboxEmail(
   if (denied) {
     return denied;
   }
-  const email = deps.outbox().find((e) => e.id === input.id);
+  const visible = await visibleOutbox(
+    deps,
+    input.headers,
+    input.organizationId
+  );
+  const email = visible.find((e) => e.id === input.id);
   if (!email) {
     return notFound();
   }
@@ -392,6 +425,10 @@ export async function handleDevOutboxEmail(
     headers: {
       "content-type": "text/html; charset=utf-8",
       "x-robots-tag": "noindex",
+      // An email as a mail client shows it: its own styles, images and
+      // fonts, and no scripts.
+      "content-security-policy":
+        "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; frame-ancestors 'none'",
     },
   });
 }

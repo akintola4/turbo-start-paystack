@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { chargeSuccess, subscriptionStatusEvent } from "../src/fixtures";
 import { computeProration } from "../src/proration";
+import { staleUpgradeReason } from "../src/service/charge";
 import { type BillingHarness, planCode, setupBilling } from "./support";
 
 let h: BillingHarness;
@@ -257,11 +258,118 @@ describe("upgrade (prorated, PLAN §2.3 #10)", () => {
         currency: "NGN",
         customer: paid.customer,
         metadata: { organization_id: organizationId },
+        paidAt: h.clock.now.toISOString(),
       })
     );
     expect((await h.billing.getSubscription(organizationId))?.planPriceId).toBe(
       "pro-monthly-ngn"
     );
+  });
+
+  it("refunds a one-day-left proration checkout paid after the renewal and grants nothing (audit #2)", async () => {
+    const { organizationId, actor, sub, paid } = await h.subscribe(
+      "starter-monthly-ngn"
+    );
+    const end = sub.currentPeriodEnd ?? START;
+    // One day left in the period; the saved card is declined, so a checkout
+    // for the prorated difference is opened and left unpaid.
+    h.clock.now = new Date(end.getTime() - 86_400_000);
+    h.fake.setChargeOutcome("failed");
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 1,
+    });
+    h.fake.setChargeOutcome("success");
+    if (result.kind !== "checkout_required") {
+      throw new Error(`expected a checkout, got ${result.kind}`);
+    }
+    const [intent] = await h.db
+      .select()
+      .from(schema.paymentIntent)
+      .where(eq(schema.paymentIntent.id, result.reference));
+    expect(intent?.periodStart).toEqual(sub.currentPeriodStart);
+    expect(intent?.expiresAt).toEqual(end);
+
+    // The period renews on the old plan.
+    h.clock.now = new Date(end.getTime() + 60_000);
+    const remote = h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "");
+    if (remote) {
+      remote.next_payment_date = "2026-05-01T10:00:00.000Z";
+    }
+    await h.deliver(
+      chargeSuccess({
+        reference: `renew_stale_${organizationId}`,
+        amount: 1_000_000,
+        currency: "NGN",
+        customer: paid.customer,
+        planCode: planCode("starter-monthly-ngn"),
+        paidAt: h.clock.now.toISOString(),
+      })
+    );
+    const renewed = await h.billing.getSubscription(organizationId);
+    expect(renewed?.currentPeriodStart?.getTime()).toBeGreaterThan(
+      end.getTime() - 1
+    );
+
+    // Then the stale checkout is paid.
+    const refundsBefore = h.fake.refunds.length;
+    const late = h.pay(result.reference);
+    const event = await h.deliver(late.charge);
+    expect(event?.error).toBe("stale_upgrade:expired");
+
+    const after = await h.billing.getSubscription(organizationId);
+    expect(after?.planPriceId).toBe("starter-monthly-ngn");
+    expect(after?.paystackSubscriptionCode).toBe(sub.paystackSubscriptionCode);
+    expect((await h.billing.getEntitlement(organizationId)).plan.key).toBe(
+      "starter"
+    );
+    expect(h.fake.refunds.length).toBe(refundsBefore + 1);
+    const [invoice] = await h.db
+      .select()
+      .from(schema.invoice)
+      .where(eq(schema.invoice.reference, result.reference));
+    expect(invoice).toMatchObject({ status: "void" });
+    expect(invoice?.refundedAt).not.toBeNull();
+    expect(invoice?.number).toBeNull();
+
+    // A second delivery of the charge refunds nothing more.
+    await h.deliver({ ...late.charge, redelivered: true });
+    expect(h.fake.refunds.length).toBe(refundsBefore + 1);
+    expect(
+      (await h.billing.confirmByReference(organizationId, result.reference))
+        .paymentStatus
+    ).toBe("failed");
+  });
+
+  it("treats an intent from an earlier period as stale even before it expires", () => {
+    const periodStart = new Date("2026-04-01T10:00:00Z");
+    const paidAt = new Date("2026-04-01T11:00:00Z");
+    const intent = {
+      createdAt: new Date("2026-03-31T20:00:00Z"),
+      periodStart: new Date("2026-03-01T10:00:00Z"),
+      expiresAt: new Date("2026-04-01T20:00:00Z"),
+    };
+    expect(
+      staleUpgradeReason(intent, { currentPeriodStart: periodStart }, paidAt)
+    ).toBe("period_changed");
+    // Rows from before the column existed fall back to createdAt.
+    expect(
+      staleUpgradeReason(
+        { ...intent, periodStart: null, expiresAt: null },
+        { currentPeriodStart: periodStart },
+        paidAt
+      )
+    ).toBe("period_changed");
+    expect(
+      staleUpgradeReason(
+        { ...intent, periodStart },
+        { currentPeriodStart: periodStart },
+        paidAt
+      )
+    ).toBeNull();
+    expect(staleUpgradeReason(intent, null, paidAt)).toBe("no_subscription");
   });
 
   it("refuses currency changes and same-plan changes", async () => {
@@ -368,6 +476,96 @@ describe("downgrade (end of period)", () => {
     expect(current?.currentPeriodEnd?.toISOString()).toBe(
       "2026-05-01T10:00:00.000Z"
     );
+  });
+});
+
+describe("a second downgrade (audit #1: no orphaned scheduled subscription)", () => {
+  const live = () =>
+    [...h.fake.subscriptions.values()].filter((s) => s.status === "active");
+
+  it("retires the earlier scheduled subscription when another downgrade is chosen", async () => {
+    const { organizationId, actor, sub } =
+      await h.subscribe("pro-annually-ngn");
+    const first = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 1,
+    });
+    expect(first.kind).toBe("downgrade_scheduled");
+    const afterFirst = await h.billing.getSubscription(organizationId);
+    const firstCode = afterFirst?.scheduledSubscriptionCode ?? "";
+    expect(firstCode).not.toBe("");
+
+    const before = h.fake.calls.length;
+    await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "starter-monthly-ngn",
+      memberCount: 1,
+    });
+    const afterSecond = await h.billing.getSubscription(organizationId);
+    const secondCode = afterSecond?.scheduledSubscriptionCode ?? "";
+    expect(afterSecond?.scheduledPlanPriceId).toBe("starter-monthly-ngn");
+    expect(secondCode).not.toBe(firstCode);
+
+    // The first scheduled subscription is disabled and on record as replaced.
+    expect(h.fake.subscriptions.get(firstCode)?.status).toBe("non-renewing");
+    const [replaced] = await h.db
+      .select()
+      .from(schema.replacedSubscription)
+      .where(
+        eq(schema.replacedSubscription.paystackSubscriptionCode, firstCode)
+      );
+    expect(replaced?.disabledAt).not.toBeNull();
+    // The already-retired current subscription is not disabled a second time.
+    const disables = h.fake.calls
+      .slice(before)
+      .filter((c) => c.method === "POST" && c.path === "/subscription/disable");
+    expect(disables.map((c) => (c.body as { code: string }).code)).toEqual([
+      firstCode,
+    ]);
+    expect(
+      h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "")?.status
+    ).toBe("non-renewing");
+
+    // Exactly one subscription for this customer will still charge.
+    const customerCode = h.fake.subscriptions.get(secondCode)?.customer;
+    expect(
+      live()
+        .filter((s) => s.customer === customerCode)
+        .map((s) => s.subscription_code)
+    ).toEqual([secondCode]);
+  });
+
+  it("is idempotent when the same downgrade is requested twice", async () => {
+    const { organizationId, actor } = await h.subscribe("pro-monthly-ngn");
+    await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "starter-monthly-ngn",
+      memberCount: 1,
+    });
+    const scheduled = await h.billing.getSubscription(organizationId);
+    const before = h.fake.calls.length;
+    const again = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "starter-monthly-ngn",
+      memberCount: 1,
+    });
+    expect(again).toEqual({
+      kind: "downgrade_scheduled",
+      effectiveAt: scheduled?.currentPeriodEnd,
+    });
+    expect(h.fake.calls.slice(before)).toEqual([]);
+    const after = await h.billing.getSubscription(organizationId);
+    expect(after?.scheduledSubscriptionCode).toBe(
+      scheduled?.scheduledSubscriptionCode
+    );
+    expect(
+      h.fake.subscriptions.get(after?.scheduledSubscriptionCode ?? "")?.status
+    ).toBe("active");
   });
 });
 

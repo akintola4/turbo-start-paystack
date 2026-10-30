@@ -80,4 +80,30 @@ describe("secret encryption", () => {
     const sealed = encryptSecret("AUTH_abc", KEY);
     expect(() => decryptSecret(sealed, "b".repeat(64))).toThrow();
   });
+
+  it("rejects a truncated GCM tag and malformed ciphertext (audit #14)", () => {
+    const sealed = encryptSecret("AUTH_abc", KEY);
+    const [version, iv, tag, data] = sealed.split(":");
+    const tagBytes = Buffer.from(tag ?? "", "base64");
+    expect(tagBytes).toHaveLength(16);
+    // Node accepts a 4-byte tag unless the length is enforced.
+    const short = tagBytes.subarray(0, 4).toString("base64");
+    expect(() =>
+      decryptSecret([version, iv, short, data].join(":"), KEY)
+    ).toThrow("Unrecognised encrypted value");
+    const shortIv = Buffer.alloc(8).toString("base64");
+    for (const bad of [
+      [version, shortIv, tag, data].join(":"),
+      [version, iv, tag, `${data}!!`].join(":"),
+      [version, iv, tag, data, "extra"].join(":"),
+      [version, iv, tag, ""].join(":"),
+      "v1:not:base64:at-all",
+      "",
+    ]) {
+      expect(() => decryptSecret(bad, KEY)).toThrow(
+        "Unrecognised encrypted value"
+      );
+    }
+    expect(decryptSecret(sealed, KEY)).toBe("AUTH_abc");
+  });
 });

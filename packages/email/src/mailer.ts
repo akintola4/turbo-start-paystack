@@ -114,6 +114,16 @@ export function createMailer(options: MailerOptions) {
         purpose: input.purpose,
       }),
 
+    /** To the account's current address: approve moving it to `newEmail`. */
+    changeEmailApproval: async (
+      input: Recipient & { name?: string; newEmail: string; url: string }
+    ) =>
+      send("change-email-approval", input, {
+        name: input.name,
+        newEmail: input.newEmail,
+        url: requireAppOrigin(input.url, appUrl),
+      }),
+
     resetPassword: async (input: Recipient & { name?: string; url: string }) =>
       send("reset-password", input, {
         name: input.name,
@@ -241,5 +251,8 @@ export type Mailer = ReturnType<typeof createMailer>;
 /** The part of the mailer that packages/auth needs. */
 export type AuthMailer = Pick<
   Mailer,
-  "verifyEmail" | "resetPassword" | "organizationInvitation"
+  | "verifyEmail"
+  | "changeEmailApproval"
+  | "resetPassword"
+  | "organizationInvitation"
 >;

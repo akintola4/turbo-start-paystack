@@ -1,7 +1,7 @@
 import "server-only";
 
 import {
-  ROLE_RANK,
+  grantableRoles,
   type Role,
   rankOf,
   roleHasPermission,
@@ -338,7 +338,7 @@ export async function loadDashboard(orgSlug: string): Promise<DashboardData> {
     ),
     // A count only (no addresses), so every role's seat total adds up.
     pendingInvitations: pending?.n ?? 0,
-    inviteRoles: can("invitation:create") ? inviteRolesFor(member.role) : [],
+    inviteRoles: can("invitation:create") ? grantableRoles(member.role) : [],
     recentInvoices: invoices.slice(0, 4).map((i) => invoiceRow(i, orgSlug)),
     can: {
       viewBilling: can("billing:view"),
@@ -350,19 +350,6 @@ export async function loadDashboard(orgSlug: string): Promise<DashboardData> {
       billing: can("billing:view") ? `${base}/settings/billing` : null,
     },
   };
-}
-
-/** Roles ranked at or below `role`: what it may assign. */
-function rolesUpTo(role: string) {
-  const rank = rankOf(role);
-  return (Object.keys(ROLE_RANK) as Role[]).filter((r) => ROLE_RANK[r] <= rank);
-}
-
-/** Roles `role` may invite with: its own rank and below, owner only by owners. */
-function inviteRolesFor(role: string) {
-  return rolesUpTo(role).filter(
-    (r) => r !== "owner" || rankOf(role) >= ROLE_RANK.owner
-  );
 }
 
 export async function loadMembers(orgSlug: string): Promise<MembersData> {
@@ -391,7 +378,9 @@ export async function loadMembers(orgSlug: string): Promise<MembersData> {
       : Promise.resolve([]),
     billing.getEntitlement(organization.id),
   ]);
-  const assignableRoles = rolesUpTo(me.role);
+  // The same rule the server enforces: billing only from someone who
+  // manages billing, owner only from an owner.
+  const assignableRoles = grantableRoles(me.role);
   return {
     org: {
       id: organization.id,
@@ -406,7 +395,7 @@ export async function loadMembers(orgSlug: string): Promise<MembersData> {
       expiresAt: inv.expiresAt.toISOString(),
     })),
     assignableRoles,
-    inviteRoles: inviteRolesFor(me.role),
+    inviteRoles: assignableRoles,
     can: {
       invite: canInvite,
       update: can("member:update"),

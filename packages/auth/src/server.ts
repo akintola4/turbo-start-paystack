@@ -11,8 +11,10 @@ import { organization } from "better-auth/plugins/organization";
 import { and, count, eq, gt } from "drizzle-orm";
 
 import { AuthError } from "./errors";
+import { nameProblem, slugProblem } from "./org-rules";
 import {
   ac,
+  canGrantRole,
   type Permission,
   type Role,
   rankOf,
@@ -36,7 +38,27 @@ export type CreateAuthOptions = {
     organizationId: string
   ) => Promise<{ blocked: string } | undefined>;
   trustedOrigins?: string[];
+  /** Header the platform's proxy writes the client IP into, for Better
+   *  Auth's per-IP rate limits (e.g. `x-vercel-forwarded-for`). */
+  clientIpHeader?: string;
 };
+
+/**
+ * Better Auth's per-IP limits, stored in the `rate_limit` table so they hold
+ * across server instances. Paths are Better Auth's (under /api/auth).
+ */
+export const AUTH_RATE_LIMITS = {
+  "/sign-in/email": { window: 60, max: 5 },
+  "/sign-up/email": { window: 60, max: 3 },
+  // Each of these sends an email: a few a minute is plenty for a person
+  // and too few to spam an inbox with.
+  "/send-verification-email": { window: 60, max: 3 },
+  "/request-password-reset": { window: 60, max: 3 },
+  "/reset-password": { window: 60, max: 5 },
+  "/change-email": { window: 60 * 10, max: 3 },
+  "/change-password": { window: 60, max: 5 },
+  "/organization/invite-member": { window: 60 * 60, max: 30 },
+} as const;
 
 /** Slugs that would be shadowed by app routes (`/app/account`). */
 export const RESERVED_SLUGS = ["account"] as const;
@@ -245,10 +267,78 @@ export function createAuth(options: CreateAuthOptions) {
     const nextRole = Array.isArray(body.role)
       ? body.role.join(",")
       : (body.role ?? "");
-    const myRank = rankOf(me.role);
-    if (rankOf(nextRole) > myRank || rankOf(target.role) > myRank) {
+    if (rankOf(target.role) > rankOf(me.role)) {
       throw new APIError("FORBIDDEN", {
-        message: "You cannot assign a role above your own",
+        message: "You cannot change the role of someone above you",
+      });
+    }
+    if (!canGrantRole(me.role, nextRole)) {
+      throw new APIError("FORBIDDEN", { message: grantDenied(nextRole) });
+    }
+  }
+
+  // Better Auth's own create/update endpoints get the same name and address
+  // rules as the settings page.
+  function guardOrganizationFields(ctx: HookCtx) {
+    const body = ctx.body as
+      | {
+          name?: unknown;
+          slug?: unknown;
+          data?: { name?: unknown; slug?: unknown };
+        }
+      | undefined;
+    const fields = ctx.path === "/organization/update" ? body?.data : body;
+    if (fields?.slug !== undefined) {
+      const problem =
+        typeof fields.slug === "string"
+          ? slugProblem(fields.slug)
+          : "Enter an address.";
+      if (problem) {
+        throw new APIError("BAD_REQUEST", {
+          code: "INVALID_SLUG",
+          message: problem,
+        });
+      }
+    }
+    if (fields?.name !== undefined || ctx.path === "/organization/create") {
+      const problem =
+        typeof fields?.name === "string"
+          ? nameProblem(fields.name)
+          : "Enter a name.";
+      if (problem) {
+        throw new APIError("BAD_REQUEST", {
+          code: "INVALID_NAME",
+          message: problem,
+        });
+      }
+    }
+  }
+
+  // Changing the sign-in address needs the current password again, so a
+  // session left open somewhere can't move the account (and its reset
+  // links) to someone else's inbox.
+  async function guardChangeEmail(ctx: HookCtx) {
+    const session = await getSessionFromCtx(ctx);
+    if (!session) {
+      return;
+    }
+    const password = (ctx.body as { password?: unknown } | undefined)?.password;
+    const accounts = await ctx.context.internalAdapter.findAccounts(
+      session.user.id
+    );
+    const credential = accounts.find((a) => a.providerId === "credential");
+    const valid =
+      typeof password === "string" &&
+      password.length > 0 &&
+      credential?.password &&
+      (await ctx.context.password.verify({
+        hash: credential.password,
+        password,
+      }));
+    if (!valid) {
+      throw new APIError("BAD_REQUEST", {
+        code: "INVALID_PASSWORD",
+        message: "Enter your current password to change your email.",
       });
     }
   }
@@ -261,12 +351,20 @@ export function createAuth(options: CreateAuthOptions) {
     emailAndPassword: {
       enabled: true,
       minPasswordLength: 10,
+      // No session until the address is confirmed; sign-up and sign-in
+      // (re)send the link.
+      requireEmailVerification: true,
+      // A reset signs out every other device, including whoever had the
+      // old password.
+      revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url }) => {
         await mailer.resetPassword({ to: user.email, name: user.name, url });
       },
     },
     emailVerification: {
       sendOnSignUp: true,
+      // An unverified sign-in gets a fresh link instead of a session.
+      sendOnSignIn: true,
       autoSignInAfterVerification: true,
       expiresIn: CHANGE_EMAIL_EXPIRES_IN_SECONDS,
       // A verified user here is changing address: Better Auth passes the
@@ -281,7 +379,19 @@ export function createAuth(options: CreateAuthOptions) {
       },
     },
     user: {
-      changeEmail: { enabled: true },
+      changeEmail: {
+        enabled: true,
+        // A verified account's current address approves the move first;
+        // only then does the new address get its confirmation link.
+        sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+          await mailer.changeEmailApproval({
+            to: user.email,
+            name: user.name,
+            newEmail,
+            url,
+          });
+        },
+      },
       deleteUser: {
         enabled: true,
         // Nobody can leave an organization without an owner by deleting
@@ -318,10 +428,12 @@ export function createAuth(options: CreateAuthOptions) {
       enabled: true,
       window: 60,
       max: 100,
-      // Each request sends an email: three a minute per address is plenty
-      // for a person and too few to spam an inbox with.
-      customRules: { "/request-password-reset": { window: 60, max: 3 } },
+      storage: "database",
+      customRules: AUTH_RATE_LIMITS,
     },
+    advanced: options.clientIpHeader
+      ? { ipAddress: { ipAddressHeaders: [options.clientIpHeader] } }
+      : undefined,
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path === "/organization/list-invitations") {
@@ -329,6 +441,15 @@ export function createAuth(options: CreateAuthOptions) {
         }
         if (ctx.path === "/organization/update-member-role") {
           await guardRoleUpdate(ctx);
+        }
+        if (ctx.path === "/change-email") {
+          await guardChangeEmail(ctx);
+        }
+        if (
+          ctx.path === "/organization/create" ||
+          ctx.path === "/organization/update"
+        ) {
+          guardOrganizationFields(ctx);
         }
         if (
           ctx.path === "/organization/create" ||
@@ -382,9 +503,9 @@ export function createAuth(options: CreateAuthOptions) {
             organization: org,
           }) => {
             const me = await findMember(org.id, inviter.id);
-            if (!me || rankOf(invitation.role) > rankOf(me.role)) {
+            if (!(me && canGrantRole(me.role, invitation.role))) {
               throw new APIError("FORBIDDEN", {
-                message: "You cannot invite someone to a role above your own",
+                message: grantDenied(invitation.role),
               });
             }
             const [members] = await db
@@ -464,7 +585,12 @@ export function createAuth(options: CreateAuthOptions) {
     headers: Headers,
     organizationId: string,
     permission: Permission
-  ): Promise<{ userId: string; email: string; role: Role | string }> {
+  ): Promise<{
+    userId: string;
+    email: string;
+    emailVerified: boolean;
+    role: Role | string;
+  }> {
     const session = await auth.api.getSession({ headers });
     if (!session) {
       throw new AuthError(401, "Not signed in");
@@ -479,6 +605,7 @@ export function createAuth(options: CreateAuthOptions) {
     return {
       userId: session.user.id,
       email: session.user.email,
+      emailVerified: session.user.emailVerified,
       role: me.role,
     };
   }
@@ -525,6 +652,12 @@ export function createAuth(options: CreateAuthOptions) {
     soleOwnedOrganizations,
     pendingEmail,
   };
+}
+
+function grantDenied(role: string) {
+  return role.split(",").some((r) => r.trim() === "billing")
+    ? "Only someone who manages billing (an owner) can give the billing role"
+    : "You cannot give someone a role above your own";
 }
 
 function isOwner(role: string) {
