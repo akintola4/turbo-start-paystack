@@ -49,8 +49,25 @@ describe("palette permissions", () => {
 
 describe("fuzzy matching", () => {
   it("matches characters in order and rejects the rest", () => {
-    expect(fuzzyMatch("mbr", "Members")).not.toBeNull();
+    expect(fuzzyMatch("memrs", "Members")).not.toBeNull();
     expect(fuzzyMatch("rbm", "Members")).toBeNull();
+  });
+
+  it("drops scattered single letters and matches in more than three runs", () => {
+    expect(fuzzyMatch("mbr", "Members")).toBeNull();
+    expect(fuzzyMatch("ligt", "Billing details")).toBeNull();
+    expect(fuzzyMatch("ligt", "light")).not.toBeNull();
+  });
+
+  it("ranks the obvious result first", () => {
+    const top = (q: string) => searchItems(ITEMS, q)[0]?.item.title;
+    expect(top("ligt")).toBe("Toggle theme");
+    expect(top("inv")).toBe("Invoices");
+    expect(top("mem")).toBe("Members");
+    expect(top("dark")).toBe("Toggle theme");
+    expect(searchItems(ITEMS, "ligt").map((r) => r.item.title)).not.toContain(
+      "Billing details"
+    );
   });
 
   it("ranks a prefix above a scattered match", () => {
@@ -61,9 +78,9 @@ describe("fuzzy matching", () => {
 
   it("returns ranges that cover the matched characters", () => {
     expect(fuzzyMatch("bill", "Billing")?.ranges).toEqual([[0, 4]]);
-    expect(fuzzyMatch("tt", "Toggle theme")?.ranges).toEqual([
-      [0, 1],
-      [7, 8],
+    expect(fuzzyMatch("togthe", "Toggle theme")?.ranges).toEqual([
+      [0, 3],
+      [7, 10],
     ]);
   });
 

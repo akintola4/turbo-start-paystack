@@ -108,7 +108,14 @@ export function staticItems(orgSlug: string): PaletteItem[] {
       id: "action:toggle-theme",
       group: "Actions",
       title: "Toggle theme",
-      keywords: ["dark", "light", "mode"],
+      keywords: [
+        "light/dark theme",
+        "light",
+        "dark",
+        "system",
+        "appearance",
+        "mode",
+      ],
       action: "toggle-theme",
     },
     {
@@ -149,7 +156,14 @@ function addIndex(ranges: Range[], i: number) {
   }
 }
 
-/** Each query character in order, anywhere after the previous one. */
+/** A scattered match may break into this many runs at most. */
+const MAX_RUNS = 3;
+
+/**
+ * Each query character in order, anywhere after the previous one, in at
+ * most three runs, at least one of them two characters or longer. Looser
+ * than that ("ligt" in "biLlInG deTails") reads as noise, not a match.
+ */
 function scatteredMatch(q: string, t: string): Match | null {
   const ranges: Range[] = [];
   let score = 0;
@@ -168,7 +182,11 @@ function scatteredMatch(q: string, t: string): Match | null {
     addIndex(ranges, found);
     from = found + 1;
   }
-  return { score, ranges };
+  const longest = Math.max(...ranges.map(([a, b]) => b - a));
+  if (ranges.length > MAX_RUNS || longest < 2) {
+    return null;
+  }
+  return { score: score - ranges.length * 2, ranges };
 }
 
 /**

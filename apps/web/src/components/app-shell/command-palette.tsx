@@ -168,7 +168,17 @@ function useRemoteResults(orgId: string, query: string, open: boolean) {
   return { results: fresh, loading };
 }
 
-function grouped(results: PaletteResult[], recent: PaletteResult[]): Group[] {
+/**
+ * Results by group. Without a query the groups keep their usual order;
+ * with one, the group holding the best match comes first (so "mem" leads
+ * with the Members page, not a person whose role is Member). Recent stays
+ * on top.
+ */
+function grouped(
+  results: PaletteResult[],
+  recent: PaletteResult[],
+  ranked: boolean
+): Group[] {
   const by = new Map<string, PaletteResult[]>();
   if (recent.length) {
     by.set("Recent", recent);
@@ -176,10 +186,15 @@ function grouped(results: PaletteResult[], recent: PaletteResult[]): Group[] {
   for (const r of results) {
     by.set(r.item.group, [...(by.get(r.item.group) ?? []), r]);
   }
-  return GROUP_ORDER.filter((g) => by.has(g)).map((g) => ({
-    value: g,
-    items: by.get(g) ?? [],
-  }));
+  const best = (g: string) =>
+    Math.max(...(by.get(g) ?? []).map((r) => r.score));
+  const order = GROUP_ORDER.filter((g) => by.has(g));
+  if (ranked) {
+    order.sort((a, b) =>
+      a === "Recent" ? -1 : b === "Recent" ? 1 : best(b) - best(a)
+    );
+  }
+  return order.map((g) => ({ value: g, items: by.get(g) ?? [] }));
 }
 
 /* ---------------------------------------------------------------- parts */
@@ -287,6 +302,7 @@ export function CommandPaletteProvider({
   const highlighted = useRef<PaletteResult | null>(null);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [canOpenPdf, setCanOpenPdf] = useState(false);
   const [recent, setRecent] = useState<PaletteItem[]>([]);
   const remote = useRemoteResults(org.id, query, open);
 
@@ -330,7 +346,11 @@ export function CommandPaletteProvider({
             score: 0,
             ranges: [],
           }));
-    return grouped([...searchItems(local, q), ...remote.results], recents);
+    return grouped(
+      [...searchItems(local, q), ...remote.results],
+      recents,
+      Boolean(q)
+    );
   }, [local, recent, query, remote.results]);
   const count = groups.reduce((n, g) => n + g.items.length, 0);
 
@@ -378,6 +398,7 @@ export function CommandPaletteProvider({
           itemToStringValue={(r) => (r as PaletteResult).item.title}
           onItemHighlighted={(r) => {
             highlighted.current = (r as PaletteResult | undefined) ?? null;
+            setCanOpenPdf(Boolean(highlighted.current?.item.altHref));
           }}
           onValueChange={setQuery}
           value={query}
@@ -449,7 +470,18 @@ export function CommandPaletteProvider({
               <Kbd>↓</Kbd> to move <Kbd>↵</Kbd> to open
             </span>
             <span className="flex items-center gap-1.5">
-              <Kbd>{mod ?? "⌘"}↵</Kbd> PDF <Kbd>esc</Kbd> to close
+              {/* Only for an invoice; its slot is kept so nothing shifts. */}
+              <span
+                aria-hidden={!canOpenPdf}
+                className={cn(
+                  "flex items-center gap-1.5 transition-opacity duration-(--dur-fast) motion-reduce:transition-none",
+                  canOpenPdf ? "opacity-100" : "opacity-0"
+                )}
+                data-pdf-hint
+              >
+                <Kbd>{mod ?? "⌘"}↵</Kbd> PDF
+              </span>
+              <Kbd>esc</Kbd> to close
             </span>
           </div>
         </Command>

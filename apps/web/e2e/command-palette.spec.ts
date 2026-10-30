@@ -110,3 +110,67 @@ test("a member sees no billing pages, billing actions or invoices", async ({
   };
   expect(body.results.some((r) => r.item.group === "Invoices")).toBe(false);
 });
+
+for (const scheme of ["light", "dark"] as const) {
+  test(`${scheme}: the highlighted result stands out from the list`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await openAs(page, "ada@kolalogistics.test");
+    await page.keyboard.press("ControlOrMeta+k");
+    await input(page).fill("me");
+    await page.keyboard.press("ArrowDown");
+    const highlighted = palette(page).locator("[data-highlighted]");
+    await expect(highlighted).toHaveCount(1);
+    const { item, list } = await highlighted.evaluate((el) => {
+      const surface = el.closest("[data-slot=command]");
+      return {
+        item: getComputedStyle(el).backgroundColor,
+        list: surface ? getComputedStyle(surface).backgroundColor : "",
+      };
+    });
+    expect(item).not.toBe(list);
+    if (scheme === "dark") {
+      // Relative luminance from the computed lab() lightness (L*).
+      const lum = (c: string) => {
+        const l = Number(/lab\(([\d.]+)/.exec(c)?.[1] ?? Number.NaN);
+        return ((l + 16) / 116) ** 3;
+      };
+      const [a, b] = [lum(item), lum(list)].sort((x, y) => x - y);
+      expect(((b ?? 0) + 0.05) / ((a ?? 0) + 0.05)).toBeGreaterThanOrEqual(
+        1.25
+      );
+    }
+    // ⌘↵ PDF shows only while an invoice is highlighted.
+    await expect(palette(page).locator("[data-pdf-hint]")).toHaveCSS(
+      "opacity",
+      "0"
+    );
+  });
+}
+
+test("ranking: 'ligt' finds Toggle theme, not Billing details", async ({
+  page,
+}) => {
+  await openAs(page, "ada@kolalogistics.test");
+  await page.keyboard.press("ControlOrMeta+k");
+  await input(page).fill("ligt");
+  await expect(options(page).first()).toContainText("Toggle theme");
+  await expect(
+    options(page).filter({ hasText: "Billing details" })
+  ).toHaveCount(0);
+});
+
+test("ranking: the obvious page leads for 'mem' and 'inv'", async ({
+  page,
+}) => {
+  await openAs(page, "ada@kolalogistics.test");
+  await page.keyboard.press("ControlOrMeta+k");
+  await input(page).fill("mem");
+  await expect(options(page).first()).toContainText("Members");
+  await expect(palette(page).locator("[data-highlighted]")).toContainText(
+    "Members"
+  );
+  await input(page).fill("inv");
+  await expect(options(page).first()).toContainText(/Invoices|INV-/);
+});
