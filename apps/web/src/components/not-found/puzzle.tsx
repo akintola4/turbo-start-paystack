@@ -167,12 +167,12 @@ export function Puzzle({ path }: { path: string }) {
 
       <fieldset
         aria-describedby="puzzle-help"
-        className="puzzle relative m-0 aspect-square w-full min-w-0 border-0 bg-[var(--forest-950)]"
+        className="puzzle relative m-0 w-full min-w-0 border-0 bg-[var(--forest-950)]"
         data-phase={phase}
         onKeyDown={onKeyDown}
       >
         <legend className="sr-only">Sliding puzzle</legend>
-        <div className="relative size-full">
+        <div className="relative aspect-square w-full">
           {board.map((tile, cell) => {
             if (tile === null) {
               return null;
