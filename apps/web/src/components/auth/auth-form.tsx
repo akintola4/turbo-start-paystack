@@ -157,7 +157,7 @@ function CheckEmail({
             : "Resend the email"}
         </Button>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 text-sm">
+      <div className="text-sm">
         <button
           className={inlineLinkClass}
           onClick={onChangeEmail}
