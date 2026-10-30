@@ -1,5 +1,6 @@
 import { CURRENCIES, catalog } from "@workspace/billing";
 import type { Currency } from "@workspace/billing/money";
+import type { ReactNode } from "react";
 
 import {
   type Interval,
@@ -7,13 +8,13 @@ import {
 } from "@/components/landing/currency-context";
 import { opticalEdge } from "@/components/landing/display";
 import { Faq } from "@/components/landing/faq";
-import { CodeOutcome } from "@/components/landing/features/code-outcome";
+import { FeatureIde } from "@/components/landing/features/ide";
 import { Hero } from "@/components/landing/hero";
 import { Pricing } from "@/components/landing/pricing";
 import { ReceiptSection } from "@/components/landing/receipt-section";
 import { type BuildInfo, SiteFooter } from "@/components/landing/site-footer";
 import type { PlanInfo, PriceTable } from "@/components/landing/types";
-import { WebhookSplit } from "@/components/landing/webhooks/split";
+// import { WebhookReplay } from "@/components/landing/webhooks/replay";
 import { formatUpdated } from "@/lib/landing";
 
 type PaidPlan = "starter" | "pro";
@@ -63,8 +64,37 @@ const BUILD: BuildInfo = {
   updated: formatUpdated(process.env.NEXT_PUBLIC_LAST_UPDATED),
 };
 
-const WEBHOOKS_TITLE = "Only signed events change a plan.";
+// const WEBHOOKS_TITLE = "Only signed events change a plan.";
 const FEATURES_TITLE = "The Paystack billing you’d otherwise write yourself.";
+
+/**
+ * A proof section's head: the title, then its lead directly under it, one
+ * column. Titles get ~17ch, so they break into two balanced lines.
+ */
+function ProofHead({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid gap-4">
+      <h2
+        className="max-w-[17ch] text-balance font-medium text-[32px] leading-[1.1] tracking-[-0.035em] sm:text-[40px]"
+        id={id}
+        style={opticalEdge(title)}
+      >
+        {title}
+      </h2>
+      <p className="max-w-[44ch] text-pretty text-[18px] text-muted-foreground leading-[1.5]">
+        {children}
+      </p>
+    </div>
+  );
+}
 
 /**
  * The landing, in story order: the hook (hero), two proofs (webhooks, then
@@ -93,49 +123,37 @@ export function Landing({
         className="grid grid-cols-[minmax(0,1fr)] gap-24 pt-24 sm:gap-32 sm:pt-32"
         id="content"
       >
+        {/*
+          Hidden for now, kept to bring back: the webhooks proof ("Only signed
+          events change a plan."). To restore it, uncomment this section, the
+          WEBHOOKS_TITLE constant, the WebhookReplay import, and the "How
+          billing works" links in hero.tsx and site-footer.tsx.
+
         <section
           aria-labelledby="webhooks-title"
-          className="landing-section grid scroll-mt-8 gap-10"
+          className="landing-section grid scroll-mt-8 gap-10 sm:gap-12"
           id="webhooks"
         >
-          <div className="landing-head">
-            <h2
-              className="display-l max-w-[18ch]"
-              id="webhooks-title"
-              style={opticalEdge(WEBHOOKS_TITLE)}
-            >
-              {WEBHOOKS_TITLE}
-            </h2>
-            <p className="text-pretty text-muted-foreground">
-              Paystack signs every event it sends. The starter checks the
-              signature, stores each event once and applies them in order. The
-              browser can start a checkout, but it can’t change what anyone
-              pays.
-            </p>
-          </div>
-          <WebhookSplit prices={prices} />
+          <ProofHead id="webhooks-title" title={WEBHOOKS_TITLE}>
+            Paystack signs every event it sends. The starter checks the
+            signature, stores each event once and applies them in order. The
+            browser can start a checkout, but it can’t change what anyone pays.
+          </ProofHead>
+          <WebhookReplay prices={prices} />
         </section>
+        */}
 
         <section
           aria-labelledby="features-title"
-          className="landing-section grid scroll-mt-8 gap-10"
+          className="landing-section grid scroll-mt-8 gap-10 sm:gap-12"
           id="features"
         >
-          <div className="landing-head">
-            <h2
-              className="display-l max-w-[18ch]"
-              id="features-title"
-              style={opticalEdge(FEATURES_TITLE)}
-            >
-              {FEATURES_TITLE}
-            </h2>
-            <p className="text-pretty text-muted-foreground">
-              Paystack leaves proration, plan swaps and event ordering to you.
-              Here is the code that handles them, from the repo, next to what it
-              does.
-            </p>
-          </div>
-          <CodeOutcome />
+          <ProofHead id="features-title" title={FEATURES_TITLE}>
+            Paystack leaves proration, plan swaps and event ordering to you.
+            Here is the code that handles them, from the repo, next to what it
+            does.
+          </ProofHead>
+          <FeatureIde />
         </section>
 
         <Pricing plans={PLANS} prices={prices} />

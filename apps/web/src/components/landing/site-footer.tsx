@@ -43,7 +43,8 @@ const COLUMNS: { title: string; links: FooterLink[] }[] = [
   {
     title: "Starter",
     links: [
-      { label: "How billing works", href: "#webhooks" },
+      // Hidden with the webhooks section (landing.tsx); restore together.
+      // { label: "How billing works", href: "#webhooks" },
       { label: "Features", href: "#features" },
       { label: "Pricing page", href: "#pricing" },
     ],

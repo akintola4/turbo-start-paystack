@@ -115,7 +115,7 @@ function Choice<T extends string>({
 
 const chip = (on: boolean) =>
   cn(
-    "inline-flex h-9 items-center rounded-chip px-3 font-semibold text-[13px] transition-[background-color,color] duration-(--dur-fast)",
+    "inline-flex h-10 items-center rounded-chip px-3 font-semibold text-[15px] transition-[background-color,color] duration-(--dur-fast)",
     on
       ? "bg-highlight text-highlight-foreground"
       : "bg-secondary text-foreground hover:bg-accent"
@@ -175,7 +175,7 @@ export function RolesDemo() {
           return (
             <li
               className={cn(
-                "flex items-center justify-between gap-3 px-4 py-2.5 text-sm",
+                "flex items-center justify-between gap-3 px-4 py-2.5 text-[17px] leading-[26px]",
                 i > 0 && "border-border border-t"
               )}
               key={p.name}
@@ -183,7 +183,7 @@ export function RolesDemo() {
               <span className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={cn(
-                    "grid size-7 shrink-0 place-items-center rounded-chip font-semibold text-[11px]",
+                    "grid size-7 shrink-0 place-items-center rounded-chip font-semibold text-xs",
                     you ? "bg-highlight text-highlight-foreground" : "bg-accent"
                   )}
                 >
@@ -197,7 +197,7 @@ export function RolesDemo() {
                 </span>
               </span>
               <span className="flex shrink-0 items-center gap-3">
-                <span className="text-muted-foreground text-xs capitalize">
+                <span className="text-muted-foreground text-sm capitalize">
                   {you ? role : p.role}
                 </span>
                 {you ? (
@@ -205,7 +205,7 @@ export function RolesDemo() {
                 ) : (
                   <span
                     className={cn(
-                      "inline-flex w-[4.25rem] items-center justify-center gap-1 rounded-chip py-1 font-semibold text-xs",
+                      "inline-flex w-[4.25rem] items-center justify-center gap-1 rounded-chip py-1 font-semibold text-sm",
                       canRemove
                         ? "bg-card text-foreground shadow-tile"
                         : "text-muted-foreground"
@@ -225,7 +225,7 @@ export function RolesDemo() {
       <div className="grid gap-3 sm:grid-cols-2">
         <ul
           aria-live="polite"
-          className="grid content-between gap-1.5 rounded-card bg-secondary p-4 text-sm"
+          className="grid content-between gap-1.5 rounded-card bg-secondary p-4 text-[17px] leading-[26px]"
         >
           {PERMISSIONS.map((p) => {
             const allowed = p.roles.includes(role);
@@ -258,7 +258,7 @@ export function RolesDemo() {
             );
           })}
         </ul>
-        <div className="grid min-h-[9.5rem] content-between gap-3 rounded-card bg-secondary p-4 text-sm">
+        <div className="grid min-h-[9.5rem] content-between gap-3 rounded-card bg-secondary p-4 text-[17px] leading-[26px]">
           {noBilling ? (
             <p className="flex items-center gap-2 self-center text-muted-foreground">
               <EyeOffIcon aria-hidden className="size-4 shrink-0" />
@@ -270,19 +270,19 @@ export function RolesDemo() {
                 <span className="text-muted-foreground">Billing</span>
                 <StatusBadge status="active" />
               </div>
-              <p className="font-semibold text-2xl tabular-nums tracking-[-0.02em]">
+              <p className="font-semibold text-[30px] leading-9 tabular-nums tracking-[-0.02em]">
                 {formatMoney(priceOf("pro", currency), currency).replace(
                   /\.00$/,
                   ""
                 )}
-                <span className="font-normal text-muted-foreground text-sm">
+                <span className="font-normal text-muted-foreground text-[17px] leading-[26px]">
                   {" "}
                   / month
                 </span>
               </p>
               <span
                 className={cn(
-                  "inline-flex h-8 items-center justify-center gap-1.5 rounded-chip font-semibold text-xs",
+                  "inline-flex h-8 items-center justify-center gap-1.5 rounded-chip font-semibold text-sm",
                   canManageBilling
                     ? "bg-highlight text-highlight-foreground"
                     : "text-muted-foreground shadow-[inset_0_0_0_1px_var(--border)]"
@@ -319,7 +319,7 @@ export function ProrationDemo() {
   const charge = Math.max(0, cost - credit);
   return (
     <div className="grid gap-3">
-      <label className="grid gap-2 text-sm" htmlFor={id}>
+      <label className="grid gap-2 text-[17px] leading-[26px]" htmlFor={id}>
         <span className="flex justify-between gap-3">
           <span className="text-muted-foreground">
             Upgrade Starter to Pro on
@@ -336,7 +336,7 @@ export function ProrationDemo() {
           value={day}
         />
       </label>
-      <dl className="grid gap-1.5 text-sm">
+      <dl className="grid gap-1.5 text-[17px] leading-[26px]">
         <div className="flex justify-between gap-3">
           <dt className="text-muted-foreground">Unused Starter</dt>
           <dd>
@@ -352,7 +352,11 @@ export function ProrationDemo() {
         <div className="flex items-baseline justify-between gap-3 border-border border-t pt-2">
           <dt className="font-semibold">Charged now</dt>
           <dd>
-            <Rolling amount={charge} className="text-lg" currency={currency} />
+            <Rolling
+              amount={charge}
+              className="text-[22px] leading-7"
+              currency={currency}
+            />
           </dd>
         </div>
       </dl>
@@ -405,7 +409,7 @@ export function GraceDemo() {
         {Array.from({ length: 7 }, (_, d) => (
           <li
             className={cn(
-              "grid h-9 place-items-center rounded-chip font-semibold text-xs tabular-nums transition-colors duration-(--dur-base)",
+              "grid h-10 place-items-center rounded-chip font-semibold text-sm tabular-nums transition-colors duration-(--dur-base)",
               dayTone(d < elapsed, state.kind)
             )}
             key={d}
@@ -418,7 +422,7 @@ export function GraceDemo() {
       <div
         aria-live="polite"
         className={cn(
-          "flex min-h-[4.25rem] items-start gap-2.5 rounded-card p-3 text-sm transition-colors duration-(--dur-base)",
+          "flex min-h-[4.25rem] items-start gap-2.5 rounded-card p-3 text-[17px] leading-[26px] transition-colors duration-(--dur-base)",
           state.kind === "due" && "bg-warning-bg text-warning",
           state.kind === "paid" && "bg-success-bg text-success",
           state.kind === "ended" && "bg-quiet-bg text-quiet"
@@ -454,7 +458,7 @@ export function GraceDemo() {
                 Next day
               </button>
               <button
-                className="pressable pressable-sm inline-flex h-9 items-center rounded-chip bg-primary px-3 font-semibold text-[13px] text-primary-foreground hover:bg-primary-hover"
+                className="pressable pressable-sm inline-flex h-10 items-center rounded-chip bg-primary px-3 font-semibold text-[15px] text-primary-foreground hover:bg-primary-hover"
                 onClick={() => setState({ kind: "paid" })}
                 type="button"
               >
@@ -496,7 +500,7 @@ const STEP_TONE: Record<StepState, string> = {
 
 function Steps({ steps }: { steps: { label: string; state: StepState }[] }) {
   return (
-    <ol className="grid gap-1.5 rounded-card bg-secondary p-4 text-sm">
+    <ol className="grid gap-1.5 rounded-card bg-secondary p-4 text-[17px] leading-[26px]">
       {steps.map((step, i) => {
         const Icon = STEP_ICON[step.state];
         return (
@@ -572,7 +576,7 @@ export function SwapDemo() {
         ]}
       />
       <div className="flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <p aria-live="polite" className="min-w-0 text-sm">
+        <p aria-live="polite" className="min-w-0 text-[17px] leading-[26px]">
           {result ?? (
             <span className="text-muted-foreground">
               Starter to Pro, mid-period.
@@ -626,21 +630,21 @@ export function OrderingDemo() {
       />
       <ol
         aria-live="polite"
-        className="grid gap-1.5 rounded-card bg-secondary p-4 text-sm"
+        className="grid gap-1.5 rounded-card bg-secondary p-4 text-[17px] leading-[26px]"
       >
         {events.map((e) => (
           <li
             className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"
             key={e.event}
           >
-            <code className="truncate font-mono text-[13px]">
+            <code className="truncate font-mono text-[15px]">
               {e.event} <span className="text-muted-foreground">({e.ref})</span>
             </code>
-            <span className="text-muted-foreground text-xs">{e.outcome}</span>
+            <span className="text-muted-foreground text-sm">{e.outcome}</span>
           </li>
         ))}
       </ol>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[17px] leading-[26px]">
         <span className="text-muted-foreground">Either order ends on</span>
         <StatusBadge label="Pro, active" status="active" />
       </div>
@@ -667,7 +671,7 @@ export function MockDemo() {
     <div className="grid gap-3">
       <div
         aria-live="polite"
-        className="grid content-start gap-0.5 rounded-card bg-(--code-bg) p-3.5 font-mono text-(--code-text) text-[12.5px] leading-5"
+        className="grid content-start gap-0.5 rounded-card bg-(--code-bg) p-3.5 font-mono text-(--code-text) text-sm leading-[22px]"
       >
         <p>
           <span className="text-highlight">$</span> pnpm paystack:mock
