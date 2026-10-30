@@ -1,3 +1,4 @@
+import { slugProblem } from "@workspace/auth/org-rules";
 import { describe, expect, it } from "vitest";
 
 import type { DeleteBlock } from "../src/lib/org-settings";
@@ -6,7 +7,6 @@ import {
   deleteBlock,
   deleteBlockMessage,
   slugInput,
-  slugProblem,
 } from "../src/lib/org-settings";
 
 describe("slugs", () => {

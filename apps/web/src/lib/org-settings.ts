@@ -8,14 +8,6 @@ import { formatDate } from "@/lib/format";
  * server and the browser agree and tests need no database.
  */
 
-export {
-  NAME_MAX,
-  nameProblem,
-  SLUG_MAX,
-  SLUG_MIN,
-  slugProblem,
-} from "@workspace/auth/org-rules";
-
 /** Name → address, for a new organization. */
 export function slugify(value: string) {
   return value

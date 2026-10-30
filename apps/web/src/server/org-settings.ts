@@ -1,4 +1,5 @@
 import { isAuthError, rankOf, ROLE_RANK } from "@workspace/auth/permissions";
+import { slugProblem } from "@workspace/auth/org-rules";
 import { userRateLimit } from "@workspace/auth/rate-limit";
 import type { AuthService } from "@workspace/auth/server";
 import type { BillingService } from "@workspace/billing";
@@ -6,11 +7,7 @@ import { type Database, schema } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import {
-  deleteBlock,
-  deleteBlockMessage,
-  slugProblem,
-} from "@/lib/org-settings";
+import { deleteBlock, deleteBlockMessage } from "@/lib/org-settings";
 
 export const ORG_SETTINGS_ACTIONS = [
   "general",

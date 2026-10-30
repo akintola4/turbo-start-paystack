@@ -1,5 +1,6 @@
 "use client";
 
+import { slugProblem } from "@workspace/auth/org-rules";
 import { cn } from "@workspace/tailwind-config/utils";
 import { Button, buttonVariants } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
@@ -31,7 +32,7 @@ import { SettingsRow, SettingsSection } from "@/components/settings/section";
 import { TypeToConfirm } from "@/components/settings/type-to-confirm";
 import { authClient } from "@/lib/auth-client";
 import { roleLabel } from "@/lib/format";
-import { slugInput, slugProblem } from "@/lib/org-settings";
+import { slugInput } from "@/lib/org-settings";
 import { toast } from "@/lib/toast";
 import type { OrgSettingsData } from "@/lib/view-models";
 
