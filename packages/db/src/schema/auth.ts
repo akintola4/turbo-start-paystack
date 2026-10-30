@@ -1,8 +1,10 @@
 // Tables owned by Better Auth (core + organization plugin). Property names are
 // what the Drizzle adapter reads; column names are snake_case in Postgres.
 import {
+  bigint,
   boolean,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -131,3 +133,17 @@ export const invitation = pgTable(
   },
   (t) => [index("invitation_org_idx").on(t.organizationId)]
 );
+
+/**
+ * Rate-limit counters, shared by every server instance. Better Auth writes
+ * its rows here (`rateLimit.storage: "database"`, keyed `<ip>|<path>`), and
+ * the app's per-user limits on its own routes use the same table with
+ * `user:` keys (@workspace/auth/rate-limit).
+ */
+export const rateLimit = pgTable("rate_limit", {
+  id: text("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  count: integer("count").notNull(),
+  // Epoch milliseconds, as Better Auth stores it.
+  lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});

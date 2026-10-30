@@ -36,7 +36,27 @@ export type CreateAuthOptions = {
     organizationId: string
   ) => Promise<{ blocked: string } | undefined>;
   trustedOrigins?: string[];
+  /** Header the platform's proxy writes the client IP into, for Better
+   *  Auth's per-IP rate limits (e.g. `x-vercel-forwarded-for`). */
+  clientIpHeader?: string;
 };
+
+/**
+ * Better Auth's per-IP limits, stored in the `rate_limit` table so they hold
+ * across server instances. Paths are Better Auth's (under /api/auth).
+ */
+export const AUTH_RATE_LIMITS = {
+  "/sign-in/email": { window: 60, max: 5 },
+  "/sign-up/email": { window: 60, max: 3 },
+  // Each of these sends an email: a few a minute is plenty for a person
+  // and too few to spam an inbox with.
+  "/send-verification-email": { window: 60, max: 3 },
+  "/request-password-reset": { window: 60, max: 3 },
+  "/reset-password": { window: 60, max: 5 },
+  "/change-email": { window: 60 * 10, max: 3 },
+  "/change-password": { window: 60, max: 5 },
+  "/organization/invite-member": { window: 60 * 60, max: 30 },
+} as const;
 
 /** Slugs that would be shadowed by app routes (`/app/account`). */
 export const RESERVED_SLUGS = ["account"] as const;
@@ -367,10 +387,12 @@ export function createAuth(options: CreateAuthOptions) {
       enabled: true,
       window: 60,
       max: 100,
-      // Each request sends an email: three a minute per address is plenty
-      // for a person and too few to spam an inbox with.
-      customRules: { "/request-password-reset": { window: 60, max: 3 } },
+      storage: "database",
+      customRules: AUTH_RATE_LIMITS,
     },
+    advanced: options.clientIpHeader
+      ? { ipAddress: { ipAddressHeaders: [options.clientIpHeader] } }
+      : undefined,
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path === "/organization/list-invitations") {

@@ -1,4 +1,5 @@
 import { isAuthError } from "@workspace/auth/permissions";
+import { userRateLimit } from "@workspace/auth/rate-limit";
 import type { AuthService } from "@workspace/auth/server";
 import {
   type BillingService,
@@ -19,6 +20,8 @@ type InvoiceDeps = {
 
 export type ViewableInvoice = {
   org: { id: string; name: string; slug: string };
+  /** The signed-in user looking at it. */
+  viewerId: string;
   doc: InvoiceDocument;
   filename: string;
 };
@@ -66,6 +69,7 @@ export async function loadViewableInvoice(
   });
   return {
     org: { id: org.id, name: org.name, slug: org.slug },
+    viewerId: membership.session.user.id,
     doc,
     filename: invoiceFilename(doc, org.slug),
   };
@@ -79,6 +83,10 @@ export async function handleInvoicePdf(
   const invoice = await loadViewableInvoice(deps, input);
   if (!invoice) {
     return Response.json({ error: "not_found" }, { status: 404 });
+  }
+  const limited = await userRateLimit(deps.db, invoice.viewerId, "invoicePdf");
+  if (limited) {
+    return limited;
   }
   const pdf = await renderInvoicePdf(invoice.doc);
   return new Response(new Uint8Array(pdf), {

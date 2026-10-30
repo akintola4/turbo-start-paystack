@@ -1,4 +1,5 @@
 import { AuthError } from "@workspace/auth/permissions";
+import { userRateLimit } from "@workspace/auth/rate-limit";
 import type { AuthService } from "@workspace/auth/server";
 import {
   BillingError,
@@ -104,6 +105,12 @@ export async function handleBillingAction(
       return json({ error: error.message }, error.status);
     }
     throw error;
+  }
+  if (action !== "status") {
+    const limited = await userRateLimit(deps.db, actor.userId, "orgMutation");
+    if (limited) {
+      return limited;
+    }
   }
 
   try {

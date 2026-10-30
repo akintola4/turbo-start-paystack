@@ -65,6 +65,7 @@ function createServerContext(): ServerContext {
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     mailer,
+    clientIpHeader: env.CLIENT_IP_HEADER,
     // Plan limits are enforced on the server when inviting (PLAN §2.3 #16).
     memberLimit: async (organizationId) =>
       (await billing.getEntitlement(organizationId)).plan.limits.members,

@@ -350,3 +350,29 @@ describe("palette search", () => {
     expect((await search("nobody", "kola")).status).toBe(401);
   });
 });
+
+describe("per-user rate limit on the PDF (audit #7)", () => {
+  it("answers 429 once the viewer has rendered 20 in a minute", async () => {
+    const [owner] = await ctx.db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, "billing@kola.test"));
+    // Earlier tests already rendered a few; fill the window up.
+    await ctx.db
+      .insert(schema.rateLimit)
+      .values({
+        id: "pdf-limit-test",
+        key: `user:${owner?.id}|invoicePdf`,
+        count: 20,
+        lastRequest: Date.now(),
+      })
+      .onConflictDoUpdate({
+        target: schema.rateLimit.key,
+        set: { count: 20, lastRequest: Date.now() },
+      });
+    const res = await pdf(roles.billing ?? new Headers());
+    expect(res.status).toBe(429);
+    // Others still get theirs.
+    expect((await pdf(roles.admin ?? new Headers())).status).toBe(200);
+  });
+});

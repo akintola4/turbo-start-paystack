@@ -1,4 +1,5 @@
 import { isAuthError, rankOf, ROLE_RANK } from "@workspace/auth/permissions";
+import { userRateLimit } from "@workspace/auth/rate-limit";
 import type { AuthService } from "@workspace/auth/server";
 import type { BillingService } from "@workspace/billing";
 import { type Database, schema } from "@workspace/db";
@@ -110,6 +111,10 @@ export async function handleOrgSettings(
       return json({ error: error.message }, error.status);
     }
     throw error;
+  }
+  const limited = await userRateLimit(deps.db, actor.userId, "orgMutation");
+  if (limited) {
+    return limited;
   }
   const org = await loadOrg(deps.db, input.organizationId);
   if (!org) {

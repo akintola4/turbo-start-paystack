@@ -439,3 +439,23 @@ describe("cron auth", () => {
     ).toBe(true);
   });
 });
+
+describe("per-user rate limit on billing mutations (audit #7)", () => {
+  it("answers 429 after 20 mutations a minute, and still serves status", async () => {
+    const busy = await signUp("busy@initech.test");
+    const org = await ctx.authService.auth.api.createOrganization({
+      headers: busy,
+      body: { name: "Busy Co", slug: "busy-co" },
+    });
+    const busyOrg = org?.id ?? "";
+    for (let i = 0; i < 20; i++) {
+      expect((await call(busy, "cancel", {}, busyOrg)).status).toBe(409);
+    }
+    const limited = await call(busy, "cancel", {}, busyOrg);
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toMatch(/^\d+$/);
+    expect((await call(busy, "status", {}, busyOrg)).status).toBe(200);
+    // Someone else is unaffected.
+    expect((await call(owner, "cancel")).status).not.toBe(429);
+  });
+});

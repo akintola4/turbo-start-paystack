@@ -436,3 +436,23 @@ describe("account: revoking sessions", () => {
     expect((await revoke(new Headers(), "anything")).status).toBe(401);
   });
 });
+
+describe("per-user rate limit on settings mutations (audit #7)", () => {
+  it("answers 429 once the caller has made 20 in a minute", async () => {
+    const email = "hasty@kola.test";
+    const headers = await signUp(email);
+    await ctx.db.insert(schema.rateLimit).values({
+      id: "settings-limit-test",
+      key: `user:${await userId(email)}|orgMutation`,
+      count: 20,
+      lastRequest: Date.now(),
+    });
+    const orgId = await createOrg(headers, "Hasty", "hasty-co");
+    const res = await call(headers, orgId, "general", {
+      name: "Hastier",
+      slug: "hasty-co",
+    });
+    expect(res.status).toBe(429);
+    expect((await orgRow(orgId))?.name).toBe("Hasty");
+  });
+});
