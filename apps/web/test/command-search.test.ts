@@ -19,7 +19,16 @@ describe("palette permissions", () => {
 
   it("members see no billing pages or billing actions", () => {
     const seen = titles(allowedFor(ITEMS, "member"));
-    expect(seen).toEqual(["Overview", "Members", "Toggle theme", "Sign out"]);
+    expect(seen).toEqual([
+      "Overview",
+      "Members",
+      "Settings",
+      "Account",
+      "Change password",
+      "Sign out other devices",
+      "Toggle theme",
+      "Sign out",
+    ]);
   });
 
   it("billing managers see billing but can't invite", () => {
@@ -37,10 +46,30 @@ describe("palette permissions", () => {
     expect(seen).not.toContain("Change plan");
   });
 
+  it("only owners see transfer and delete; admins can rename", () => {
+    const owner = titles(allowedFor(ITEMS, "owner"));
+    expect(owner).toContain("Transfer ownership");
+    expect(owner).toContain("Delete organization");
+    const admin = titles(allowedFor(ITEMS, "admin"));
+    expect(admin).toContain("Rename organization");
+    expect(admin).not.toContain("Transfer ownership");
+    expect(admin).not.toContain("Delete organization");
+    for (const role of ["billing", "member", "viewer"]) {
+      const seen = titles(allowedFor(ITEMS, role));
+      expect(seen).not.toContain("Rename organization");
+      expect(seen).not.toContain("Transfer ownership");
+      expect(seen).not.toContain("Delete organization");
+    }
+  });
+
   it("an unknown role sees only what needs no permission", () => {
     expect(titles(allowedFor(ITEMS, "intruder"))).toEqual([
       "Overview",
       "Members",
+      "Settings",
+      "Account",
+      "Change password",
+      "Sign out other devices",
       "Toggle theme",
       "Sign out",
     ]);
