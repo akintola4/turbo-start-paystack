@@ -73,8 +73,10 @@ export function createAuth(options: CreateAuthOptions) {
     return row ?? null;
   }
 
+  /** An audit row. `organizationId` is null for something that outlives
+   *  the organization's own rows, like its deletion. */
   async function audit(entry: {
-    organizationId: string;
+    organizationId: string | null;
     actorUserId?: string | null;
     action: string;
     target?: string;
