@@ -8,19 +8,12 @@ import { CircleAlertIcon, MailCheckIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
-import { toast } from "@/lib/toast";
 
 import { useMarkSignals } from "@/components/auth/mark-signals";
 import { authClient } from "@/lib/auth-client";
 import { type AuthFormError, authFormError } from "@/lib/auth-errors";
-
-/** Only same-origin relative paths are allowed as post-auth redirects. */
-export function safeCallback(value: string | null): string {
-  if (value?.startsWith("/") && !value.startsWith("//")) {
-    return value;
-  }
-  return "/app";
-}
+import { safeCallback } from "@/lib/safe-callback";
+import { toast } from "@/lib/toast";
 
 export function useAuthLinks(mode: "sign-in" | "sign-up") {
   const params = useSearchParams();
