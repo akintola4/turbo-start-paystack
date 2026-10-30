@@ -143,6 +143,12 @@ number-flow-react::part(symbol) {
   color: var(--muted-foreground);
 }
 
+/* On a forest panel the mark's tile lifts a step so it reads against the ground. */
+[data-surface="panel"] {
+  --mark-tile: var(--panel-tile);
+  --mark-cell: oklch(0.5 0.05 159);
+}
+
 /* ------------------------------------------------------------- landing */
 
 /*

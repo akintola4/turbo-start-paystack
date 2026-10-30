@@ -20,13 +20,23 @@ import type { HTMLAttributes, ReactNode } from "react";
 
 import { AnimatedNumber } from "@/components/animated-number";
 import { opticalEdge } from "@/components/landing/display";
+import {
+  CELL,
+  CELL_RADIUS,
+  MARK_CELLS,
+  MARK_LIT,
+  MARK_RADIUS,
+  MARK_VIEWBOX,
+} from "@/lib/brand";
 import { formatDate, splitMoney } from "@/lib/format";
 import { spokenMoney } from "@/lib/money";
 import type { InvoiceRow, SubscriptionStatus } from "@/lib/view-models";
 
 /**
- * The product mark: one reference tile (forest, radius 8) with a sunflower
- * tile tucked into it. Same colours in light and dark.
+ * The product mark: a woven 3×3 grid on a forest tile, the middle column
+ * slipped half a step with the sunflower cell in the slip (lib/brand). Same
+ * colours in light and dark; on a forest panel the tile lifts a step so it
+ * doesn't vanish into the ground.
  */
 export function Mark({ className }: { className?: string }) {
   return (
@@ -34,19 +44,32 @@ export function Mark({ className }: { className?: string }) {
       aria-hidden
       className={cn("size-7 shrink-0", className)}
       fill="none"
-      viewBox="0 0 28 28"
+      viewBox={`0 0 ${MARK_VIEWBOX} ${MARK_VIEWBOX}`}
     >
-      <rect fill="var(--panel)" height="28" rx="8" width="28" />
-      <rect fill="var(--panel-tile)" height="9" rx="3" width="9" x="15" y="4" />
-      <rect fill="var(--panel-tile)" height="9" rx="3" width="9" x="4" y="15" />
-      <rect fill="var(--highlight)" height="9" rx="3" width="9" x="4" y="4" />
       <rect
-        fill="var(--panel-tile)"
-        height="9"
-        rx="3"
-        width="9"
-        x="15"
-        y="15"
+        fill="var(--mark-tile, var(--panel))"
+        height={MARK_VIEWBOX}
+        rx={MARK_RADIUS}
+        width={MARK_VIEWBOX}
+      />
+      {MARK_CELLS.map(([x, y]) => (
+        <rect
+          fill="var(--mark-cell, var(--panel-line))"
+          height={CELL}
+          key={`${x}-${y}`}
+          rx={CELL_RADIUS}
+          width={CELL}
+          x={x}
+          y={y}
+        />
+      ))}
+      <rect
+        fill="var(--highlight)"
+        height={CELL}
+        rx={CELL_RADIUS}
+        width={CELL}
+        x={MARK_LIT[0]}
+        y={MARK_LIT[1]}
       />
     </svg>
   );
