@@ -74,7 +74,7 @@ export function staticItems(orgSlug: string): PaletteItem[] {
       title: "Billing details",
       subtitle: "Settings",
       keywords: ["settings", "tax", "address", "legal name"],
-      href: `${base}/settings/billing#details`,
+      href: `${base}/settings/billing#billing-details`,
       requires: "billing:manage",
     },
     {
