@@ -38,6 +38,11 @@ import {
   planChangedSubject,
 } from "./plan-changed";
 import {
+  RefundFailed,
+  refundFailedContent,
+  refundFailedSubject,
+} from "./refund-failed";
+import {
   ResetPassword,
   resetPasswordContent,
   resetPasswordSubject,
@@ -139,6 +144,11 @@ export const templates = {
     paymentDisputedSubject,
     paymentDisputedContent
   ),
+  "refund-failed": define<RefundFailedProps>(
+    RefundFailed,
+    refundFailedSubject,
+    refundFailedContent
+  ),
 };
 
 export type TemplateName = keyof typeof templates;
@@ -153,6 +163,7 @@ import type { PaymentDisputedProps } from "./payment-disputed";
 import type { PaymentFailedProps } from "./payment-failed";
 import type { PaymentReceiptProps } from "./payment-receipt";
 import type { PlanChangedProps } from "./plan-changed";
+import type { RefundFailedProps } from "./refund-failed";
 import type { ResetPasswordProps } from "./reset-password";
 import type { SubscriptionCanceledProps } from "./subscription-canceled";
 import type { TrialEndingProps } from "./trial-ending";
@@ -167,6 +178,7 @@ export type {
   PaymentFailedProps,
   PaymentReceiptProps,
   PlanChangedProps,
+  RefundFailedProps,
   ResetPasswordProps,
   SubscriptionCanceledProps,
   TrialEndingProps,

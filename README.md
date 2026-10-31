@@ -369,6 +369,7 @@ is set.
 | Subscription cancelled | Cancelled in the app or on Paystack: access-until date and resume link |
 | Plan changed | Upgrade (prorated amount charged now) or downgrade (scheduled for period end) |
 | Trial started, card expiring, payment disputed | Paystack card-up-front trial starts, `subscription.expiring_cards`, `charge.dispute.create` |
+| Refund didn't go through | `refund.failed` or `refund.needs-attention`: the refund date is cleared and the error logged, since someone has to act in the Paystack dashboard |
 
 Billing emails go to every member who can manage billing (owner and the
 `billing` role), after the database change has committed.

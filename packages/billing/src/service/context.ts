@@ -56,6 +56,15 @@ export type BillingNotification = { organizationId: string; key: string } & (
       effectiveAt: Date;
     }
   | { type: "dispute"; reference: string }
+  | {
+      /** Paystack reported `refund.failed` or `refund.needs-attention`:
+       *  the money did not go back to the customer. */
+      type: "refund_failed";
+      reference: string;
+      refundStatus: "failed" | "needs-attention";
+      amountSubunit: number | null;
+      currency: string | null;
+    }
 );
 
 export type BillingDeps = {
