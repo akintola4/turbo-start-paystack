@@ -145,3 +145,26 @@ describe("ingestWebhook (PLAN §2.3 #9)", () => {
     expect(allowed.status).toBe(200);
   });
 });
+
+describe("dbErrorCause", () => {
+  it("keeps the Postgres code, constraint and table, never the values", async () => {
+    const { dbErrorCause } = await import("../src/webhook/process");
+    const error = Object.assign(
+      new Error("Failed query: insert ...\nparams: secret"),
+      {
+        cause: {
+          code: "23503",
+          constraint: "audit_log_organization_id_organization_id_fk",
+          table: "audit_log",
+          detail: "Key (organization_id)=(org_x) is not present",
+        },
+      }
+    );
+    expect(dbErrorCause(error)).toEqual({
+      code: "23503",
+      constraint: "audit_log_organization_id_organization_id_fk",
+      table: "audit_log",
+    });
+    expect(dbErrorCause(new Error("plain"))).toEqual({});
+  });
+});
