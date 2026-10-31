@@ -59,7 +59,11 @@ export async function processEvent(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    deps.logger.error("webhook processing failed", { eventId, error: message });
+    deps.logger.error("webhook processing failed", {
+      eventId,
+      error: message,
+      ...dbErrorCause(error),
+    });
     await deps.db
       .update(schema.webhookEvent)
       .set({
@@ -92,4 +96,23 @@ export async function processPending(deps: BillingDeps, limit = 50) {
     }
   }
   return { attempted: pending.length, processed };
+}
+
+/**
+ * Postgres's reason for a failed query (Drizzle wraps it as `cause`): the
+ * SQLSTATE code, constraint and table. Never the parameter values, which can
+ * hold payment data.
+ */
+export function dbErrorCause(error: unknown) {
+  const cause = (error as { cause?: Record<string, unknown> } | null)?.cause;
+  if (!cause || typeof cause !== "object") {
+    return {};
+  }
+  const pick = (key: string) =>
+    typeof cause[key] === "string" ? (cause[key] as string) : undefined;
+  return {
+    code: pick("code"),
+    constraint: pick("constraint") ?? pick("constraint_name"),
+    table: pick("table") ?? pick("table_name"),
+  };
 }
