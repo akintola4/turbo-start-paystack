@@ -127,7 +127,11 @@ export type Outcome = { error?: string; retry?: boolean };
 export const TERMINAL_STATUSES = ["canceled", "expired"] as const;
 
 export const newId = () => randomUUID();
-export const newReference = () => `tsp_${randomUUID().replaceAll("-", "")}`;
+/** Our transaction reference: "tsp-" and 32 hex digits. Paystack allows only
+ *  `-`, `.`, `=` and alphanumerics (https://paystack.com/docs/api/transaction/).
+ *  References from before this were "tsp_…"; nothing parses the prefix, so
+ *  both are looked up the same way, by the whole string. */
+export const newReference = () => `tsp-${randomUUID().replaceAll("-", "")}`;
 
 export function seal(deps: BillingDeps, value: string): string {
   return encryptSecret(value, deps.encryptionKey);

@@ -54,6 +54,6 @@ export function PaymentDisputed(props: Themed<PaymentDisputedProps>) {
 
 PaymentDisputed.PreviewProps = {
   organizationName: "Kola Logistics",
-  reference: "tsp_4f7d2a9c81e64b0f9a3e5c2d7b1a6e90",
+  reference: "tsp-4f7d2a9c81e64b0f9a3e5c2d7b1a6e90",
   billingUrl: "https://app.example.com/app/kola/settings/billing",
 } satisfies PaymentDisputedProps;
