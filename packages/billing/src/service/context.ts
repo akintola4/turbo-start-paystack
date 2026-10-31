@@ -151,13 +151,27 @@ export async function audit(
     data?: Record<string, unknown>;
   }
 ) {
+  // A webhook can outlive its organization (deleted since the charge). The
+  // row still gets written, unlinked, with the old id kept in its data.
+  let organizationId = entry.organizationId;
+  let data = entry.data ?? null;
+  if (organizationId) {
+    const [org] = await tx
+      .select({ id: schema.organization.id })
+      .from(schema.organization)
+      .where(eq(schema.organization.id, organizationId));
+    if (!org) {
+      data = { ...data, deletedOrganizationId: organizationId };
+      organizationId = null;
+    }
+  }
   await tx.insert(schema.auditLog).values({
     id: newId(),
-    organizationId: entry.organizationId,
+    organizationId,
     actorUserId: entry.actorUserId ?? null,
     action: entry.action,
     target: entry.target ?? null,
-    data: entry.data ?? null,
+    data,
   });
 }
 
