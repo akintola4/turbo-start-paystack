@@ -55,9 +55,10 @@ describe("card-up-front trial (PLAN §6.3 T1)", () => {
       planPriceId: "starter-monthly-ngn",
     });
     expect(sub?.trialEndsAt).toEqual(trialEnd);
-    expect(h.fake.refunds.at(-1)).toEqual({
+    expect(h.fake.refunds.at(-1)).toMatchObject({
       transaction: checkout.reference,
       amount: undefined,
+      status: "pending",
     });
     const [create] = h.fake.callsTo("POST", "/subscription").slice(-1);
     expect(create?.body).toMatchObject({
