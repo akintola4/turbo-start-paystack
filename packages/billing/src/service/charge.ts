@@ -1,7 +1,7 @@
 import { type DbOrTx, schema } from "@workspace/db";
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 
-import { addInterval, getPlan, getPlanPrice } from "../catalog";
+import { addInterval, getPlan, getPlanPrice, planChangeKind } from "../catalog";
 import { BillingError } from "../errors";
 import { type PaystackTransaction, planCodeOf } from "../paystack/types";
 import {
@@ -303,7 +303,11 @@ async function finalizeUpgradeFromCharge(
 ): Promise<Outcome> {
   const sub = await liveSubscription(tx, intent.organizationId, { lock: true });
   const paidAt = data.paid_at ? new Date(data.paid_at) : deps.now();
-  const stale = staleUpgradeReason(intent, sub, paidAt);
+  const stale =
+    staleUpgradeReason(intent, sub, paidAt) ??
+    (sub && alreadyUpgraded(sub.planPriceId, intent.planPriceId)
+      ? "already_upgraded"
+      : null);
   if (stale) {
     return refundStaleUpgrade(deps, tx, intent, data, sub, stale);
   }
@@ -321,7 +325,7 @@ async function finalizeUpgradeFromCharge(
     planPriceId: intent.planPriceId,
     card: data.authorization,
   });
-  if (!sub || sub.planPriceId === intent.planPriceId) {
+  if (!sub) {
     return {};
   }
   const newCard = cardFields(deps, data.authorization, data.customer?.email);
@@ -394,6 +398,38 @@ export function staleUpgradeReason(
   return null;
 }
 
+/**
+ * True when the organization is already on the intent's plan, or on one it
+ * would not be an upgrade to. A second upgrade payment for the same change
+ * (the saved-card charge went through while its response was lost, and the
+ * customer also paid a fallback checkout) lands here and is refunded.
+ */
+export function alreadyUpgraded(
+  currentPlanPriceId: string,
+  targetPlanPriceId: string
+): boolean {
+  if (currentPlanPriceId === targetPlanPriceId) {
+    return true;
+  }
+  const current = getPlanPrice(currentPlanPriceId);
+  const target = getPlanPrice(targetPlanPriceId);
+  const currentPlan = current && getPlan(current.planKey);
+  const targetPlan = target && getPlan(target.planKey);
+  if (!(current && target && currentPlan && targetPlan)) {
+    return false;
+  }
+  return (
+    planChangeKind(
+      { rank: currentPlan.rank, interval: current.interval },
+      { rank: targetPlan.rank, interval: target.interval }
+    ) !== "upgrade"
+  );
+}
+
+const STALE_DESCRIPTION: Record<string, string> = {
+  already_upgraded: "Plan upgrade (already paid, refunded)",
+};
+
 /** The money for a stale upgrade goes back; the plan does not change. A
  *  failed refund is left on the audit log (and the void invoice without a
  *  refund date) for someone to settle, and is retried if the charge is
@@ -442,7 +478,8 @@ async function refundStaleUpgrade(
     currency: data.currency,
     status: "void",
     paidAt: data.paid_at ? new Date(data.paid_at) : deps.now(),
-    description: "Plan upgrade (expired, refunded)",
+    description:
+      STALE_DESCRIPTION[reason] ?? "Plan upgrade (expired, refunded)",
     kind: "proration",
     planPriceId: intent.planPriceId,
     card: data.authorization,

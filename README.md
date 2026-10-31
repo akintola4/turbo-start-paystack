@@ -461,7 +461,11 @@ must be verified) and can be used once.
 - **Upgrade.** Immediate and prorated. The difference for the rest of the
   period is charged to the saved card, a new Paystack subscription is created
   from the current period end, and only then is the old one disabled. If the
-  card is declined, the customer pays the same amount through checkout.
+  card is declined, the customer pays the same amount through checkout. If
+  the charge errors without an answer (a timeout, say), the reference is
+  verified first; while Paystack can't confirm it either way, no checkout is
+  offered and the webhook or reconcile finishes the upgrade. A second payment
+  for an upgrade that already went through is refunded.
 - **Downgrade.** At the end of the period. The replacement subscription is
   created right away with a start date at period end, then the old one is
   disabled, so the old price cannot renew in between. Refused while the

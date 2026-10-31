@@ -3,6 +3,7 @@
 import { Button } from "@workspace/ui/components/button";
 import { useRouter } from "next/navigation";
 import { type ComponentProps, type ReactNode, useState } from "react";
+import { upgradePendingOutcome } from "@/lib/payment-copy";
 import { toast } from "@/lib/toast";
 
 import { Confirm } from "@/components/confirm";
@@ -100,6 +101,14 @@ export function useBillingAction({
       );
       if (action === "checkout" || data.kind === "checkout_required") {
         await openCheckout(data, publicKey);
+        return;
+      }
+      if (data.kind === "payment_pending") {
+        toast.info(upgradePendingOutcome.title, {
+          description: upgradePendingOutcome.description,
+        });
+        router.refresh();
+        setPending(false);
         return;
       }
       if (action === "manage-card") {
