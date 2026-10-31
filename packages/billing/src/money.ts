@@ -7,14 +7,16 @@ export function isCurrency(value: string): value is Currency {
 
 /**
  * Smallest card charge used to tokenise a card for a card-up-front trial
- * (refunded right after). Paystack's recommended minimums, in subunits.
- * KES is not documented; 10 KES is a guess to confirm in test mode.
+ * (refunded right after), in subunits. Each is at least the minimum
+ * transaction amount in Paystack's supported-currencies table
+ * (https://paystack.com/docs/api/): NGN 50, GHS 0.10, ZAR 1, KES 3, USD 2.
+ * KES uses 10, above its minimum.
  */
 export const TOKENIZATION_AMOUNT: Record<Currency, number> = {
   NGN: 5000,
   GHS: 10,
   ZAR: 100,
-  USD: 20,
+  USD: 200,
   KES: 1000,
 };
 

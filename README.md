@@ -456,7 +456,7 @@ must be verified) and can be used once.
   confirms the charge, whichever comes first, and only if the amount,
   currency and organization match what the server asked for.
 - **Trial (card up front).** On plans with `trialDays`, the first checkout is a
-  small card charge (NGN 50, GHS 0.10, ZAR 1, USD 0.20, KES 10). The card is
+  small card charge (NGN 50, GHS 0.10, ZAR 1, USD 2, KES 10). The card is
   saved, the charge is refunded, and a Paystack subscription is created that
   starts when the trial ends.
 - **Upgrade.** Immediate and prorated. The difference for the rest of the

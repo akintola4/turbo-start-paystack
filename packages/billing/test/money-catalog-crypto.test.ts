@@ -28,6 +28,17 @@ describe("money", () => {
     ]);
     expect(TOKENIZATION_AMOUNT.NGN).toBe(5000);
   });
+
+  it("charges at least Paystack's minimum transaction amount in each currency", () => {
+    // Supported currencies table, https://paystack.com/docs/api/:
+    // NGN ₦50.00, GHS ₵0.10, ZAR R1.00, KES Ksh 3.00, USD $2.00.
+    const minimum = { NGN: 5000, GHS: 10, ZAR: 100, KES: 300, USD: 200 };
+    for (const [currency, amount] of Object.entries(TOKENIZATION_AMOUNT)) {
+      expect(amount).toBeGreaterThanOrEqual(
+        minimum[currency as keyof typeof minimum]
+      );
+    }
+  });
 });
 
 describe("catalog", () => {

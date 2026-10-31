@@ -96,8 +96,9 @@ URL, `pnpm billing:sync`, and watch the `webhook_event` table.
 - [ ] `POST /refund { transaction: reference }` refunds the trial
       tokenisation charge; check the `refund.processed` payload field
       `transaction_reference`.
-- [ ] Tokenisation minimums: NGN 50, GHS 0.10, ZAR 1, USD 0.20. KES is a
-      guess (10 KES); confirm the real minimum.
+- [ ] Tokenisation amounts meet the documented minimums
+      (https://paystack.com/docs/api/, supported currencies): NGN 50,
+      GHS 0.10, ZAR 1, KES 3, USD 2. We charge KES 10.
 - [ ] `authorization.reusable` is `true` for test card
       `4084 0840 8408 4081`.
 

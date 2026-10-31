@@ -21,7 +21,7 @@
 - Webhook signature: hex HMAC-SHA512 of the raw body keyed with `PAYSTACK_SECRET_KEY`, compared with `crypto.timingSafeEqual` on equal-length buffers. Bad or missing signature returns 401.
 - Webhook persistence happens before processing; duplicates return 200; handler errors are recorded on the event row and never produce a 5xx.
 - Paystack allow-list IPs: `52.31.139.75`, `52.49.173.169`, `52.214.14.220` (env-toggled).
-- Tokenisation (card-up-front trial) amounts in subunits: NGN 5000, GHS 10, ZAR 100, USD 20, KES 1000 (KES unconfirmed, see verification checklist).
+- Tokenisation (card-up-front trial) amounts in subunits: NGN 5000, GHS 10, ZAR 100, USD 200, KES 1000 (at or above the minimums in the supported-currencies table, https://paystack.com/docs/api/).
 - Invitations expire after 7 days, are bound to the invited email and are single-use. A member cannot invite or assign a role above their own rank.
 - `email_token` and `authorization_code` are stored AES-256-GCM encrypted with `BILLING_ENCRYPTION_KEY`, and never logged.
 - No secrets, `.env` values, dumps or cookie jars from the research clones. `.env.example` holds placeholders only.
