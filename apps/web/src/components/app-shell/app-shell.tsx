@@ -37,7 +37,7 @@ export function AppShell({
         <AppSidebar data={data} />
         <RememberOrg slug={data.org.slug} />
         <SidebarInset
-          className="min-w-0 bg-background md:h-[calc(100svh-1rem)] md:overflow-y-auto md:ring-1 md:ring-sidebar-border md:[scrollbar-gutter:stable]"
+          className="min-w-0 bg-background md:h-[calc(100svh-1rem)] md:overflow-y-auto md:ring-1 md:ring-sidebar-border md:[scrollbar-color:transparent_transparent] md:[scrollbar-gutter:stable]"
           data-scroller
         >
           <SiteHeader org={data.org} />
