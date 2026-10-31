@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { chargeSuccess, subscriptionStatusEvent } from "../src/fixtures";
 import { getPlanPrice, planChangeKind } from "../src/catalog";
 import { computeProration, upgradeChargeNow } from "../src/proration";
-import { staleUpgradeReason } from "../src/service/charge";
+import { alreadyUpgraded, staleUpgradeReason } from "../src/service/charge";
 import { type BillingHarness, planCode, setupBilling } from "./support";
 
 let h: BillingHarness;
@@ -952,6 +952,228 @@ describe("cancel and resume (PLAN §2.3 #11)", () => {
     const { organizationId } = await h.subscribe("pro-monthly-ngn");
     expect(await h.billing.getManageCardLink(organizationId)).toContain(
       "/manage/"
+    );
+  });
+});
+
+describe("an upgrade charge whose answer was lost (no double charge)", () => {
+  const prorationTxs = (organizationId: string) =>
+    [...h.fake.transactions.values()].filter(
+      (t) =>
+        t.metadata.organization_id === organizationId &&
+        (t.metadata.kind === "proration" || t.metadata.kind === "upgrade")
+    );
+
+  it("verifies a timed-out charge that went through and upgrades once, with no fallback checkout", async () => {
+    const { organizationId, actor, sub, paid } = await h.subscribe(
+      "starter-monthly-ngn"
+    );
+    h.clock.now = midPeriod(sub);
+    // Paystack charges the card but the response times out; the client's
+    // retry is refused as a duplicate reference.
+    h.fake.loseNextResponse("POST", /charge_authorization/);
+    const initsBefore = h.fake.callsTo(
+      "POST",
+      "/transaction/initialize"
+    ).length;
+
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 1,
+    });
+
+    expect(result).toEqual({ kind: "upgraded", charged: 1_000_000 });
+    expect(h.fake.callsTo("POST", "/transaction/initialize")).toHaveLength(
+      initsBefore
+    );
+    const charged = prorationTxs(organizationId);
+    expect(charged).toHaveLength(1);
+    expect(charged[0]?.status).toBe("success");
+
+    // The charge's own webhook changes nothing more.
+    const refundsBefore = h.fake.refunds.length;
+    const reference = charged[0]?.reference ?? "";
+    await h.deliver(
+      chargeSuccess({
+        reference,
+        amount: 1_000_000,
+        currency: "NGN",
+        customer: paid.customer,
+        metadata: charged[0]?.metadata,
+        paidAt: h.clock.now.toISOString(),
+      })
+    );
+    expect(h.fake.refunds.length).toBe(refundsBefore);
+    expect((await h.billing.getSubscription(organizationId))?.planPriceId).toBe(
+      "pro-monthly-ngn"
+    );
+    const invoices = await h.db
+      .select()
+      .from(schema.invoice)
+      .where(
+        and(
+          eq(schema.invoice.organizationId, organizationId),
+          eq(schema.invoice.kind, "proration")
+        )
+      );
+    expect(invoices).toHaveLength(1);
+    expect(invoices[0]).toMatchObject({ status: "paid", reference });
+  });
+
+  it("keeps the intent open and opens no checkout when Paystack can't confirm the charge", async () => {
+    const { organizationId, actor, sub, paid } = await h.subscribe(
+      "starter-monthly-ngn"
+    );
+    h.clock.now = midPeriod(sub);
+    h.fake.loseNextResponse("POST", /charge_authorization/);
+    // Verify is down too, on every retry.
+    for (let i = 0; i < 4; i += 1) {
+      h.fake.failNext("GET", /^\/transaction\/verify\//, 503, "unavailable");
+    }
+    const initsBefore = h.fake.callsTo(
+      "POST",
+      "/transaction/initialize"
+    ).length;
+
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 1,
+    });
+
+    expect(result.kind).toBe("payment_pending");
+    if (result.kind !== "payment_pending") {
+      return;
+    }
+    expect(result.amountSubunit).toBe(1_000_000);
+    expect(h.fake.callsTo("POST", "/transaction/initialize")).toHaveLength(
+      initsBefore
+    );
+    expect((await h.billing.getSubscription(organizationId))?.planPriceId).toBe(
+      "starter-monthly-ngn"
+    );
+    const [intent] = await h.db
+      .select()
+      .from(schema.paymentIntent)
+      .where(eq(schema.paymentIntent.id, result.reference));
+    expect(intent?.status).toBe("created");
+
+    // The charge did go through: its webhook completes the upgrade.
+    await h.deliver(
+      chargeSuccess({
+        reference: result.reference,
+        amount: 1_000_000,
+        currency: "NGN",
+        customer: paid.customer,
+        metadata: { organization_id: organizationId },
+        paidAt: h.clock.now.toISOString(),
+      })
+    );
+    expect((await h.billing.getSubscription(organizationId))?.planPriceId).toBe(
+      "pro-monthly-ngn"
+    );
+    expect(prorationTxs(organizationId)).toHaveLength(1);
+  });
+
+  it("falls back to checkout when the charge never reached Paystack", async () => {
+    const { organizationId, actor, sub } = await h.subscribe(
+      "starter-monthly-ngn"
+    );
+    h.clock.now = midPeriod(sub);
+    for (let i = 0; i < 4; i += 1) {
+      h.fake.failNext("POST", /charge_authorization/, 502, "Bad Gateway");
+    }
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 1,
+    });
+    // Verify answered "Transaction reference not found".
+    expect(result.kind).toBe("checkout_required");
+  });
+
+  it("refunds a fallback checkout paid after the original charge also succeeded", async () => {
+    const { organizationId, actor, sub, paid } = await h.subscribe(
+      "starter-monthly-ngn"
+    );
+    h.clock.now = midPeriod(sub);
+    h.fake.setChargeOutcome("failed");
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: "pro-monthly-ngn",
+      memberCount: 1,
+    });
+    if (result.kind !== "checkout_required") {
+      throw new Error(`expected a checkout, got ${result.kind}`);
+    }
+    const [original] = await h.db
+      .select()
+      .from(schema.paymentIntent)
+      .where(
+        and(
+          eq(schema.paymentIntent.organizationId, organizationId),
+          eq(schema.paymentIntent.kind, "proration")
+        )
+      );
+    if (!original) {
+      throw new Error("no proration intent");
+    }
+
+    // Paystack settles the saved-card charge after all: it upgrades.
+    await h.deliver(
+      chargeSuccess({
+        reference: original.id,
+        amount: 1_000_000,
+        currency: "NGN",
+        customer: paid.customer,
+        metadata: { organization_id: organizationId },
+        paidAt: h.clock.now.toISOString(),
+      })
+    );
+    const upgraded = await h.billing.getSubscription(organizationId);
+    expect(upgraded?.planPriceId).toBe("pro-monthly-ngn");
+
+    // Then the customer pays the fallback checkout too.
+    const refundsBefore = h.fake.refunds.length;
+    const createsBefore = h.fake.callsTo("POST", "/subscription").length;
+    const fallback = h.pay(result.reference);
+    const event = await h.deliver(fallback.charge);
+
+    expect(event?.error).toBe("stale_upgrade:already_upgraded");
+    expect(h.fake.refunds.length).toBe(refundsBefore + 1);
+    expect(h.fake.refunds.at(-1)?.transaction).toBe(result.reference);
+    expect(h.fake.callsTo("POST", "/subscription")).toHaveLength(createsBefore);
+    const after = await h.billing.getSubscription(organizationId);
+    expect(after).toMatchObject({
+      planPriceId: "pro-monthly-ngn",
+      paystackSubscriptionCode: upgraded?.paystackSubscriptionCode,
+    });
+    const [invoice] = await h.db
+      .select()
+      .from(schema.invoice)
+      .where(eq(schema.invoice.reference, result.reference));
+    expect(invoice).toMatchObject({ status: "void" });
+    expect(invoice?.refundedAt).not.toBeNull();
+    expect(invoice?.number).toBeNull();
+
+    // Delivered again, nothing more is refunded.
+    await h.deliver({ ...fallback.charge, redelivered: true });
+    expect(h.fake.refunds.length).toBe(refundsBefore + 1);
+  });
+
+  it("counts a change that is no longer an upgrade as already paid", () => {
+    expect(alreadyUpgraded("pro-monthly-ngn", "pro-monthly-ngn")).toBe(true);
+    expect(alreadyUpgraded("pro-monthly-ngn", "starter-monthly-ngn")).toBe(
+      true
+    );
+    expect(alreadyUpgraded("pro-annually-ngn", "pro-monthly-ngn")).toBe(true);
+    expect(alreadyUpgraded("starter-monthly-ngn", "pro-monthly-ngn")).toBe(
+      false
     );
   });
 });

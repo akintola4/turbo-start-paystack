@@ -244,7 +244,7 @@ export const billingDetails = pgTable("billing_details", {
 export const paymentIntent = pgTable(
   "payment_intent",
   {
-    // Also the Paystack transaction reference ("tsp_…").
+    // Also the Paystack transaction reference ("tsp-…", or "tsp_…" before).
     id: text("id").primaryKey(),
     organizationId: orgId(),
     kind: paymentIntentKind("kind").notNull(),

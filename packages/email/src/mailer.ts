@@ -14,6 +14,7 @@ import type {
   PaymentFailedProps,
   PaymentReceiptProps,
   PlanChangedProps,
+  RefundFailedProps,
   SubscriptionCanceledProps,
   TemplateName,
   TemplateProps,
@@ -242,6 +243,15 @@ export function createMailer(options: MailerOptions) {
       send("payment-disputed", input, {
         organizationName: input.organizationName,
         reference: input.reference,
+        billingUrl: billingUrl(input.organizationSlug),
+      }),
+
+    refundFailed: async (input: BillingInput<RefundFailedProps>) =>
+      send("refund-failed", input, {
+        organizationName: input.organizationName,
+        reference: input.reference,
+        amountSubunit: input.amountSubunit,
+        currency: input.currency,
         billingUrl: billingUrl(input.organizationSlug),
       }),
   };

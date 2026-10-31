@@ -84,6 +84,13 @@ function sendOne(mailer: Mailer, n: BillingNotification, r: Recipient) {
       return mailer.cardExpiring({ ...r, manageLink: n.manageLink });
     case "dispute":
       return mailer.paymentDisputed({ ...r, reference: n.reference });
+    case "refund_failed":
+      return mailer.refundFailed({
+        ...r,
+        reference: n.reference,
+        amountSubunit: n.amountSubunit,
+        currency: n.currency,
+      });
     default: {
       const unhandled: never = n;
       throw new Error(`Unknown notification ${String(unhandled)}`);

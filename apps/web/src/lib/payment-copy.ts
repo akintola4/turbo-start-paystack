@@ -63,6 +63,18 @@ export function paymentOutcome(
   };
 }
 
+/**
+ * After an upgrade whose saved-card charge Paystack couldn't confirm yet.
+ * The charge may have gone through, so the customer is not asked to pay
+ * again; the plan switches when Paystack confirms it.
+ */
+export const upgradePendingOutcome: PaymentOutcome = {
+  kind: "info",
+  title: "Checking your payment",
+  description:
+    "Paystack hasn't confirmed the upgrade charge yet. Your plan switches as soon as it does, so there's no need to pay again.",
+};
+
 /** What the Free tile says, matched to what the page above offers. */
 export function freeTileCopy(
   sub: Pick<

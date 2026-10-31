@@ -1,6 +1,11 @@
 import { randomBytes } from "node:crypto";
 
-import { type Authorization, testAuthorization } from "./fixtures";
+import {
+  type Authorization,
+  type RefundStatus,
+  refundEvent,
+  testAuthorization,
+} from "./fixtures";
 
 /**
  * In-memory stand-in for the Paystack API: enough of /customer, /transaction,
@@ -11,6 +16,8 @@ import { type Authorization, testAuthorization } from "./fixtures";
  */
 
 type Tx = {
+  /** Paystack's numeric transaction id, unique per transaction. */
+  id?: number;
   reference: string;
   amount: number;
   currency: string;
@@ -47,6 +54,16 @@ type Failure = {
   path: RegExp;
   status: number;
   message: string;
+  /** Handle the request first, then answer with the failure: the work is
+   *  done on Paystack's side but the response is lost (a timeout or 5xx). */
+  afterHandling?: boolean;
+};
+
+type Refund = {
+  transaction: string;
+  amount?: number;
+  refund_reference: string;
+  status: RefundStatus;
 };
 
 const id = (prefix: string) => `${prefix}_${randomBytes(6).toString("hex")}`;
@@ -84,7 +101,7 @@ export function createFakePaystack(options?: {
   };
   const customerByCode = (code: string) =>
     [...customers.values()].find((c) => c.customer_code === code);
-  const refunds: { transaction: string; amount?: number }[] = [];
+  const refunds: Refund[] = [];
   const calls: Call[] = [];
   const failures: Failure[] = [];
   let chargeOutcome: "success" | "failed" | "paused" = "success";
@@ -108,7 +125,7 @@ export function createFakePaystack(options?: {
 
   function txView(tx: Tx) {
     return {
-      id: 1,
+      id: numericId(tx),
       status: tx.status,
       reference: tx.reference,
       amount: tx.amount,
@@ -149,8 +166,10 @@ export function createFakePaystack(options?: {
     tx.authorization = authorization;
     let subscription: Sub | undefined;
     if (tx.plan) {
+      // The first renewal is one plan interval after the payment.
+      const interval = plans.get(tx.plan)?.interval;
       const next = new Date(now());
-      next.setUTCMonth(next.getUTCMonth() + 1);
+      next.setUTCMonth(next.getUTCMonth() + (interval === "annually" ? 12 : 1));
       subscription = {
         subscription_code: id("SUB"),
         email_token: id("tok"),
@@ -178,13 +197,20 @@ export function createFakePaystack(options?: {
     const failureIndex = failures.findIndex(
       (f) => f.method === method && f.path.test(path)
     );
-    if (failureIndex >= 0) {
-      const [failure] = failures.splice(failureIndex, 1);
-      if (failure) {
-        return fail(failure.status, failure.message);
-      }
+    const [failure] = failureIndex >= 0 ? failures.splice(failureIndex, 1) : [];
+    if (failure && !failure.afterHandling) {
+      return fail(failure.status, failure.message);
     }
+    const response = route(method, path, body, url);
+    return failure ? fail(failure.status, failure.message) : response;
+  }
 
+  function route(
+    method: string,
+    path: string,
+    body: Record<string, unknown>,
+    url: URL
+  ): Response {
     if (method === "POST" && path === "/customer") {
       return ok(customerFor(String(body.email)));
     }
@@ -240,6 +266,10 @@ export function createFakePaystack(options?: {
 
     if (method === "POST" && path === "/transaction/charge_authorization") {
       const reference = String(body.reference);
+      // As with initialize: a reference is used once.
+      if (transactions.has(reference)) {
+        return fail(400, "Duplicate Transaction Reference");
+      }
       const email = String(body.email);
       const customer = customerFor(email);
       const status =
@@ -275,11 +305,18 @@ export function createFakePaystack(options?: {
     }
 
     if (method === "POST" && path === "/refund") {
-      refunds.push({
+      const refund: Refund = {
         transaction: String(body.transaction),
         amount: body.amount as number | undefined,
+        refund_reference: id("RFD"),
+        status: "pending",
+      };
+      refunds.push(refund);
+      return ok({
+        status: refund.status,
+        transaction: { reference: refund.transaction },
+        amount: refund.amount ?? transactions.get(refund.transaction)?.amount,
       });
-      return ok({ status: "pending" });
     }
 
     const fetchCustomer = path.match(/^\/customer\/([^/]+)$/);
@@ -446,6 +483,41 @@ export function createFakePaystack(options?: {
     /** Makes the next matching request fail once. */
     failNext(method: string, path: RegExp, status = 500, message = "boom") {
       failures.push({ method, path, status, message });
+    },
+    /** The next matching request is carried out, but its response is
+     *  replaced by a failure, as when Paystack times out after charging. */
+    loseNextResponse(
+      method: string,
+      path: RegExp,
+      status = 504,
+      message = "Gateway Timeout"
+    ) {
+      failures.push({ method, path, status, message, afterHandling: true });
+    },
+    /**
+     * Moves the latest refund of `transaction` to `status` and returns the
+     * matching `refund.<status>` webhook payload.
+     */
+    settleRefund(
+      transaction: string,
+      status: Exclude<RefundStatus, "pending">
+    ) {
+      const refund = [...refunds]
+        .reverse()
+        .find((r) => r.transaction === transaction);
+      if (!refund) {
+        throw new Error(`fake paystack: no refund for ${transaction}`);
+      }
+      refund.status = status;
+      const tx = transactions.get(transaction);
+      return refundEvent({
+        status,
+        transactionReference: transaction,
+        refundReference: refund.refund_reference,
+        amount: refund.amount ?? tx?.amount ?? 0,
+        currency: tx?.currency ?? "NGN",
+        customerEmail: tx?.email,
+      });
     },
     setChargeOutcome(outcome: "success" | "failed" | "paused") {
       chargeOutcome = outcome;

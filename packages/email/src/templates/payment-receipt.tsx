@@ -99,7 +99,7 @@ PaymentReceipt.PreviewProps = {
   interval: "monthly",
   amountSubunit: 3_000_000,
   currency: "NGN",
-  reference: "tsp_4f7d2a9c81e64b0f9a3e5c2d7b1a6e90",
+  reference: "tsp-4f7d2a9c81e64b0f9a3e5c2d7b1a6e90",
   paidAt: new Date("2026-10-12T09:12:00Z"),
   periodStart: new Date("2026-10-12T09:12:00Z"),
   periodEnd: new Date("2026-11-12T09:12:00Z"),

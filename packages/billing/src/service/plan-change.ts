@@ -35,8 +35,82 @@ export type ChangePlanResult =
       authorizationUrl: string;
       amountSubunit: number;
     }
+  | {
+      /** The saved-card charge's result was lost and Paystack can't say yet
+       *  whether it went through. The upgrade completes from its webhook
+       *  or reconcile; the customer must not be asked to pay again. */
+      kind: "payment_pending";
+      reference: string;
+      amountSubunit: number;
+    }
   | { kind: "downgrade_scheduled"; effectiveAt: Date }
   | { kind: "downgrade_canceled" };
+
+type ChargeAttempt =
+  | { outcome: "paid" }
+  | { outcome: "paused"; authorizationUrl: string }
+  | { outcome: "declined" }
+  | { outcome: "unknown" };
+
+/** Transaction statuses that mean no money moved, or it went back. */
+const NOT_CHARGED = new Set(["failed", "reversed", "abandoned"]);
+
+/**
+ * Charges the saved card. A thrown error (a timeout, a 5xx whose retry hit
+ * "Duplicate Transaction Reference", a status we don't expect) says nothing
+ * about whether the card was charged, so the reference is verified before
+ * anything else is decided. Only Paystack saying "failed" or "not found"
+ * counts as a decline; anything it can't confirm is `unknown`.
+ */
+async function chargeOrVerify(
+  deps: BillingDeps,
+  input: Parameters<BillingDeps["paystack"]["chargeAuthorization"]>[0]
+): Promise<ChargeAttempt> {
+  try {
+    const result = await deps.paystack.chargeAuthorization(input);
+    if (result.paused && result.authorization_url) {
+      return { outcome: "paused", authorizationUrl: result.authorization_url };
+    }
+    if (result.status === "success" && !result.paused) {
+      return { outcome: "paid" };
+    }
+    if (result.status === "failed") {
+      return { outcome: "declined" };
+    }
+    deps.logger.warn("upgrade charge returned an unexpected status", {
+      reference: input.reference,
+      status: result.status,
+    });
+  } catch (error) {
+    deps.logger.warn("upgrade charge failed without an answer; verifying", {
+      reference: input.reference,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  try {
+    const tx = await deps.paystack.verifyTransaction(input.reference);
+    if (
+      tx.status === "success" &&
+      tx.amount === input.amount &&
+      tx.currency === input.currency
+    ) {
+      return { outcome: "paid" };
+    }
+    return NOT_CHARGED.has(tx.status)
+      ? { outcome: "declined" }
+      : { outcome: "unknown" };
+  } catch (error) {
+    // Paystack answers an unknown reference with a 4xx: never charged.
+    if (error instanceof PaystackError && error.httpStatus < 500) {
+      return { outcome: "declined" };
+    }
+    deps.logger.error("could not verify the upgrade charge", {
+      reference: input.reference,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { outcome: "unknown" };
+  }
+}
 
 /** How long an upgrade checkout stays payable. The prorated amount is only
  *  right for the moment it was priced, so it is kept short. */
@@ -277,18 +351,30 @@ export async function changePlan(
         plan_price_id: target.id,
         kind: "proration",
       };
-      const result = await deps.paystack
-        .chargeAuthorization({
-          email,
-          amount: charge,
-          currency: sub.currency,
-          authorization_code: authorizationCode,
-          reference,
-          metadata,
-        })
-        .catch(() => null);
+      const result = await chargeOrVerify(deps, {
+        email,
+        amount: charge,
+        currency: sub.currency,
+        authorization_code: authorizationCode,
+        reference,
+        metadata,
+      });
 
-      if (result?.status === "success" && !result.paused) {
+      if (result.outcome === "unknown") {
+        // The charge may have gone through. The intent stays open: its
+        // charge.success webhook, the callback page or reconcile finish the
+        // upgrade, and nothing else is charged in the meantime.
+        await audit(tx, {
+          organizationId: sub.organizationId,
+          actorUserId: input.actor.userId,
+          action: "billing.upgrade_charge_unconfirmed",
+          target: reference,
+          data: { to: target.id, amount: charge },
+        });
+        return { kind: "payment_pending", reference, amountSubunit: charge };
+      }
+
+      if (result.outcome === "paid") {
         await tx
           .update(schema.paymentIntent)
           .set({ status: "succeeded" })
@@ -345,19 +431,20 @@ export async function changePlan(
         return { kind: "upgraded", charged: charge };
       }
 
-      if (result?.paused && result.authorization_url) {
+      if (result.outcome === "paused") {
         // The bank wants the customer present (2FA). The webhook for this
         // reference completes the upgrade.
         return {
           kind: "checkout_required",
           reference,
           accessCode: "",
-          authorizationUrl: result.authorization_url,
+          authorizationUrl: result.authorizationUrl,
           amountSubunit: charge,
         };
       }
 
-      // Card declined: fall back to a checkout for the same amount.
+      // Card declined (or Paystack confirms the charge never happened): fall
+      // back to a checkout for the same amount.
       await tx
         .update(schema.paymentIntent)
         .set({ status: "failed" })

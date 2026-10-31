@@ -1,5 +1,14 @@
 import { type DbOrTx, schema } from "@workspace/db";
-import { and, desc, eq, inArray, isNull, notInArray } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  like,
+  notInArray,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -77,8 +86,12 @@ export async function dispatchEvent(
       );
     case "subscription.expiring_cards":
       return onExpiringCards(deps, tx, data);
+    case "refund.pending":
+    case "refund.processing":
     case "refund.processed":
     case "refund.failed":
+    case "refund.needs-attention":
+      return onRefund(deps, tx, event, data);
     case "charge.dispute.create":
     case "charge.dispute.remind":
     case "charge.dispute.resolve":
@@ -448,6 +461,118 @@ async function onExpiringCards(
       organizationId: sub.organizationId,
       key: `expiring_card:${sub.id}:${sub.cardExp ?? ""}`,
     });
+  }
+  return {};
+}
+
+const refundPayload = z
+  .looseObject({
+    status: z.string().optional(),
+    transaction_reference: z.string().optional(),
+    refund_reference: z.string().nullish(),
+    // A string in Paystack's refund webhooks.
+    amount: z.union([z.string(), z.number()]).optional(),
+    currency: z.string().optional(),
+  })
+  .catch({});
+
+/** Refund outcomes where the money did not reach the customer. */
+const REFUND_NOT_RETURNED = new Set([
+  "refund.failed",
+  "refund.needs-attention",
+]);
+
+/**
+ * Refund lifecycle (https://paystack.com/docs/payments/refunds/): pending,
+ * processing, then processed, failed or needs-attention. We set
+ * `refunded_at` when Paystack accepts `POST /refund`; these events correct
+ * it. Matched to our row by `transaction_reference`.
+ *
+ * The state is derived from every refund event stored for the charge, not
+ * from this one alone, so the order they arrive in doesn't matter: any
+ * `refund.processed` means the money went back; otherwise a `failed` or
+ * `needs-attention` means it didn't, and the row's refund date is cleared,
+ * audited and billing managers are told.
+ */
+async function onRefund(
+  deps: BillingDeps,
+  tx: DbOrTx,
+  event: string,
+  data: unknown
+): Promise<Outcome> {
+  const parsed = refundPayload.parse(data);
+  const reference = parsed.transaction_reference ?? null;
+  if (!reference) {
+    await audit(tx, { organizationId: null, action: `paystack.${event}` });
+    return { error: "refund event without transaction_reference" };
+  }
+  const [row] = await tx
+    .select()
+    .from(schema.invoice)
+    .where(eq(schema.invoice.reference, reference))
+    .for("update");
+  const [intent] = row
+    ? []
+    : await tx
+        .select({ organizationId: schema.paymentIntent.organizationId })
+        .from(schema.paymentIntent)
+        .where(eq(schema.paymentIntent.id, reference));
+  const organizationId = row?.organizationId ?? intent?.organizationId ?? null;
+
+  const stored = await tx
+    .select({ eventType: schema.webhookEvent.eventType })
+    .from(schema.webhookEvent)
+    .where(
+      and(
+        like(schema.webhookEvent.eventType, "refund.%"),
+        sql`${schema.webhookEvent.payload}->'data'->>'transaction_reference' = ${reference}`
+      )
+    );
+  const seen = new Set([event, ...stored.map((e) => e.eventType)]);
+  const processed = seen.has("refund.processed");
+  const notReturned =
+    !processed && [...seen].some((e) => REFUND_NOT_RETURNED.has(e));
+
+  if (row && processed && !row.refundedAt && row.status === "void") {
+    await tx
+      .update(schema.invoice)
+      .set({ refundedAt: deps.now() })
+      .where(eq(schema.invoice.id, row.id));
+  }
+  if (row && notReturned && row.refundedAt) {
+    await tx
+      .update(schema.invoice)
+      .set({ refundedAt: null })
+      .where(eq(schema.invoice.id, row.id));
+  }
+  await audit(tx, {
+    organizationId,
+    action: `paystack.${event}`,
+    target: reference,
+    data: {
+      refundReference: parsed.refund_reference ?? null,
+      status: parsed.status ?? null,
+    },
+  });
+
+  if (REFUND_NOT_RETURNED.has(event) && !processed) {
+    deps.logger.error("refund did not reach the customer; act in Paystack", {
+      event,
+      reference,
+      refundReference: parsed.refund_reference ?? null,
+      organizationId,
+    });
+    if (organizationId) {
+      await deps.notify?.({
+        type: "refund_failed",
+        organizationId,
+        key: `${event}:${parsed.refund_reference ?? reference}`,
+        reference,
+        refundStatus: event === "refund.failed" ? "failed" : "needs-attention",
+        amountSubunit: row?.amountSubunit ?? null,
+        currency: row?.currency ?? parsed.currency ?? null,
+      });
+    }
   }
   return {};
 }

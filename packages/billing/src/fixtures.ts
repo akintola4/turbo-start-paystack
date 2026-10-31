@@ -264,3 +264,45 @@ export function expiringCards(input: {
     ],
   };
 }
+
+export type RefundStatus =
+  | "pending"
+  | "processing"
+  | "needs-attention"
+  | "failed"
+  | "processed";
+
+/**
+ * `refund.<status>` webhook, shaped after
+ * https://paystack.com/docs/payments/refunds/: the refunded charge is
+ * `transaction_reference`, the refund itself `refund_reference`, and the
+ * amount arrives as a string.
+ */
+export function refundEvent(input: {
+  status: RefundStatus;
+  transactionReference: string;
+  refundReference?: string;
+  amount: number;
+  currency: string;
+  customerEmail?: string;
+}) {
+  return {
+    event: `refund.${input.status}`,
+    data: {
+      status: input.status,
+      transaction_reference: input.transactionReference,
+      refund_reference:
+        input.refundReference ?? `RFD-${input.transactionReference}`,
+      amount: String(input.amount),
+      currency: input.currency,
+      processor: "mastercard",
+      customer: {
+        first_name: null,
+        last_name: null,
+        email: input.customerEmail ?? "customer@acme.test",
+      },
+      integration: 100032,
+      domain: "test",
+    },
+  };
+}

@@ -147,6 +147,18 @@ describe("notifyBillingAdmins", () => {
       { ...base, type: "dispute", key: "k7", reference: "tsp_9" },
       /was disputed/,
     ],
+    [
+      {
+        ...base,
+        type: "refund_failed",
+        key: "k8",
+        reference: "tsp-10",
+        refundStatus: "failed",
+        amountSubunit: 5000,
+        currency: "NGN",
+      },
+      /refund .* didn't go through/,
+    ],
   ])("%#: renders the %s template", async (notification, subject) => {
     const sent = await send(notification);
     expect(sent).toHaveLength(2);

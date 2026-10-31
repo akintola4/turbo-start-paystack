@@ -14,14 +14,14 @@ const customer = {
 };
 const fixtures = {
   "charge-success": chargeSuccess({
-    reference: "tsp_replace_me",
+    reference: "tsp-replace-me",
     amount: 3_000_000,
     currency: "NGN",
     customer,
     planCode: "PLN_replace_me",
     metadata: {
       organization_id: "replace_me",
-      payment_intent_id: "tsp_replace_me",
+      payment_intent_id: "tsp-replace-me",
     },
     paidAt: "2026-01-01T10:00:00.000Z",
     id: 1,

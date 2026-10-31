@@ -4,7 +4,7 @@
     "id": 1,
     "domain": "test",
     "status": "success",
-    "reference": "tsp_replace_me",
+    "reference": "tsp-replace-me",
     "amount": 3000000,
     "message": null,
     "gateway_response": "Successful",
@@ -15,7 +15,7 @@
     "ip_address": "41.1.25.1",
     "metadata": {
       "organization_id": "replace_me",
-      "payment_intent_id": "tsp_replace_me"
+      "payment_intent_id": "tsp-replace-me"
     },
     "fees": 100,
     "customer": {

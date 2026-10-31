@@ -369,6 +369,7 @@ is set.
 | Subscription cancelled | Cancelled in the app or on Paystack: access-until date and resume link |
 | Plan changed | Upgrade (prorated amount charged now) or downgrade (scheduled for period end) |
 | Trial started, card expiring, payment disputed | Paystack card-up-front trial starts, `subscription.expiring_cards`, `charge.dispute.create` |
+| Refund didn't go through | `refund.failed` or `refund.needs-attention`: the refund date is cleared and the error logged, since someone has to act in the Paystack dashboard |
 
 Billing emails go to every member who can manage billing (owner and the
 `billing` role), after the database change has committed.
@@ -455,13 +456,17 @@ must be verified) and can be used once.
   confirms the charge, whichever comes first, and only if the amount,
   currency and organization match what the server asked for.
 - **Trial (card up front).** On plans with `trialDays`, the first checkout is a
-  small card charge (NGN 50, GHS 0.10, ZAR 1, USD 0.20, KES 10). The card is
+  small card charge (NGN 50, GHS 0.10, ZAR 1, USD 2, KES 10). The card is
   saved, the charge is refunded, and a Paystack subscription is created that
   starts when the trial ends.
 - **Upgrade.** Immediate and prorated. The difference for the rest of the
   period is charged to the saved card, a new Paystack subscription is created
   from the current period end, and only then is the old one disabled. If the
-  card is declined, the customer pays the same amount through checkout.
+  card is declined, the customer pays the same amount through checkout. If
+  the charge errors without an answer (a timeout, say), the reference is
+  verified first; while Paystack can't confirm it either way, no checkout is
+  offered and the webhook or reconcile finishes the upgrade. A second payment
+  for an upgrade that already went through is refunded.
 - **Downgrade.** At the end of the period. The replacement subscription is
   created right away with a start date at period end, then the old one is
   disabled, so the old price cannot renew in between. Refused while the
