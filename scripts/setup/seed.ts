@@ -21,6 +21,8 @@ export const DEMO_USERS = [
   { name: "Chioma Eze", email: "chioma@kolalogistics.test", role: "member" },
 ] as const;
 
+type DemoUser = { name: string; email: string; role: string };
+
 const SILENT_MAILER: AuthMailer = {
   verifyEmail: async () => undefined,
   changeEmailApproval: async () => undefined,
@@ -32,8 +34,11 @@ export async function seedDemo(input: {
   db: Database;
   secret: string;
   baseURL: string;
+  /** Who to seed. Defaults to DEMO_USERS; `pnpm e2e` adds a viewer. */
+  users?: readonly DemoUser[];
 }): Promise<{ createdUsers: number; createdOrg: boolean }> {
   const { db } = input;
+  const users = input.users ?? DEMO_USERS;
   const { auth } = createAuth({
     db,
     secret: input.secret,
@@ -45,7 +50,7 @@ export async function seedDemo(input: {
 
   let createdUsers = 0;
   const ids = new Map<string, string>();
-  for (const user of DEMO_USERS) {
+  for (const user of users) {
     let [row] = await db
       .select({ id: schema.user.id })
       .from(schema.user)
@@ -79,7 +84,7 @@ export async function seedDemo(input: {
     org = { id: randomUUID() };
     await db.insert(schema.organization).values({ id: org.id, ...DEMO_ORG });
   }
-  for (const user of DEMO_USERS) {
+  for (const user of users) {
     const userId = ids.get(user.email) as string;
     const [member] = await db
       .select({ id: schema.member.id })
