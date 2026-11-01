@@ -4,6 +4,7 @@ import { eq, inArray, or } from "drizzle-orm";
 import { DEFAULT_INVOICING, issueInvoice } from "../invoicing";
 import { redactSecrets } from "../webhook/redact";
 import { type BillingDeps, newId } from "./context";
+import { syncRefundState } from "./refunds";
 
 type InvoiceStatus = "pending" | "paid" | "failed" | "void";
 type InvoiceRow = typeof schema.invoice.$inferSelect;
@@ -23,7 +24,8 @@ export type InvoiceInput = {
   kind?: "subscription" | "renewal" | "proration" | "card_check" | null;
   planPriceId?: string | null;
   card?: { brand?: string | null; last4?: string | null } | null;
-  refundedAt?: Date | null;
+  /** When Paystack accepted `POST /refund` for a void row. */
+  refundRequestedAt?: Date | null;
   raw?: unknown;
   /**
    * Which Paystack object this write comes from. Each one is the authority
@@ -60,6 +62,8 @@ function fold(row: InvoiceRow, other: InvoiceRow): InvoiceRow {
     planPriceId: pick(row.planPriceId, other.planPriceId),
     cardBrand: pick(row.cardBrand, other.cardBrand),
     cardLast4: pick(row.cardLast4, other.cardLast4),
+    refundRequestedAt: pick(row.refundRequestedAt, other.refundRequestedAt),
+    refundStatus: pick(row.refundStatus, other.refundStatus),
     refundedAt: pick(row.refundedAt, other.refundedAt),
   };
 }
@@ -92,7 +96,7 @@ function applyInput(row: InvoiceRow, input: InvoiceInput) {
       row.cardBrand
     ),
     cardLast4: by(charge, input.card?.last4, row.cardLast4),
-    refundedAt: pick(row.refundedAt, input.refundedAt),
+    refundRequestedAt: pick(row.refundRequestedAt, input.refundRequestedAt),
   };
 }
 
@@ -135,7 +139,7 @@ async function insertRow(tx: DbOrTx, input: InvoiceInput) {
       planPriceId: input.planPriceId ?? null,
       cardBrand: input.card?.last4 ? (input.card.brand?.trim() ?? null) : null,
       cardLast4: input.card?.last4 ?? null,
-      refundedAt: input.refundedAt ?? null,
+      refundRequestedAt: input.refundRequestedAt ?? null,
       raw: input.raw ? redactSecrets(input.raw) : null,
     })
     .onConflictDoNothing()
@@ -161,6 +165,11 @@ export async function upsertInvoice(
   // First time it is paid: number it and freeze seller, buyer and tax, in
   // this transaction. A no-op once issued.
   await issueInvoice(tx, deps.invoicing ?? DEFAULT_INVOICING, id, deps.now());
+  // A void row is a refund: give it its state, counting any refund
+  // webhook that arrived before the row did.
+  if (input.status === "void" && input.reference) {
+    await syncRefundState(deps, tx, input.reference);
+  }
   return id;
 }
 

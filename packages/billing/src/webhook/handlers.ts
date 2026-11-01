@@ -33,6 +33,7 @@ import {
   TERMINAL_STATUSES,
 } from "../service/context";
 import { upsertInvoice } from "../service/invoices";
+import { syncRefundState } from "../service/refunds";
 import { applyScheduledSwap } from "../service/sync-remote";
 
 const invoiceSchema = z.looseObject({
@@ -484,14 +485,11 @@ const REFUND_NOT_RETURNED = new Set([
 
 /**
  * Refund lifecycle (https://paystack.com/docs/payments/refunds/): pending,
- * processing, then processed, failed or needs-attention. We set
- * `refunded_at` when Paystack accepts `POST /refund`; these events correct
- * it. Matched to our row by `transaction_reference`.
- *
- * The state is derived from every refund event stored for the charge, not
- * from this one alone, so the order they arrive in doesn't matter: any
- * `refund.processed` means the money went back; otherwise a `failed` or
- * `needs-attention` means it didn't, and the row's refund date is cleared,
+ * processing, then processed, failed or needs-attention. Matched to our row
+ * by `transaction_reference`. The row's refund state is derived from every
+ * refund event stored for the charge (`syncRefundState`), so the order they
+ * arrive in doesn't matter: any `refund.processed` means the money went
+ * back. A `failed` or `needs-attention` that `processed` hasn't overtaken is
  * audited and billing managers are told.
  */
 async function onRefund(
@@ -506,11 +504,7 @@ async function onRefund(
     await audit(tx, { organizationId: null, action: `paystack.${event}` });
     return { error: "refund event without transaction_reference" };
   }
-  const [row] = await tx
-    .select()
-    .from(schema.invoice)
-    .where(eq(schema.invoice.reference, reference))
-    .for("update");
+  const { row, state } = await syncRefundState(deps, tx, reference, event);
   const [intent] = row
     ? []
     : await tx
@@ -519,32 +513,6 @@ async function onRefund(
         .where(eq(schema.paymentIntent.id, reference));
   const organizationId = row?.organizationId ?? intent?.organizationId ?? null;
 
-  const stored = await tx
-    .select({ eventType: schema.webhookEvent.eventType })
-    .from(schema.webhookEvent)
-    .where(
-      and(
-        like(schema.webhookEvent.eventType, "refund.%"),
-        sql`${schema.webhookEvent.payload}->'data'->>'transaction_reference' = ${reference}`
-      )
-    );
-  const seen = new Set([event, ...stored.map((e) => e.eventType)]);
-  const processed = seen.has("refund.processed");
-  const notReturned =
-    !processed && [...seen].some((e) => REFUND_NOT_RETURNED.has(e));
-
-  if (row && processed && !row.refundedAt && row.status === "void") {
-    await tx
-      .update(schema.invoice)
-      .set({ refundedAt: deps.now() })
-      .where(eq(schema.invoice.id, row.id));
-  }
-  if (row && notReturned && row.refundedAt) {
-    await tx
-      .update(schema.invoice)
-      .set({ refundedAt: null })
-      .where(eq(schema.invoice.id, row.id));
-  }
   await audit(tx, {
     organizationId,
     action: `paystack.${event}`,
@@ -555,7 +523,7 @@ async function onRefund(
     },
   });
 
-  if (REFUND_NOT_RETURNED.has(event) && !processed) {
+  if (REFUND_NOT_RETURNED.has(event) && state !== "processed") {
     deps.logger.error("refund did not reach the customer; act in Paystack", {
       event,
       reference,

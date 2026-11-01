@@ -7,6 +7,7 @@ import {
   type InvoicingConfig,
   splitInclusiveTax,
 } from "./invoicing";
+import type { RefundState } from "./refund-state";
 
 type InvoiceRow = typeof schema.invoice.$inferSelect;
 
@@ -36,6 +37,9 @@ export type InvoiceDocument = {
   buyer: InvoiceParty;
   issuedAt: string | null;
   paidAt: string | null;
+  /** A void row's refund: where it stands and when we asked. Null otherwise. */
+  refund: { state: RefundState; requestedAt: string | null } | null;
+  /** When Paystack processed the refund. */
   refundedAt: string | null;
   periodStart: string | null;
   periodEnd: string | null;
@@ -48,7 +52,8 @@ export type InvoiceDocument = {
     taxRateBp: number;
     /** What was charged. */
     totalSubunit: number;
-    /** Returned to the card (positive), or 0. */
+    /** Being returned or returned to the card (positive), or 0 when no
+     *  refund is under way or it failed. */
     refundedSubunit: number;
     /** What the customer paid in the end: total − refunded, or 0 unpaid. */
     paidSubunit: number;
@@ -85,7 +90,18 @@ function statusOf(row: InvoiceRow): InvoiceDocumentStatus {
   return row.status;
 }
 
-function titleOf(row: InvoiceRow, status: InvoiceDocumentStatus) {
+function refundOf(row: InvoiceRow): RefundState | null {
+  if (row.status !== "void") {
+    return null;
+  }
+  return row.refundStatus ?? (row.refundRequestedAt ? "pending" : "failed");
+}
+
+function titleOf(
+  row: InvoiceRow,
+  status: InvoiceDocumentStatus,
+  refund: RefundState | null
+) {
   if (row.kind === "card_check") {
     return "Card check";
   }
@@ -93,7 +109,7 @@ function titleOf(row: InvoiceRow, status: InvoiceDocumentStatus) {
     return "Invoice";
   }
   return {
-    refunded: "Refunded charge",
+    refunded: refund === "processed" ? "Refunded charge" : "Refund",
     failed: "Failed payment",
     pending: "Upcoming invoice",
     paid: "Receipt",
@@ -110,7 +126,7 @@ function chargeLine(row: InvoiceRow, amountSubunit: number): InvoiceLine {
     case "card_check":
       return {
         description: "Card check",
-        detail: "Saves the card for the trial. Refunded straight away.",
+        detail: "Saves the card for the trial. We refund it straight away.",
         amountSubunit,
       };
     case "proration":
@@ -148,14 +164,15 @@ export function buildInvoiceDocument(
     issued && row.netSubunit !== null && row.taxSubunit !== null
       ? { netSubunit: row.netSubunit, taxSubunit: row.taxSubunit }
       : splitInclusiveTax(total, taxRateBp);
-  const refunded = status === "refunded" ? total : 0;
+  const refund = refundOf(row);
+  const refunded = refund === "processed" || refund === "pending" ? total : 0;
 
   // A refund shows in the totals ("Refunded on …"), not as a second line.
   const lines = [chargeLine(row, split.netSubunit)];
   return {
     id: row.id,
     number: row.number,
-    title: titleOf(row, status),
+    title: titleOf(row, status, refund),
     status,
     kind: row.kind ?? (row.paystackInvoiceCode ? "renewal" : "subscription"),
     currency: row.currency,
@@ -163,6 +180,9 @@ export function buildInvoiceDocument(
     buyer: row.buyer ?? current.buyer,
     issuedAt: iso(row.issuedAt ?? row.paidAt ?? row.createdAt),
     paidAt: iso(row.paidAt),
+    refund: refund
+      ? { state: refund, requestedAt: iso(row.refundRequestedAt) }
+      : null,
     refundedAt: iso(row.refundedAt),
     periodStart: iso(row.periodStart),
     periodEnd: iso(row.periodEnd),

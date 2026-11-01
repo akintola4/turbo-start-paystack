@@ -28,6 +28,7 @@ import { cookies, headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { formatDate, maskEmail } from "@/lib/format";
+import { invoiceBadgeStatus } from "@/lib/invoice-status";
 import { nextChargeLabel } from "@/lib/payment-copy";
 import { deleteBlock, deleteBlockMessage } from "@/lib/org-settings";
 import {
@@ -163,6 +164,7 @@ function invoiceRow(invoice: Invoice, orgSlug: string): InvoiceRow {
     amountSubunit: Number(invoice.amountSubunit),
     currency: invoice.currency,
     status: invoice.status,
+    badge: invoiceBadgeStatus(invoice.status, invoice.refundStatus),
     href,
     pdfHref: `${href}/pdf`,
   };
@@ -172,6 +174,8 @@ function cardCheckRow(invoice: Invoice, orgSlug: string): CardCheckRow {
   return {
     id: invoice.id,
     date: invoiceDate(invoice).toISOString(),
+    badge: invoiceBadgeStatus(invoice.status, invoice.refundStatus),
+    refundRequestedAt: iso(invoice.refundRequestedAt),
     refundedAt: iso(invoice.refundedAt),
     amountLabel: formatMoney(
       Number(invoice.amountSubunit),

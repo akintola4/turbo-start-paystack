@@ -24,7 +24,7 @@ export function paymentOutcome(
     return {
       kind: "success",
       title: "Trial started",
-      description: `${sub.planName} is on. First charge ${sub.priceLabel} on ${formatDate(sub.trialEndsAt, "short")}; the card check was refunded.`,
+      description: `${sub.planName} is on. First charge ${sub.priceLabel} on ${formatDate(sub.trialEndsAt, "short")}; we're refunding the card check.`,
     };
   }
   if (payment === "succeeded" && sub) {

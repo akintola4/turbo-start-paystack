@@ -180,4 +180,26 @@ describe("invoice items", () => {
     );
     expect(item.subtitle).toBe("₦10,000.00 · Paid · 12 Sep 2027");
   });
+
+  it("say where a refund stands, not just 'Refunded'", async () => {
+    const { invoiceItem } = await import("../src/server/search");
+    const item = (refundStatus: string) =>
+      invoiceItem(
+        {
+          id: "inv_2",
+          number: null,
+          amountSubunit: 1_000_000,
+          currency: "NGN",
+          status: "void",
+          refundStatus,
+          description: "Plan upgrade (refunded)",
+          paidAt: new Date("2027-09-12T10:00:00Z"),
+          createdAt: new Date("2027-09-12T10:00:00Z"),
+        } as unknown as Parameters<typeof invoiceItem>[0],
+        "kola-logistics"
+      ).subtitle;
+    expect(item("pending")).toBe("₦10,000.00 · Refund pending · 12 Sep 2027");
+    expect(item("processed")).toBe("₦10,000.00 · Refunded · 12 Sep 2027");
+    expect(item("failed")).toBe("₦10,000.00 · Refund failed · 12 Sep 2027");
+  });
 });

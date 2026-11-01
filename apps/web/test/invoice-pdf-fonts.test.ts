@@ -19,6 +19,7 @@ const doc: InvoiceDocument = {
   buyer: { name: "Kola Logistics" },
   issuedAt: "2026-11-12T09:00:00.000Z",
   paidAt: "2026-11-12T09:00:00.000Z",
+  refund: null,
   refundedAt: null,
   periodStart: "2026-11-12T00:00:00.000Z",
   periodEnd: "2026-12-12T00:00:00.000Z",

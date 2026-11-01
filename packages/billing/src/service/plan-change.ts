@@ -405,7 +405,7 @@ export async function changePlan(
             description: "Plan upgrade (refunded)",
             kind: "proration",
             planPriceId: target.id,
-            refundedAt: now,
+            refundRequestedAt: now,
           });
           return { failed: error };
         }

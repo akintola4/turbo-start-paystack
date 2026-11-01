@@ -30,7 +30,12 @@ import {
 } from "@/lib/brand";
 import { formatDate, splitMoney } from "@/lib/format";
 import { spokenMoney } from "@/lib/money";
-import type { InvoiceRow, SubscriptionStatus } from "@/lib/view-models";
+import {
+  INVOICE_BADGE_LABEL,
+  type InvoiceBadgeStatus,
+  REFUND_BADGES,
+} from "@/lib/invoice-status";
+import type { SubscriptionStatus } from "@/lib/view-models";
 
 /**
  * The product mark: a woven 3×3 grid on a forest tile, the middle column
@@ -120,13 +125,16 @@ const SUBSCRIPTION_STATUS: Record<
 };
 
 const INVOICE_STATUS: Record<
-  InvoiceRow["status"],
-  { label: string; icon: LucideIcon; variant: StatusVariant }
+  InvoiceBadgeStatus,
+  { icon: LucideIcon; variant: StatusVariant }
 > = {
-  paid: { label: "Paid", icon: CheckIcon, variant: "success" },
-  failed: { label: "Failed", icon: XIcon, variant: "destructive" },
-  void: { label: "Refunded", icon: Undo2Icon, variant: "quiet" },
-  pending: { label: "Pending", icon: ClockIcon, variant: "info" },
+  paid: { icon: CheckIcon, variant: "success" },
+  failed: { icon: XIcon, variant: "destructive" },
+  pending: { icon: ClockIcon, variant: "info" },
+  refund_pending: { icon: ClockIcon, variant: "info" },
+  refunded: { icon: Undo2Icon, variant: "quiet" },
+  refund_failed: { icon: CircleXIcon, variant: "destructive" },
+  refund_delayed: { icon: TriangleAlertIcon, variant: "warning" },
 };
 
 /**
@@ -180,19 +188,40 @@ export function StatusBadge({
   );
 }
 
+/**
+ * A refund chip is as wide as the widest refund label, so it doesn't change
+ * width as the refund moves from pending to refunded (or failed).
+ */
 export function InvoiceBadge({
   status,
   className,
 }: {
-  status: InvoiceRow["status"];
+  status: InvoiceBadgeStatus;
   className?: string;
 }) {
   const meta = INVOICE_STATUS[status];
   const Icon = meta.icon;
+  const isRefund = (REFUND_BADGES as readonly string[]).includes(status);
   return (
-    <Badge className={className} variant={meta.variant}>
+    <Badge
+      className={cn(isRefund && "justify-start", className)}
+      variant={meta.variant}
+    >
       <Icon aria-hidden />
-      {meta.label}
+      {isRefund ? (
+        <span className="grid">
+          {REFUND_BADGES.map((s) => (
+            <span
+              className={cn("[grid-area:1/1]", s !== status && "invisible")}
+              key={s}
+            >
+              {INVOICE_BADGE_LABEL[s]}
+            </span>
+          ))}
+        </span>
+      ) : (
+        INVOICE_BADGE_LABEL[status]
+      )}
     </Badge>
   );
 }

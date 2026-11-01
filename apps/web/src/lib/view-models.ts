@@ -2,6 +2,7 @@
  * Serializable view models. Server loaders in `server/views.ts` build them;
  * page components render them.
  */
+import type { InvoiceBadgeStatus } from "@/lib/invoice-status";
 import type { PlanState } from "@/lib/plan-state";
 import type { SeatUsage } from "@/lib/seats";
 
@@ -74,15 +75,21 @@ export type InvoiceRow = {
   amountSubunit: number;
   currency: string;
   status: "pending" | "paid" | "failed" | "void";
+  /** The chip: for a void row, where its refund stands. */
+  badge: InvoiceBadgeStatus;
   href: string;
   pdfHref: string;
 };
 
-/** A trial's refunded card check: kept apart from invoices. */
+/** A trial's card check, refunded straight away: kept apart from invoices. */
 export type CardCheckRow = {
   id: string;
   /** ISO. */
   date: string;
+  badge: InvoiceBadgeStatus;
+  /** ISO. When we asked Paystack for the refund. */
+  refundRequestedAt: string | null;
+  /** ISO. When Paystack processed it. */
   refundedAt: string | null;
   amountLabel: string;
   href: string;

@@ -203,9 +203,11 @@ async function startTrialFromCharge(
   if (!(price && plan && row?.paystackPlanCode && customer)) {
     return { error: "trial plan or customer missing" };
   }
+  /** True when Paystack accepted the refund request. */
   const refund = async () => {
     try {
       await deps.paystack.refund({ transaction: data.reference });
+      return true;
     } catch (error) {
       deps.logger.warn("tokenisation refund failed", {
         reference: data.reference,
@@ -216,6 +218,7 @@ async function startTrialFromCharge(
         action: "billing.refund_failed",
         target: data.reference,
       });
+      return false;
     }
   };
 
@@ -261,7 +264,7 @@ async function startTrialFromCharge(
         : null,
     })
     .where(eq(schema.subscription.id, subscriptionId));
-  await refund();
+  const refundAccepted = await refund();
   await upsertInvoice(deps, tx, {
     source: "charge",
     organizationId: intent.organizationId,
@@ -275,7 +278,7 @@ async function startTrialFromCharge(
     kind: "card_check",
     planPriceId: intent.planPriceId,
     card: data.authorization,
-    refundedAt: now,
+    refundRequestedAt: refundAccepted ? now : null,
   });
   await audit(tx, {
     organizationId: intent.organizationId,
@@ -431,8 +434,8 @@ const STALE_DESCRIPTION: Record<string, string> = {
 };
 
 /** The money for a stale upgrade goes back; the plan does not change. A
- *  failed refund is left on the audit log (and the void invoice without a
- *  refund date) for someone to settle, and is retried if the charge is
+ *  failed refund is left on the audit log (and the void invoice without a refund
+ *  request date) for someone to settle, and is retried if the charge is
  *  applied again. */
 async function refundStaleUpgrade(
   deps: BillingDeps,
@@ -447,16 +450,16 @@ async function refundStaleUpgrade(
     .set({ status: "failed" })
     .where(eq(schema.paymentIntent.id, intent.id));
   const [existing] = await tx
-    .select({ refundedAt: schema.invoice.refundedAt })
+    .select({ requestedAt: schema.invoice.refundRequestedAt })
     .from(schema.invoice)
     .where(eq(schema.invoice.reference, data.reference));
-  if (existing?.refundedAt) {
+  if (existing?.requestedAt) {
     return { error: `stale_upgrade:${reason}` };
   }
-  let refundedAt: Date | null = null;
+  let refundRequestedAt: Date | null = null;
   try {
     await deps.paystack.refund({ transaction: data.reference });
-    refundedAt = deps.now();
+    refundRequestedAt = deps.now();
   } catch (error) {
     deps.logger.error("refund of a stale upgrade charge failed", {
       reference: data.reference,
@@ -483,14 +486,18 @@ async function refundStaleUpgrade(
     kind: "proration",
     planPriceId: intent.planPriceId,
     card: data.authorization,
-    refundedAt,
+    refundRequestedAt,
   });
   await audit(tx, {
     organizationId: intent.organizationId,
     actorUserId: intent.createdByUserId,
     action: "billing.stale_upgrade_refunded",
     target: data.reference,
-    data: { reason, planPriceId: intent.planPriceId, refunded: !!refundedAt },
+    data: {
+      reason,
+      planPriceId: intent.planPriceId,
+      refunded: !!refundRequestedAt,
+    },
   });
   return { error: `stale_upgrade:${reason}` };
 }

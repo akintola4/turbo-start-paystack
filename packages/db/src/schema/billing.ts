@@ -54,6 +54,16 @@ export const invoiceStatus = pgEnum("invoice_status", [
   "void",
 ]);
 
+/** Where a void row's refund stands, after Paystack's refund lifecycle
+ *  (https://paystack.com/docs/payments/refunds/). `pending` covers Paystack's
+ *  pending and processing; `processed` means the money left Paystack. */
+export const refundStatus = pgEnum("refund_status", [
+  "pending",
+  "processed",
+  "failed",
+  "needs_attention",
+]);
+
 /** What an invoice row is for. `card_check` is the refundable charge that
  *  saves a card for a trial: not a sale, so it never gets an invoice number. */
 export const invoiceKind = pgEnum("invoice_kind", [
@@ -197,7 +207,11 @@ export const invoice = pgTable(
     planPriceId: text("plan_price_id").references(() => planPrice.id),
     cardBrand: text("card_brand"),
     cardLast4: text("card_last4"),
-    // When a void row's money went back to the card.
+    // A void row's refund: when Paystack accepted `POST /refund`, where it
+    // stands, and when Paystack processed it. Written only by the refund
+    // request and the refund webhooks (service/refunds.ts).
+    refundRequestedAt: timestamp("refund_requested_at", tz),
+    refundStatus: refundStatus("refund_status"),
     refundedAt: timestamp("refunded_at", tz),
     // Issued once, when the invoice is first paid, inside the same
     // transaction: "INV-2026-000123", gap-free per year (invoice_sequence).
