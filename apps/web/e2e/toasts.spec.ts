@@ -1,45 +1,36 @@
 import { expect, type Page, test } from "@playwright/test";
 
-/*
- * Every user action should answer with a toast. These run against the seeded
- * demo data (see README): ada@kolalogistics.test owns Kola Logistics.
- */
+import { STATE, USERS } from "./users";
 
-const OWNER = {
-  email: process.env.E2E_EMAIL ?? "ada@kolalogistics.test",
-  password: process.env.E2E_PASSWORD ?? "demo-password-2026",
-};
+/*
+ * Every user action should answer with a toast. These run against the e2e
+ * stack (`pnpm e2e`): Ada owns Kola Logistics, Wanjiru is its viewer.
+ */
 
 const toast = (page: Page, text: string | RegExp) =>
   page.locator("[data-sonner-toast]").filter({ hasText: text });
 
-async function signIn(page: Page) {
-  const res = await page.request.post("/api/auth/sign-in/email", {
-    data: OWNER,
-    headers: {
-      origin: new URL(
-        page.url() === "about:blank" ? "http://localhost:3200" : page.url()
-      ).origin,
-      // Better Auth rate-limits by IP; give each run its own.
-      "x-forwarded-for": `10.77.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`,
-    },
-  });
-  expect(res.ok()).toBeTruthy();
-}
-
-test("a wrong password says so in a toast", async ({ page }) => {
+// Sign-in errors are the exception: they show next to the form (5a34faa),
+// where the field they're about is.
+test("a wrong password says so next to the form, not in a toast", async ({
+  page,
+}) => {
   await page.goto("/sign-in");
-  await page.getByLabel("Work email").fill(OWNER.email);
+  await page.getByLabel("Work email").fill(USERS.ada);
   await page.getByLabel("Password").fill("not-the-password");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(toast(page, "Couldn't sign in")).toBeVisible();
+  await expect(page.locator("#auth-error")).toHaveText(
+    "That email and password don't match an account."
+  );
+  await expect(page.getByLabel("Password")).toHaveAttribute(
+    "aria-invalid",
+    "true"
+  );
+  await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
 });
 
 test.describe("signed in", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await signIn(page);
-  });
+  test.use({ storageState: STATE.ada });
 
   test("create an org, invite someone, and start a paid plan through Paystack", async ({
     page,
@@ -64,10 +55,11 @@ test.describe("signed in", () => {
       .first()
       .click();
     // The local Paystack mock's hosted checkout page.
-    await page.waitForURL(/localhost:4011\/checkout\//);
+    await page.waitForURL(/\/checkout\/acc_/);
     await page.getByRole("button", { name: /Pay with test card/ }).click();
     await page.waitForURL(/settings\/billing/);
-    await expect(toast(page, "Payment confirmed")).toBeVisible({
+    // A trial start only checks the card, so it says the trial started.
+    await expect(toast(page, "Trial started")).toBeVisible({
       timeout: 25_000,
     });
   });

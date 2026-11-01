@@ -115,11 +115,26 @@ test("an unknown email and a wrong password fail the same way", async ({
     await page.goto("/sign-in");
     await page.locator("#email").fill(as);
     await page.locator("#password").fill(password);
-    await page.getByRole("button", { name: "Sign in" }).click();
     const mark = page.locator(".auth-mosaic");
+    // Count the shakes as they start: the shake lasts 420ms, which can be
+    // over before a check after the response would see it.
+    await mark.evaluate((el) => {
+      const seen = new Set<Animation>();
+      (window as unknown as { __shakes: Set<Animation> }).__shakes = seen;
+      const watch = () => {
+        for (const a of el.getAnimations()) {
+          seen.add(a);
+        }
+        requestAnimationFrame(watch);
+      };
+      watch();
+    });
+    await page.getByRole("button", { name: "Sign in" }).click();
     await expect(mark).toHaveAttribute("data-error", "");
-    const shakes = await mark.evaluate((el) => el.getAnimations().length);
     await page.waitForTimeout(800);
+    const shakes = await page.evaluate(
+      () => (window as unknown as { __shakes: Set<Animation> }).__shakes.size
+    );
     return {
       shakes,
       caption: await page.locator(".auth-panel__line").innerText(),
