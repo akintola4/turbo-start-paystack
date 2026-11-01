@@ -1,5 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
+import { STATE } from "./users";
+
 /*
  * Layout checks for animated amounts (NumberFlow). Each amount is one
  * element: symbol, digits and unit share a baseline, the unit sits the same
@@ -73,17 +75,6 @@ function expectEvenGaps(probes: Probe[]) {
   expect(Math.max(...gaps) - Math.min(...gaps)).toBeLessThanOrEqual(1);
 }
 
-async function signIn(page: Page) {
-  const res = await page.request.post("/api/auth/sign-in/email", {
-    data: { email: "ada@kolalogistics.test", password: "demo-password-2026" },
-    headers: {
-      origin: "http://localhost:3200",
-      "x-forwarded-for": `10.78.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`,
-    },
-  });
-  expect(res.ok()).toBeTruthy();
-}
-
 test("landing preview and plan tiles share a baseline and even gaps", async ({
   page,
 }) => {
@@ -97,11 +88,9 @@ test("landing preview and plan tiles share a baseline and even gaps", async ({
   expectEvenGaps(tiles);
 });
 
+// The setup project puts Kola Logistics on Pro (₦30,000 a month).
 test.describe("billing", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await signIn(page);
-  });
+  test.use({ storageState: STATE.ada });
 
   test("hero and plan tiles, monthly and annually", async ({ page }) => {
     await page.goto("/app/kola-logistics/settings/billing?interval=monthly");

@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+import { STATE } from "./users";
+
 /*
  * The landing header knows who is signed in: visitors get "Sign in" and the
  * demo sign-up, signed-in users get a way back into the app instead of being
- * asked to sign in again. Needs the database (it signs in as the demo owner).
+ * asked to sign in again. Needs the database (the demo owner's session).
  */
-
-const PASSWORD = process.env.E2E_PASSWORD ?? "kola-demo-2026";
 
 test("a visitor is offered sign in and the demo", async ({ page }) => {
   await page.goto("/");
@@ -20,21 +20,18 @@ test("a visitor is offered sign in and the demo", async ({ page }) => {
   ).toHaveAttribute("href", "/sign-up");
 });
 
-test("a signed-in user is offered the dashboard", async ({ page, baseURL }) => {
-  const res = await page.request.post("/api/auth/sign-in/email", {
-    data: { email: "ada@kolalogistics.test", password: PASSWORD },
-    headers: { origin: baseURL ?? "" },
-  });
-  expect(res.ok()).toBe(true);
+test.describe("signed in", () => {
+  test.use({ storageState: STATE.ada });
 
-  await page.goto("/");
-  const header = page.getByRole("navigation", { name: "Primary" });
-  await expect(header.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
-    "href",
-    "/app"
-  );
-  await expect(header.getByRole("link", { name: "Sign in" })).toHaveCount(0);
-  await expect(
-    page.getByRole("link", { name: "Open your dashboard" })
-  ).toHaveAttribute("href", "/app");
+  test("a signed-in user is offered the dashboard", async ({ page }) => {
+    await page.goto("/");
+    const header = page.getByRole("navigation", { name: "Primary" });
+    await expect(
+      header.getByRole("link", { name: "Dashboard" })
+    ).toHaveAttribute("href", "/app");
+    await expect(header.getByRole("link", { name: "Sign in" })).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Open your dashboard" })
+    ).toHaveAttribute("href", "/app");
+  });
 });
