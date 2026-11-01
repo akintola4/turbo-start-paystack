@@ -293,6 +293,7 @@ pnpm lint              # Biome
 pnpm format            # Biome format
 pnpm check-types       # TypeScript
 pnpm test              # Vitest in every package
+pnpm e2e               # Playwright, against a fresh e2e database and the mock
 pnpm db:generate       # new migration after a schema change
 pnpm db:migrate        # apply migrations
 pnpm billing:sync      # create Paystack plans from the catalog
@@ -322,10 +323,53 @@ Webhook tests use payloads built from Paystack's documented examples
 (`packages/billing/src/fixtures.ts`). Behaviour that still has to be confirmed
 against real Paystack test mode is listed in `docs/paystack-verification.md`.
 
-Browser checks live in `apps/web/e2e` (Playwright). They aren't part of
-`pnpm test`: start the app with the mock, then run
-`pnpm --filter web test:e2e` (it expects `http://localhost:3200`, or set
-`E2E_BASE_URL`).
+### Browser tests (Playwright)
+
+Browser checks live in `apps/web/e2e`. They aren't part of `pnpm test`.
+`pnpm e2e` runs them from a clean state, with no Paystack keys:
+
+```bash
+pnpm --filter web exec playwright install chromium  # once
+pnpm e2e                                            # the whole suite
+pnpm e2e e2e/settings.spec.ts --workers=1           # Playwright flags pass through
+```
+
+Each run:
+
+1. drops and recreates the e2e database, migrates it, and seeds the demo
+   organization plus a viewer (Wanjiru Kamau). The database is
+   `DATABASE_URL` from `apps/web/.env` with `_e2e` added to its name, or
+   `E2E_DATABASE_URL`. Since it is dropped, it must be on localhost and its
+   name must end in `_e2e`;
+2. starts the Paystack mock (port 4210, `E2E_MOCK_PORT`) with its own state
+   file and creates the plans on it;
+3. starts `next dev` on port 3200 (`E2E_PORT`) against the mock, runs
+   Playwright, then stops both.
+
+Whatever `apps/web/.env` says, the run points Paystack at the mock, drops
+the public key (no inline popup) and `RESEND_API_KEY` (emails are only
+logged), and bills in NGN. It also sets `E2E_AUTH_RATE_LIMIT_SCALE`, which
+raises Better Auth's limits (five sign-ins a minute) only when `NODE_ENV`
+isn't `production` and Paystack is the local mock.
+
+Playwright's `setup` project runs first. It signs Ada, Tunde, Chioma and
+Wanjiru in once and saves each session to `apps/web/e2e/.auth/` (specs reuse
+them with `test.use({ storageState: STATE.ada })`). Then it puts Kola
+Logistics on a paid Pro plan the way a person would: "Start 14-day trial"
+on Pro, "Pay with test card" on the mock's checkout, then "End the trial" in
+the Simulate billing panel, which leaves an invoice. No billing row is
+written by hand. `settings.spec.ts` renames the org and moves its address
+(and puts both back), so it runs last, on its own.
+
+To iterate on one spec without restarting the app each time:
+
+```bash
+pnpm e2e --serve                                    # set up, start, wait
+pnpm --filter web test:e2e e2e/toasts.spec.ts       # in another terminal
+```
+
+`--serve` resets the database once; the setup project skips what is already
+done, so repeat runs against it work too.
 
 ## Paystack dashboard setup
 
