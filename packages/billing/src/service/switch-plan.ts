@@ -70,12 +70,27 @@ export async function retireSubscription(
   }
 }
 
+/** Why `switchPlanNow` didn't switch, and when Paystack accepted the refund
+ *  of its `refundReference` (null when none was given or Paystack refused
+ *  it), so the void row for that charge shows the refund that was asked for. */
+export class PlanSwitchError extends BillingError {
+  readonly refundRequestedAt: Date | null;
+
+  constructor(error: BillingError, refundRequestedAt: Date | null) {
+    super(error.code, error.message);
+    this.refundRequestedAt = refundRequestedAt;
+  }
+}
+
 /**
  * Moves an organization to another plan now, keeping its billing date:
  * 1. create the new Paystack subscription starting at the current period end,
  * 2. only then retire the old one.
- * If step 1 fails nothing has changed on Paystack (the caller refunds any
- * proration it took). Plan PLAN §2.3 #10 is the bug this ordering avoids.
+ * Any failure before step 2 (target plan not synced, no billing customer, no
+ * card, Paystack refusing the new subscription) leaves the subscription as it
+ * was, is audited, and refunds `refundReference` when one is given: a
+ * proration taken for this switch is never kept for a switch that didn't
+ * happen. Plan PLAN §2.3 #10 is the bug this ordering avoids.
  */
 export async function switchPlanNow(
   deps: BillingDeps,
@@ -83,16 +98,61 @@ export async function switchPlanNow(
   sub: SubscriptionRow,
   input: {
     targetPlanPriceId: string;
-    authorizationCode: string;
+    authorizationCode: string | null;
     actorUserId?: string | null;
     newCard?: Partial<SubscriptionRow>;
     refundReference?: string;
   }
 ) {
+  const failed = async (error: BillingError, cause: unknown = error) => {
+    let refundRequestedAt: Date | null = null;
+    if (input.refundReference) {
+      try {
+        await deps.paystack.refund({ transaction: input.refundReference });
+        refundRequestedAt = deps.now();
+      } catch (refundError) {
+        deps.logger.error("refund after failed upgrade also failed", {
+          reference: input.refundReference,
+          error: String(refundError),
+        });
+        await audit(tx, {
+          organizationId: sub.organizationId,
+          action: "billing.refund_failed",
+          target: input.refundReference,
+          data: { reason: "upgrade_failed" },
+        });
+      }
+    }
+    await audit(tx, {
+      organizationId: sub.organizationId,
+      actorUserId: input.actorUserId,
+      action: "billing.plan_change_failed",
+      data: {
+        to: input.targetPlanPriceId,
+        code: error.code,
+        error: String(cause),
+      },
+    });
+    return new PlanSwitchError(error, refundRequestedAt);
+  };
+
   const row = await planPriceRow(tx, input.targetPlanPriceId);
   const customer = await billingCustomer(tx, sub.organizationId);
   if (!(row?.paystackPlanCode && customer)) {
-    throw new BillingError("plan_not_synced", "Target plan is not synced");
+    throw await failed(
+      new BillingError(
+        "plan_not_synced",
+        "The new plan isn't set up yet. Any proration charge was refunded."
+      )
+    );
+  }
+  if (!input.authorizationCode) {
+    throw await failed(
+      new BillingError(
+        "no_card",
+        "No reusable card for the upgrade. Any proration charge was refunded."
+      )
+    );
   }
   const startDate =
     sub.trialEndsAt && sub.status === "trialing"
@@ -108,25 +168,12 @@ export async function switchPlanNow(
       start_date: startDate.toISOString(),
     });
   } catch (error) {
-    if (input.refundReference) {
-      try {
-        await deps.paystack.refund({ transaction: input.refundReference });
-      } catch (refundError) {
-        deps.logger.error("refund after failed upgrade also failed", {
-          reference: input.refundReference,
-          error: String(refundError),
-        });
-      }
-    }
-    await audit(tx, {
-      organizationId: sub.organizationId,
-      actorUserId: input.actorUserId,
-      action: "billing.plan_change_failed",
-      data: { to: input.targetPlanPriceId, error: String(error) },
-    });
-    throw new BillingError(
-      "upgrade_failed",
-      "Could not create the new subscription. Any proration charge was refunded."
+    throw await failed(
+      new BillingError(
+        "upgrade_failed",
+        "Could not create the new subscription. Any proration charge was refunded."
+      ),
+      error
     );
   }
 

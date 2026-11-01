@@ -24,7 +24,7 @@ import {
 } from "./context";
 import { upsertInvoice } from "./invoices";
 import { createOrAdoptSubscription } from "./paystack-subscription";
-import { switchPlanNow } from "./switch-plan";
+import { PlanSwitchError, switchPlanNow } from "./switch-plan";
 import { resyncSubscription } from "./sync-remote";
 
 /**
@@ -297,7 +297,12 @@ async function startTrialFromCharge(
 }
 
 /** The upgrade's proration was paid through checkout (fallback) or arrived
- *  late: finish the plan switch. */
+ *  late: finish the plan switch. If the switch can't be made (target plan
+ *  not synced, no billing customer or card, Paystack refusing the new
+ *  subscription) switchPlanNow refunds the charge and it is recorded void.
+ *  A later delivery of the same charge finds that void row and goes the
+ *  stale way: no switch, even if one would now succeed, and no second
+ *  refund unless Paystack refused the first. */
 async function finalizeUpgradeFromCharge(
   deps: BillingDeps,
   tx: DbOrTx,
@@ -306,18 +311,71 @@ async function finalizeUpgradeFromCharge(
 ): Promise<Outcome> {
   const sub = await liveSubscription(tx, intent.organizationId, { lock: true });
   const paidAt = data.paid_at ? new Date(data.paid_at) : deps.now();
+  const [prior] = await tx
+    .select({ status: schema.invoice.status })
+    .from(schema.invoice)
+    .where(eq(schema.invoice.reference, data.reference));
   const stale =
+    (prior?.status === "void" ? "upgrade_failed" : null) ??
     staleUpgradeReason(intent, sub, paidAt) ??
     (sub && alreadyUpgraded(sub.planPriceId, intent.planPriceId)
       ? "already_upgraded"
       : null);
-  if (stale) {
-    return refundStaleUpgrade(deps, tx, intent, data, sub, stale);
+  if (stale || !sub) {
+    return refundStaleUpgrade(
+      deps,
+      tx,
+      intent,
+      data,
+      sub,
+      stale ?? "no_subscription"
+    );
+  }
+  const newCard = cardFields(deps, data.authorization, data.customer?.email);
+  const authorizationCode =
+    (data.authorization?.reusable
+      ? data.authorization.authorization_code
+      : null) ?? unseal(deps, sub.authorizationCode);
+  try {
+    await switchPlanNow(deps, tx, sub, {
+      targetPlanPriceId: intent.planPriceId,
+      authorizationCode,
+      actorUserId: intent.createdByUserId,
+      newCard,
+      refundReference: data.reference,
+    });
+  } catch (error) {
+    if (!(error instanceof BillingError)) {
+      throw error;
+    }
+    // switchPlanNow changed nothing, audited the failure and refunded the
+    // charge; the void row records whether Paystack accepted that refund.
+    await tx
+      .update(schema.paymentIntent)
+      .set({ status: "failed" })
+      .where(eq(schema.paymentIntent.id, intent.id));
+    await upsertInvoice(deps, tx, {
+      source: "charge",
+      organizationId: intent.organizationId,
+      subscriptionId: sub.id,
+      reference: data.reference,
+      amountSubunit: data.amount,
+      currency: data.currency,
+      status: "void",
+      paidAt,
+      description: "Plan upgrade (refunded)",
+      kind: "proration",
+      planPriceId: intent.planPriceId,
+      card: data.authorization,
+      refundRequestedAt:
+        error instanceof PlanSwitchError ? error.refundRequestedAt : null,
+    });
+    return { error: error.code };
   }
   await upsertInvoice(deps, tx, {
     source: "charge",
     organizationId: intent.organizationId,
-    subscriptionId: sub?.id ?? null,
+    subscriptionId: sub.id,
     reference: data.reference,
     amountSubunit: data.amount,
     currency: data.currency,
@@ -328,31 +386,6 @@ async function finalizeUpgradeFromCharge(
     planPriceId: intent.planPriceId,
     card: data.authorization,
   });
-  if (!sub) {
-    return {};
-  }
-  const newCard = cardFields(deps, data.authorization, data.customer?.email);
-  const authorizationCode =
-    (data.authorization?.reusable
-      ? data.authorization.authorization_code
-      : null) ?? unseal(deps, sub.authorizationCode);
-  if (!authorizationCode) {
-    return { error: "no reusable card for upgrade" };
-  }
-  try {
-    await switchPlanNow(deps, tx, sub, {
-      targetPlanPriceId: intent.planPriceId,
-      authorizationCode,
-      actorUserId: intent.createdByUserId,
-      newCard,
-      refundReference: data.reference,
-    });
-  } catch (error) {
-    if (error instanceof BillingError) {
-      return { error: error.code };
-    }
-    throw error;
-  }
   await deps.notify?.({
     type: "plan_changed",
     organizationId: intent.organizationId,
@@ -431,6 +464,7 @@ export function alreadyUpgraded(
 
 const STALE_DESCRIPTION: Record<string, string> = {
   already_upgraded: "Plan upgrade (already paid, refunded)",
+  upgrade_failed: "Plan upgrade (refunded)",
 };
 
 /** The money for a stale upgrade goes back; the plan does not change. A

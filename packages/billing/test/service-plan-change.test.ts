@@ -1177,3 +1177,171 @@ describe("an upgrade charge whose answer was lost (no double charge)", () => {
     );
   });
 });
+
+describe("an upgrade whose target plan or customer isn't ready (no kept proration)", () => {
+  const TARGET = "pro-monthly-ngn";
+
+  async function setPlanCode(code: string | null) {
+    await h.db
+      .update(schema.planPrice)
+      .set({ paystackPlanCode: code })
+      .where(eq(schema.planPrice.id, TARGET));
+  }
+  afterEach(() => setPlanCode(planCode(TARGET)));
+
+  const deleteCustomer = (organizationId: string) =>
+    h.db
+      .delete(schema.billingCustomer)
+      .where(eq(schema.billingCustomer.organizationId, organizationId));
+
+  const failedAudits = (organizationId: string) =>
+    h.db
+      .select()
+      .from(schema.auditLog)
+      .where(
+        and(
+          eq(schema.auditLog.organizationId, organizationId),
+          eq(schema.auditLog.action, "billing.plan_change_failed")
+        )
+      );
+
+  for (const missing of ["plan code", "billing customer"] as const) {
+    it(`refuses before any money moves when the ${missing} is missing`, async () => {
+      const { organizationId, actor, sub } = await h.subscribe(
+        "starter-monthly-ngn"
+      );
+      h.clock.now = midPeriod(sub);
+      if (missing === "plan code") {
+        await setPlanCode(null);
+      } else {
+        await deleteCustomer(organizationId);
+      }
+      const before = h.fake.calls.length;
+      await expect(
+        h.billing.changePlan({
+          organizationId,
+          actor,
+          planPriceId: TARGET,
+          memberCount: 1,
+        })
+      ).rejects.toMatchObject({ code: "plan_not_synced" });
+      expect(
+        h.fake.calls
+          .slice(before)
+          .filter((c) => c.method === "POST")
+          .map((c) => c.path)
+      ).toEqual([]);
+      expect(
+        (await h.billing.getSubscription(organizationId))?.planPriceId
+      ).toBe("starter-monthly-ngn");
+    });
+
+    it(`refunds a checkout-paid upgrade once when the ${missing} is gone by the webhook`, async () => {
+      const { organizationId, actor, sub } = await h.subscribe(
+        "starter-monthly-ngn"
+      );
+      h.clock.now = midPeriod(sub);
+      h.fake.setChargeOutcome("failed");
+      const result = await h.billing.changePlan({
+        organizationId,
+        actor,
+        planPriceId: TARGET,
+        memberCount: 1,
+      });
+      h.fake.setChargeOutcome("success");
+      if (result.kind !== "checkout_required") {
+        throw new Error(`expected a checkout, got ${result.kind}`);
+      }
+      if (missing === "plan code") {
+        await setPlanCode(null);
+      } else {
+        await deleteCustomer(organizationId);
+      }
+
+      const refundsBefore = h.fake.refunds.length;
+      const createsBefore = h.fake.callsTo("POST", "/subscription").length;
+      const paid = h.pay(result.reference);
+      const event = await h.deliver(paid.charge);
+      expect(event?.error).toBe("plan_not_synced");
+
+      expect(h.fake.refunds.slice(refundsBefore)).toMatchObject([
+        { transaction: result.reference },
+      ]);
+      expect(h.fake.callsTo("POST", "/subscription")).toHaveLength(
+        createsBefore
+      );
+      expect(await h.billing.getSubscription(organizationId)).toMatchObject({
+        planPriceId: "starter-monthly-ngn",
+        paystackSubscriptionCode: sub.paystackSubscriptionCode,
+        status: "active",
+      });
+      expect(
+        h.fake.subscriptions.get(sub.paystackSubscriptionCode ?? "")?.status
+      ).toBe("active");
+      expect(await failedAudits(organizationId)).toHaveLength(1);
+      const invoiceFor = async () =>
+        (
+          await h.db
+            .select()
+            .from(schema.invoice)
+            .where(eq(schema.invoice.reference, result.reference))
+        )[0];
+      const invoice = await invoiceFor();
+      expect(invoice).toMatchObject({
+        status: "void",
+        refundStatus: "pending",
+      });
+      expect(invoice?.refundRequestedAt).not.toBeNull();
+      expect(invoice?.number).toBeNull();
+      expect(
+        (await h.billing.confirmByReference(organizationId, result.reference))
+          .paymentStatus
+      ).toBe("failed");
+
+      // Redelivered, even once the plan is ready again: no second refund
+      // and no switch.
+      await setPlanCode(planCode(TARGET));
+      await h.deliver({ ...paid.charge, redelivered: true });
+      expect(h.fake.refunds.length).toBe(refundsBefore + 1);
+      expect(
+        (await h.billing.getSubscription(organizationId))?.planPriceId
+      ).toBe("starter-monthly-ngn");
+      expect(await failedAudits(organizationId)).toHaveLength(1);
+
+      // Paystack's refund webhook settles the row.
+      await h.deliver(h.fake.settleRefund(result.reference, "processed"));
+      expect((await invoiceFor())?.refundStatus).toBe("processed");
+    });
+  }
+
+  it("records no refund request when Paystack refuses the refund", async () => {
+    const { organizationId, actor, sub } = await h.subscribe(
+      "starter-monthly-ngn"
+    );
+    h.clock.now = midPeriod(sub);
+    h.fake.setChargeOutcome("failed");
+    const result = await h.billing.changePlan({
+      organizationId,
+      actor,
+      planPriceId: TARGET,
+      memberCount: 1,
+    });
+    h.fake.setChargeOutcome("success");
+    if (result.kind !== "checkout_required") {
+      throw new Error(`expected a checkout, got ${result.kind}`);
+    }
+    await setPlanCode(null);
+    h.fake.failNext("POST", /^\/refund$/, 400, "Refund refused");
+    await h.deliver(h.pay(result.reference).charge);
+
+    const [invoice] = await h.db
+      .select()
+      .from(schema.invoice)
+      .where(eq(schema.invoice.reference, result.reference));
+    expect(invoice).toMatchObject({
+      status: "void",
+      refundStatus: "failed",
+      refundRequestedAt: null,
+    });
+  });
+});

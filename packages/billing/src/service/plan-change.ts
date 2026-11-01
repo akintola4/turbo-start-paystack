@@ -22,6 +22,7 @@ import { upsertInvoice } from "./invoices";
 import { createOrAdoptSubscription } from "./paystack-subscription";
 import {
   emailTokenFor,
+  PlanSwitchError,
   retireSubscription,
   switchPlanNow,
 } from "./switch-plan";
@@ -309,7 +310,14 @@ export async function changePlan(
         return { kind: "downgrade_scheduled", effectiveAt };
       }
 
-      // Upgrade. Nothing is owed for unpaid trial time.
+      // Upgrade. switchPlanNow needs the target's plan code (checked above)
+      // and the billing customer; without either the upgrade is refused
+      // here, before any money moves.
+      const customer = await billingCustomer(tx, sub.organizationId);
+      if (!customer) {
+        throw new BillingError("plan_not_synced", "No billing customer");
+      }
+      // Nothing is owed for unpaid trial time.
       // Below Paystack's minimum card charge the difference is waived.
       const now = deps.now();
       const charge = upgradeChargeNow({ sub, current, target, now });
@@ -342,9 +350,8 @@ export async function changePlan(
         createdAt: deps.now(),
         ...anchor,
       });
-      const customer = await billingCustomer(tx, sub.organizationId);
       const email =
-        sub.authorizationEmail ?? customer?.email ?? input.actor.email;
+        sub.authorizationEmail ?? customer.email ?? input.actor.email;
       const metadata = {
         organization_id: sub.organizationId,
         payment_intent_id: reference,
@@ -405,7 +412,8 @@ export async function changePlan(
             description: "Plan upgrade (refunded)",
             kind: "proration",
             planPriceId: target.id,
-            refundRequestedAt: now,
+            refundRequestedAt:
+              error instanceof PlanSwitchError ? error.refundRequestedAt : null,
           });
           return { failed: error };
         }
