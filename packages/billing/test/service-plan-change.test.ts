@@ -334,8 +334,8 @@ describe("upgrade (prorated, PLAN §2.3 #10)", () => {
       .select()
       .from(schema.invoice)
       .where(eq(schema.invoice.reference, result.reference));
-    expect(invoice).toMatchObject({ status: "void" });
-    expect(invoice?.refundedAt).not.toBeNull();
+    expect(invoice).toMatchObject({ status: "void", refundStatus: "pending" });
+    expect(invoice?.refundRequestedAt).not.toBeNull();
     expect(invoice?.number).toBeNull();
 
     // A second delivery of the charge refunds nothing more.
@@ -1157,8 +1157,8 @@ describe("an upgrade charge whose answer was lost (no double charge)", () => {
       .select()
       .from(schema.invoice)
       .where(eq(schema.invoice.reference, result.reference));
-    expect(invoice).toMatchObject({ status: "void" });
-    expect(invoice?.refundedAt).not.toBeNull();
+    expect(invoice).toMatchObject({ status: "void", refundStatus: "pending" });
+    expect(invoice?.refundRequestedAt).not.toBeNull();
     expect(invoice?.number).toBeNull();
 
     // Delivered again, nothing more is refunded.

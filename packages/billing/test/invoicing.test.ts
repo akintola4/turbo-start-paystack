@@ -208,7 +208,8 @@ describe("issuing invoices", () => {
       status: "void",
       number: null,
     });
-    expect(row?.refundedAt).not.toBeNull();
+    expect(row).toMatchObject({ refundStatus: "pending", refundedAt: null });
+    expect(row?.refundRequestedAt).not.toBeNull();
     expect(await h.billing.listInvoices(org.organizationId)).toHaveLength(0);
     expect(await h.billing.listCardChecks(org.organizationId)).toHaveLength(1);
   });
@@ -300,41 +301,53 @@ describe("issuing invoices", () => {
 });
 
 describe("invoice document for a refunded charge", () => {
+  const voidRow = (
+    refund: Partial<typeof schema.invoice.$inferSelect> = {}
+  ): typeof schema.invoice.$inferSelect => ({
+    id: "11111111-2222",
+    organizationId: "org",
+    subscriptionId: null,
+    paystackInvoiceCode: null,
+    reference: "tsp_abc",
+    amountSubunit: 5000,
+    currency: "NGN",
+    status: "void",
+    periodStart: null,
+    periodEnd: null,
+    paidAt: new Date("2026-10-29T10:00:00Z"),
+    description: "Card verification (refunded)",
+    kind: "card_check",
+    planPriceId: "starter-monthly-ngn",
+    cardBrand: "visa",
+    cardLast4: "4081",
+    refundRequestedAt: new Date("2026-10-29T10:00:01Z"),
+    refundStatus: "processed",
+    refundedAt: new Date("2026-10-29T12:00:00Z"),
+    number: null,
+    issuedAt: null,
+    seller: null,
+    buyer: null,
+    taxRateBp: null,
+    netSubunit: null,
+    taxSubunit: null,
+    raw: null,
+    createdAt: new Date("2026-10-29T10:00:00Z"),
+    updatedAt: new Date("2026-10-29T10:00:00Z"),
+    ...refund,
+  });
+
   it("shows the charge, the refund and nothing paid, without tax", () => {
-    const doc = buildInvoiceDocument(
-      {
-        id: "11111111-2222",
-        organizationId: "org",
-        subscriptionId: null,
-        paystackInvoiceCode: null,
-        reference: "tsp_abc",
-        amountSubunit: 5000,
-        currency: "NGN",
-        status: "void",
-        periodStart: null,
-        periodEnd: null,
-        paidAt: new Date("2026-10-29T10:00:00Z"),
-        description: "Card verification (refunded)",
-        kind: "card_check",
-        planPriceId: "starter-monthly-ngn",
-        cardBrand: "visa",
-        cardLast4: "4081",
-        refundedAt: new Date("2026-10-29T10:00:01Z"),
-        number: null,
-        issuedAt: null,
-        seller: null,
-        buyer: null,
-        taxRateBp: null,
-        netSubunit: null,
-        taxSubunit: null,
-        raw: null,
-        createdAt: new Date("2026-10-29T10:00:00Z"),
-        updatedAt: new Date("2026-10-29T10:00:00Z"),
-      },
-      { config, buyer: { name: "Kola" } }
-    );
+    const doc = buildInvoiceDocument(voidRow(), {
+      config,
+      buyer: { name: "Kola" },
+    });
     expect(doc.title).toBe("Card check");
     expect(doc.status).toBe("refunded");
+    expect(doc.refund).toEqual({
+      state: "processed",
+      requestedAt: "2026-10-29T10:00:01.000Z",
+    });
+    expect(doc.refundedAt).toBe("2026-10-29T12:00:00.000Z");
     expect(doc.lines.map((l) => l.amountSubunit)).toEqual([5000]);
     expect(doc.totals).toMatchObject({
       taxRateBp: 0,
@@ -343,5 +356,24 @@ describe("invoice document for a refunded charge", () => {
       paidSubunit: 0,
     });
     expect(invoiceFilename(doc, "kola")).toBe("receipt-11111111-kola.pdf");
+  });
+
+  it("carries a pending refund without a refund date", () => {
+    const doc = buildInvoiceDocument(
+      voidRow({ refundStatus: "pending", refundedAt: null }),
+      { config, buyer: { name: "Kola" } }
+    );
+    expect(doc.refund?.state).toBe("pending");
+    expect(doc.refundedAt).toBeNull();
+  });
+
+  it("counts a failed refund as paid: the money never went back", () => {
+    const doc = buildInvoiceDocument(
+      voidRow({ refundStatus: "failed", refundedAt: null, kind: "proration" }),
+      { config, buyer: { name: "Kola" } }
+    );
+    expect(doc.refund?.state).toBe("failed");
+    expect(doc.title).toBe("Refund");
+    expect(doc.totals).toMatchObject({ refundedSubunit: 0, paidSubunit: 5000 });
   });
 });

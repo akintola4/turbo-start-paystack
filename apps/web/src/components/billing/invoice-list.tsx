@@ -13,13 +13,13 @@ import { InvoicePager } from "@/components/billing/invoice-pager";
 import { Amount, InvoiceBadge, Tile } from "@/components/primitives";
 import { formatDate } from "@/lib/format";
 import { spokenMoney } from "@/lib/money";
-import type { BillingData, InvoiceRow } from "@/lib/view-models";
+import type { BillingData, CardCheckRow, InvoiceRow } from "@/lib/view-models";
 
 /** Date · invoice · amount · status · actions. Shared by header and rows so
  *  the columns line up to the pixel. Switched on the list's own width (48rem),
  *  not the viewport's, so the invoice column never collapses beside a sidebar. */
 const COLUMNS =
-  "@3xl:grid-cols-[7.5rem_minmax(0,1fr)_8.5rem_7rem_5.75rem] @3xl:gap-x-4";
+  "@3xl:grid-cols-[7.5rem_minmax(0,1fr)_8.5rem_8.75rem_5.75rem] @3xl:gap-x-4";
 
 /**
  * The whole row opens the invoice (a stretched link). In a narrow list it is two
@@ -65,13 +65,13 @@ function Row({ inv, data }: { inv: InvoiceRow; data: BillingData }) {
       <span
         className={cn(
           "text-right @max-3xl:col-start-2 @max-3xl:row-start-1",
-          inv.status === "void" && "text-muted-foreground line-through"
+          inv.badge === "refunded" && "text-muted-foreground line-through"
         )}
       >
         <Amount label={inv.amountLabel} />
       </span>
       <span className="flex @max-3xl:col-start-2 @max-3xl:row-start-2 @max-3xl:justify-end">
-        <InvoiceBadge status={inv.status} />
+        <InvoiceBadge status={inv.badge} />
       </span>
       <span className="flex items-center justify-end gap-1 @max-3xl:col-start-3 @max-3xl:row-span-2 @max-3xl:row-start-1">
         {/* Only the control sits above the stretched link; "View" stays
@@ -113,8 +113,18 @@ function Row({ inv, data }: { inv: InvoiceRow; data: BillingData }) {
   );
 }
 
-/** Refunded trial card checks: money that came straight back, so they are
- *  not invoices. Listed apart, closed by default. */
+/** Trial card checks: refunded straight away, so they are not invoices.
+ *  Listed apart, closed by default. */
+function cardCheckNote(check: CardCheckRow) {
+  if (check.badge === "refunded" && check.refundedAt) {
+    return `on ${formatDate(check.refundedAt)}`;
+  }
+  if (check.badge === "refund_pending" && check.refundRequestedAt) {
+    return `requested ${formatDate(check.refundRequestedAt)}`;
+  }
+  return null;
+}
+
 function CardChecks({ data }: { data: BillingData }) {
   if (data.cardChecks.length === 0) {
     return null;
@@ -130,7 +140,7 @@ function CardChecks({ data }: { data: BillingData }) {
       </summary>
       <div className="grid gap-3 pt-1 pb-2 pl-6">
         <p className="max-w-[60ch] text-muted-foreground text-sm">
-          The small charge that saved the card for a trial. It was refunded
+          The small charge that saved the card for a trial. We refund it
           straight away, so it isn't an invoice.
         </p>
         <ul className="grid gap-1">
@@ -142,12 +152,17 @@ function CardChecks({ data }: { data: BillingData }) {
               <span className="w-28 text-muted-foreground tabular-nums">
                 {formatDate(check.date)}
               </span>
-              <span className="text-muted-foreground line-through">
+              <span
+                className={cn(
+                  "text-muted-foreground",
+                  check.badge === "refunded" && "line-through"
+                )}
+              >
                 <Amount label={check.amountLabel} />
               </span>
-              <InvoiceBadge status="void" />
+              <InvoiceBadge status={check.badge} />
               <span className="text-muted-foreground">
-                {check.refundedAt ? `on ${formatDate(check.refundedAt)}` : null}
+                {cardCheckNote(check)}
               </span>
               <Link
                 className="inline-flex min-h-11 items-center font-medium text-link underline-offset-4 hover:underline"

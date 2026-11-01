@@ -94,10 +94,13 @@ const c = {
   panelMuted: "#afccbb",
   status: {
     paid: "#8cd384",
-    refunded: "#a2aea8",
-    failed: "#fe9b93",
     pending: "#92c4ee",
-  },
+    failed: "#fe9b93",
+    refund_pending: "#92c4ee",
+    refunded: "#a2aea8",
+    refund_failed: "#fe9b93",
+    refund_delayed: "#f2c76e",
+  } satisfies Record<InvoiceView["badge"], string>,
 };
 
 const SANS = ["Geist", "Currency"];
@@ -239,23 +242,37 @@ const s = StyleSheet.create({
   },
 });
 
-/** Lucide paths (24×24) for the status chip: check, undo-2, x, clock. */
-const ICONS: Record<InvoiceView["status"], string[]> = {
+const CLOCK = ["M12 6v6l4 2", "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z"];
+
+/** Lucide paths (24×24) for the status chip, as on the web badge: check,
+ *  clock, x, undo-2, circle-x, triangle-alert. */
+const ICONS: Record<InvoiceView["badge"], string[]> = {
   paid: ["M20 6 9 17l-5-5"],
+  pending: CLOCK,
+  failed: ["M18 6 6 18", "m6 6 12 12"],
+  refund_pending: CLOCK,
   refunded: [
     "M9 14 4 9l5-5",
     "M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11",
   ],
-  failed: ["M18 6 6 18", "m6 6 12 12"],
-  pending: ["M12 6v6l4 2", "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z"],
+  refund_failed: [
+    "M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z",
+    "m15 9-6 6",
+    "m9 9 6 6",
+  ],
+  refund_delayed: [
+    "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3",
+    "M12 9v4",
+    "M12 17h.01",
+  ],
 };
 
 function StatusChip({ view }: { view: InvoiceView }) {
-  const color = c.status[view.status];
+  const color = c.status[view.badge];
   return (
     <View style={s.chip}>
       <Svg height={8} viewBox="0 0 24 24" width={8}>
-        {ICONS[view.status].map((d) => (
+        {ICONS[view.badge].map((d) => (
           <Path
             d={d}
             fill="none"

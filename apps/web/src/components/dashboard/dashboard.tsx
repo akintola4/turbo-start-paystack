@@ -225,7 +225,7 @@ function PaymentsTile({ data }: { data: DashboardData }) {
         <ul className="-mx-2">
           {data.recentInvoices.map((inv) => (
             <li
-              className="relative grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-border border-t px-2 py-2.5 transition-colors duration-(--dur-fast) first:border-t-0 hover:bg-surface-2 sm:grid-cols-[6.5rem_minmax(0,1fr)_8rem_6rem]"
+              className="relative grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-border border-t px-2 py-2.5 transition-colors duration-(--dur-fast) first:border-t-0 hover:bg-surface-2 sm:grid-cols-[6.5rem_minmax(0,1fr)_8rem_8.75rem]"
               key={inv.id}
             >
               <span className="text-muted-foreground text-sm tabular-nums max-sm:col-start-1 max-sm:row-start-2">
@@ -240,13 +240,14 @@ function PaymentsTile({ data }: { data: DashboardData }) {
               <span
                 className={cn(
                   "text-right max-sm:col-start-2 max-sm:row-start-1",
-                  inv.status === "void" && "text-muted-foreground line-through"
+                  inv.badge === "refunded" &&
+                    "text-muted-foreground line-through"
                 )}
               >
                 <Amount label={inv.amountLabel} />
               </span>
               <span className="inline-flex justify-self-end max-sm:col-start-2 max-sm:row-start-2">
-                <InvoiceBadge status={inv.status} />
+                <InvoiceBadge status={inv.badge} />
               </span>
             </li>
           ))}

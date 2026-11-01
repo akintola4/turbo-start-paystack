@@ -7,6 +7,11 @@ import { formatPeriod } from "@workspace/billing/dates";
 import { formatMoney } from "@workspace/billing/money";
 
 import { formatDate, initials } from "@/lib/format";
+import {
+  INVOICE_BADGE_LABEL,
+  type InvoiceBadgeStatus,
+  invoiceBadgeStatus,
+} from "@/lib/invoice-status";
 
 /**
  * The invoice as display strings. The web view and the PDF render this one
@@ -19,12 +24,14 @@ export type InvoiceView = {
   mark: string;
   number: string | null;
   status: InvoiceDocumentStatus;
+  /** The chip; for a refund, where it stands. */
+  badge: InvoiceBadgeStatus;
   statusLabel: string;
   /** Amount charged, e.g. "₦10,000.00". */
   amount: string;
   /** The same at display size: ".00" dropped, as on the billing panel. */
   heroAmount: string;
-  /** The hero amount is struck through (refunded). */
+  /** The hero amount is struck through (the refund was processed). */
   struck: boolean;
   /** Under the amount: "Paid on 12 November 2026". */
   caption: string;
@@ -50,13 +57,6 @@ const longDate = new Intl.DateTimeFormat("en-GB", {
 
 export const formatLongDate = (iso: string) => longDate.format(new Date(iso));
 
-const STATUS_LABEL: Record<InvoiceDocumentStatus, string> = {
-  paid: "Paid",
-  refunded: "Refunded",
-  failed: "Failed",
-  pending: "Pending",
-};
-
 /** 750 → "7.5%". */
 export const ratePercent = (bp: number) =>
   `${(bp / 100).toFixed(2).replace(/\.?0+$/, "")}%`;
@@ -70,14 +70,64 @@ function partyLines(party: InvoiceParty) {
   ].filter((line): line is string => Boolean(line));
 }
 
+/** Paystack's refund lifecycle, in the receipt's words. Failed and delayed
+ *  match the refund-failed email. */
+const NOT_RETURNED =
+  "Paystack couldn't send the money back to your card. It hasn't reached you yet. Contact support and quote the reference below.";
+
+function refundCaption(doc: InvoiceDocument) {
+  switch (doc.refund?.state) {
+    case "processed":
+      return `${doc.refundedAt ? `Refunded on ${formatLongDate(doc.refundedAt)}` : "Refunded"}. Banks can take up to 10 business days to show it.`;
+    case "failed":
+    case "needs_attention":
+      return NOT_RETURNED;
+    default:
+      return `${doc.refund?.requestedAt ? `Refund requested on ${formatLongDate(doc.refund.requestedAt)}` : "Refund requested"}. Paystack is processing it.`;
+  }
+}
+
+function refundTotals(
+  doc: InvoiceDocument,
+  money: (n: number) => string
+): InvoiceView["totals"] {
+  const t = doc.totals;
+  switch (doc.refund?.state) {
+    case "processed":
+      return [
+        { label: "Charged", value: money(t.totalSubunit) },
+        {
+          label: doc.refundedAt
+            ? `Refunded ${formatDate(doc.refundedAt)}`
+            : "Refunded",
+          value: money(-t.refundedSubunit),
+        },
+        { label: "Total paid", value: money(t.paidSubunit), strong: true },
+      ];
+    case "failed":
+    case "needs_attention":
+      return [
+        { label: "Total paid", value: money(t.paidSubunit), strong: true },
+      ];
+    default:
+      return [
+        { label: "Charged", value: money(t.totalSubunit) },
+        { label: "Refund pending", value: money(-t.refundedSubunit) },
+        {
+          label: "Total after refund",
+          value: money(t.paidSubunit),
+          strong: true,
+        },
+      ];
+  }
+}
+
 function caption(doc: InvoiceDocument) {
   switch (doc.status) {
     case "paid":
       return doc.paidAt ? `Paid on ${formatLongDate(doc.paidAt)}` : "Paid";
     case "refunded":
-      return doc.refundedAt
-        ? `Refunded on ${formatLongDate(doc.refundedAt)}`
-        : "Refunded";
+      return refundCaption(doc);
     case "failed":
       return doc.periodStart
         ? `Payment failed. Due ${formatLongDate(doc.periodStart)}`
@@ -108,16 +158,7 @@ function totals(doc: InvoiceDocument) {
       });
       break;
     case "refunded":
-      rows.push(
-        { label: "Charged", value: money(t.totalSubunit) },
-        {
-          label: doc.refundedAt
-            ? `Refunded ${formatDate(doc.refundedAt)}`
-            : "Refunded",
-          value: money(-t.refundedSubunit),
-        },
-        { label: "Total paid", value: money(t.paidSubunit), strong: true }
-      );
+      rows.push(...refundTotals(doc, money));
       break;
     default:
       rows.push({
@@ -130,6 +171,10 @@ function totals(doc: InvoiceDocument) {
 }
 
 export function invoiceView(doc: InvoiceDocument): InvoiceView {
+  const badge = invoiceBadgeStatus(
+    doc.status === "refunded" ? "void" : doc.status,
+    doc.refund?.state ?? null
+  );
   const meta: InvoiceView["meta"] = [];
   if (doc.issuedAt && doc.number) {
     meta.push({ label: "Issued", value: formatDate(doc.issuedAt) });
@@ -156,13 +201,14 @@ export function invoiceView(doc: InvoiceDocument): InvoiceView {
     mark: initials(doc.seller.name),
     number: doc.number,
     status: doc.status,
-    statusLabel: STATUS_LABEL[doc.status],
+    badge,
+    statusLabel: INVOICE_BADGE_LABEL[badge],
     amount: formatMoney(doc.totals.totalSubunit, doc.currency),
     heroAmount: formatMoney(doc.totals.totalSubunit, doc.currency).replace(
       /\.00$/,
       ""
     ),
-    struck: doc.status === "refunded",
+    struck: badge === "refunded",
     caption: caption(doc),
     meta,
     from: { name: doc.seller.name, lines: partyLines(doc.seller) },

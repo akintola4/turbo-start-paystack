@@ -10,14 +10,6 @@ import {
 import type { InvoiceView } from "@/lib/invoice-view";
 import { spokenMoney } from "@/lib/money";
 
-/** The document's status as the list's badge status. */
-const BADGE_STATUS = {
-  paid: "paid",
-  refunded: "void",
-  failed: "failed",
-  pending: "pending",
-} as const;
-
 function Party({
   id,
   label,
@@ -96,7 +88,7 @@ export function InvoicePaper({ view }: { view: InvoiceView }) {
 
       {/* Inside a 24px tile, so the panel steps down to 16 rather than 32. */}
       <Panel as="section" className="grid gap-6 rounded-card">
-        <InvoiceBadge className="w-fit" status={BADGE_STATUS[view.status]} />
+        <InvoiceBadge className="w-fit" status={view.badge} />
         <div className="grid gap-3">
           {view.struck ? (
             <span

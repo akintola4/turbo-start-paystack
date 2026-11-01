@@ -12,6 +12,7 @@ import {
   searchItems,
 } from "@/lib/command-search";
 import { formatDate } from "@/lib/format";
+import { INVOICE_BADGE_LABEL, invoiceBadgeStatus } from "@/lib/invoice-status";
 
 type SearchDeps = {
   db: Database;
@@ -23,13 +24,6 @@ type SearchDeps = {
 const LIMIT = 6;
 const MAX_QUERY = 64;
 
-const INVOICE_STATUS: Record<string, string> = {
-  paid: "Paid",
-  failed: "Failed",
-  void: "Refunded",
-  pending: "Pending",
-};
-
 type InvoiceRow = Awaited<ReturnType<BillingService["listInvoices"]>>[number];
 
 /** An invoice as a palette item: its number, amount, status and date. The
@@ -37,7 +31,8 @@ type InvoiceRow = Awaited<ReturnType<BillingService["listInvoices"]>>[number];
 export function invoiceItem(row: InvoiceRow, orgSlug: string): PaletteItem {
   const amount = Number(row.amountSubunit);
   const money = formatMoney(amount, row.currency).replace(/ /g, " ");
-  const status = INVOICE_STATUS[row.status] ?? row.status;
+  const status =
+    INVOICE_BADGE_LABEL[invoiceBadgeStatus(row.status, row.refundStatus)];
   const major = Math.trunc(amount / 100);
   const href = `/app/${orgSlug}/settings/billing/invoices/${row.id}`;
   return {
