@@ -161,7 +161,8 @@ function CardChecks({ data }: { data: BillingData }) {
                 <Amount label={check.amountLabel} />
               </span>
               <InvoiceBadge status={check.badge} />
-              <span className="text-muted-foreground">
+              {/* Fixed width, so "View receipt" lines up whatever the note. */}
+              <span className="w-38 text-muted-foreground">
                 {cardCheckNote(check)}
               </span>
               <Link
