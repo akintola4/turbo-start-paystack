@@ -1,49 +1,29 @@
+import { type Browser, expect, type Page, test } from "@playwright/test";
+
 import {
-  type APIRequestContext,
-  type Browser,
-  type Cookie,
-  expect,
-  type Page,
-  test,
-} from "@playwright/test";
+  cookiesOf,
+  type DemoUser,
+  PASSWORD,
+  SLUG,
+  signIn,
+  USERS,
+} from "./users";
 
 /*
- * Organization settings and the account page, against the seeded app:
- * E2E_BASE_URL=http://localhost:3400 pnpm --filter web test:e2e e2e/settings.spec.ts
+ * Organization settings and the account page, against the e2e stack
+ * (`pnpm e2e`): the setup project leaves Kola Logistics on a renewing Pro
+ * plan.
  *
  * Every change is put back: the org's name and address, and Chioma's
  * password (also in afterAll, in case a test stops halfway).
  */
 
-const PASSWORD = process.env.E2E_PASSWORD ?? "kola-demo-2026";
 const TEMP_PASSWORD = "kola-temp-pass-2026";
 const ORG_NAME = "Kola Logistics";
-const SLUG = "kola-logistics";
-const ADA = "ada@kolalogistics.test";
-const CHIOMA = "chioma@kolalogistics.test";
-const sessions: Record<string, Cookie[]> = {};
+const ADA: DemoUser = "ada";
+const CHIOMA: DemoUser = "chioma";
 
-/** Better Auth allows three sign-ins per 10 seconds: wait one out. */
-async function signIn(
-  request: APIRequestContext,
-  baseURL: string,
-  email: string,
-  password = PASSWORD
-) {
-  for (let attempt = 0; ; attempt++) {
-    const res = await request.post("/api/auth/sign-in/email", {
-      data: { email, password },
-      headers: { origin: baseURL },
-    });
-    if (res.status() !== 429 || attempt === 3) {
-      return res;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 11_000));
-  }
-}
-
-/** A fresh browser context signed in as `email`: one sign-in each, since
- *  the auth endpoint rate-limits repeated sign-ins. */
+/** A new session (another "device") for `email`. */
 async function contextFor(browser: Browser, baseURL: string, email: string) {
   const context = await browser.newContext({ baseURL });
   const res = await signIn(context.request, baseURL, email);
@@ -51,21 +31,19 @@ async function contextFor(browser: Browser, baseURL: string, email: string) {
   return context;
 }
 
-test.beforeAll(async ({ browser, baseURL }) => {
-  for (const email of [ADA, CHIOMA]) {
-    const context = await contextFor(browser, baseURL ?? "", email);
-    sessions[email] = await context.cookies();
-    await context.close();
-  }
-});
+/** Set while Chioma's password is the temporary one. */
+let passwordChanged = false;
 
 test.afterAll(async ({ browser, baseURL }) => {
   // If the password test stopped after changing it, put it back.
+  if (!passwordChanged) {
+    return;
+  }
   const context = await browser.newContext({ baseURL });
   const res = await signIn(
     context.request,
     baseURL ?? "",
-    CHIOMA,
+    USERS[CHIOMA],
     TEMP_PASSWORD
   );
   if (res.ok()) {
@@ -77,8 +55,8 @@ test.afterAll(async ({ browser, baseURL }) => {
   await context.close();
 });
 
-async function openAs(page: Page, email: string, path: string) {
-  await page.context().addCookies(sessions[email] ?? []);
+async function openAs(page: Page, user: DemoUser, path: string) {
+  await page.context().addCookies(cookiesOf(user));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(path, { waitUntil: "networkidle" });
 }
@@ -156,7 +134,7 @@ test("signing out another device ends that session only", async ({
   browser,
   baseURL,
 }) => {
-  const phone = await contextFor(browser, baseURL ?? "", CHIOMA);
+  const phone = await contextFor(browser, baseURL ?? "", USERS[CHIOMA]);
   const mine = await phone.request.get("/api/auth/get-session");
   const sessionId = (await mine.json()).session.id as string;
 
@@ -200,10 +178,13 @@ test("changing the password works, and the old one is restored", async ({
   await section.getByLabel("New password").fill(TEMP_PASSWORD);
   await section.getByRole("button", { name: "Change password" }).click();
   await expect(page.getByText("Password changed")).toBeVisible();
+  passwordChanged = true;
 
   const check = await browser.newContext({ baseURL });
   expect(
-    (await signIn(check.request, baseURL ?? "", CHIOMA, TEMP_PASSWORD)).ok()
+    (
+      await signIn(check.request, baseURL ?? "", USERS[CHIOMA], TEMP_PASSWORD)
+    ).ok()
   ).toBe(true);
   await check.close();
 
@@ -215,4 +196,5 @@ test("changing the password works, and the old one is restored", async ({
   await section.getByRole("button", { name: "Change password" }).click();
   await expect(page.getByText("Password changed").first()).toBeVisible();
   await expect(section.getByLabel("Current password")).toHaveValue("");
+  passwordChanged = false;
 });

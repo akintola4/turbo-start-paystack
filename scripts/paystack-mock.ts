@@ -14,6 +14,8 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { signPaystackPayload } from "@workspace/billing";
 import { createFakePaystack } from "@workspace/billing/fake";
 import { chargeSuccess, subscriptionCreate } from "@workspace/billing/fixtures";
@@ -30,7 +32,11 @@ const WEBHOOK_URL =
   process.env.PAYSTACK_MOCK_WEBHOOK_URL ??
   "http://localhost:3000/api/webhooks/paystack";
 const SECRET = process.env.PAYSTACK_SECRET_KEY ?? "sk_test_local_mock";
-const STATE_FILE = new URL("./.paystack-mock.json", import.meta.url);
+// PAYSTACK_MOCK_STATE: another state file, so `pnpm e2e` never touches the
+// state of the mock `pnpm dev` runs.
+const STATE_FILE = process.env.PAYSTACK_MOCK_STATE
+  ? pathToFileURL(resolve(process.env.PAYSTACK_MOCK_STATE))
+  : new URL("./.paystack-mock.json", import.meta.url);
 
 if (process.env.NODE_ENV === "production") {
   throw new Error("paystack-mock is for local development only");

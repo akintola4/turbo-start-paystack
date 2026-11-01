@@ -34,6 +34,7 @@
     "format:check": "turbo run format:check",
     "check-types": "turbo run check-types",
     "test": "turbo run test",
+    "e2e": "pnpm --filter @workspace/scripts e2e",
     "db:generate": "pnpm --filter @workspace/db db:generate",
     "db:migrate": "pnpm --filter @workspace/db db:migrate",
     "billing:sync": "pnpm --filter @workspace/scripts billing:sync",

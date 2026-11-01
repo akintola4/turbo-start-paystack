@@ -1,20 +1,11 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import { STATE } from "./users";
 
 /*
- * Pixel and accessibility checks from the app review. Run against a seeded
- * app (`pnpm setup`, `pnpm dev`): E2E_BASE_URL=http://localhost:3400
- * pnpm --filter web test:e2e e2e/polish.spec.ts
+ * Pixel and accessibility checks from the app review, against the e2e stack
+ * (`pnpm e2e`).
  */
-
-const PASSWORD = process.env.E2E_PASSWORD ?? "kola-demo-2026";
-
-async function signIn(page: Page, email = "ada@kolalogistics.test") {
-  const res = await page.request.post("/api/auth/sign-in/email", {
-    data: { email, password: PASSWORD },
-    headers: { origin: new URL(page.url() || "http://x").origin },
-  });
-  expect(res.ok()).toBe(true);
-}
 
 test.describe("auth side panel", () => {
   const sizes = [
@@ -139,10 +130,7 @@ test("₦ and ₵ strokes match Geist's at the same weight", async ({ page }) =>
 });
 
 test.describe("signed in", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/sign-in");
-    await signIn(page);
-  });
+  test.use({ storageState: STATE.ada });
 
   test("a Money amount's box is its text's height", async ({ page }) => {
     for (const path of [

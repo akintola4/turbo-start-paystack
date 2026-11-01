@@ -1,49 +1,26 @@
-import { type Cookie, expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+import { cookiesOf, ORG, STATE } from "./users";
 
 /*
  * The app shell grid: the top bar is centred on the sidebar's org row, the
- * toggle's ink, the title's ink and the content column share one left edge,
- * and page actions centre on the title's first line. Run against a seeded
- * app: E2E_BASE_URL=http://localhost:3400 pnpm --filter web test:e2e
- * e2e/shell-alignment.spec.ts
+ * title's ink and the content column share one left edge, page actions
+ * centre on the title's first line, and the sidebar toggle stays beside the
+ * sidebar (sidebar-07: the header spans the inset, px-4 with the trigger at
+ * -ml-1, so the trigger box starts 12px into the inset on every page, open or
+ * collapsed). Runs against the e2e stack (`pnpm e2e`) as the demo owner.
  */
 
-const PASSWORD = process.env.E2E_PASSWORD ?? "kola-demo-2026";
-const ORG = "/app/kola-logistics";
+/** sidebar-07's header padding (16px) less the trigger's -ml-1 (4px). */
+const TOGGLE_INSET = 12;
+
 const PAGES = {
   Overview: ORG,
   Members: `${ORG}/members`,
   Billing: `${ORG}/settings/billing`,
 };
 
-async function signIn(page: Page, email = "ada@kolalogistics.test") {
-  await page.goto("/sign-in");
-  const res = await page.request.post("/api/auth/sign-in/email", {
-    data: { email, password: PASSWORD },
-    headers: { origin: new URL(page.url() || "http://x").origin },
-  });
-  expect(res.ok()).toBe(true);
-}
-
-// One sign-in per run: the auth endpoint rate-limits repeated sign-ins.
-let session: Cookie[] = [];
-let memberSession: Cookie[] = [];
-test.beforeAll(async ({ browser }) => {
-  for (const email of ["ada@kolalogistics.test", "chioma@kolalogistics.test"]) {
-    const context = await browser.newContext();
-    await signIn(await context.newPage(), email);
-    const cookies = await context.cookies();
-    if (email.startsWith("ada")) {
-      session = cookies;
-    } else {
-      memberSession = cookies;
-    }
-    await context.close();
-  }
-});
-test.beforeEach(async ({ context }) => {
-  await context.addCookies(session);
-});
+test.use({ storageState: STATE.ada });
 
 /** The title's ink edge (its first glyph minus the side bearing) and the
  *  centre of its first line box. */
@@ -88,21 +65,18 @@ function shellEdges(page: Page) {
     if (!main) {
       throw new Error("page not rendered");
     }
-    // Toggle ink: PanelLeft's rect less half its 2-unit stroke.
     const toggle = visible('[data-sidebar="trigger"]');
-    const shape = toggle?.querySelector("svg rect");
-    const svg = toggle?.querySelector("svg");
-    const toggleInk =
-      shape && svg
-        ? shape.getBoundingClientRect().left -
-          svg.getBoundingClientRect().width / 24
-        : null;
     const firstBlock = main.querySelector("header")?.nextElementSibling;
+    const inset = document.querySelector('[data-slot="sidebar-inset"]');
     return {
+      toggleFromInset:
+        toggle && inset
+          ? toggle.getBoundingClientRect().left -
+            inset.getBoundingClientRect().left
+          : null,
       contentLeft:
         main.getBoundingClientRect().left +
         Number.parseFloat(getComputedStyle(main).paddingLeft),
-      toggleInk,
       toggleCentre: centreY(toggle),
       orgRowCentre: centreY(visible('[data-sidebar="header"] button')),
       actionCentre: centreY(
@@ -116,6 +90,12 @@ function shellEdges(page: Page) {
 
 async function measure(page: Page) {
   return { ...(await shellEdges(page)), ...(await titleEdges(page)) };
+}
+
+/** The toggle stays beside the sidebar instead of following the column. */
+function expectToggleBesideSidebar(m: Awaited<ReturnType<typeof measure>>) {
+  expect(m.toggleFromInset).not.toBeNull();
+  expect(Math.abs((m.toggleFromInset ?? 0) - TOGGLE_INSET)).toBeLessThan(0.5);
 }
 
 async function open(page: Page, path: string) {
@@ -138,7 +118,7 @@ for (const [name, path] of Object.entries(PAGES)) {
       Math.abs((m.toggleCentre ?? 0) - (m.orgRowCentre ?? 0))
     ).toBeLessThanOrEqual(1);
     expect(Math.abs(m.titleInk - m.contentLeft)).toBeLessThanOrEqual(1);
-    expect(Math.abs((m.toggleInk ?? 0) - m.contentLeft)).toBeLessThanOrEqual(1);
+    expectToggleBesideSidebar(m);
     expect(
       Math.abs((m.firstBlockLeft ?? 0) - m.contentLeft)
     ).toBeLessThanOrEqual(1);
@@ -179,14 +159,14 @@ test("collapsed sidebar keeps one left edge and survives a reload", async ({
   );
   const m = await measure(page);
   expect(Math.abs(m.titleInk - m.contentLeft)).toBeLessThanOrEqual(1);
-  expect(Math.abs((m.toggleInk ?? 0) - m.contentLeft)).toBeLessThanOrEqual(1);
+  expectToggleBesideSidebar(m);
 });
 
 for (const [label, size] of [
   ["iPad portrait", { width: 820, height: 1180 }],
   ["iPhone", { width: 393, height: 852 }],
 ] as const) {
-  test(`${label}: drawer toggle and title share the content edge`, async ({
+  test(`${label}: the drawer toggle holds its place and the title sits on the content edge`, async ({
     page,
   }) => {
     await page.setViewportSize(size);
@@ -194,29 +174,35 @@ for (const [label, size] of [
       await open(page, path);
       const m = await measure(page);
       expect(Math.abs(m.titleInk - m.contentLeft)).toBeLessThanOrEqual(1);
-      expect(Math.abs((m.toggleInk ?? 0) - m.contentLeft)).toBeLessThanOrEqual(
-        1
-      );
+      expectToggleBesideSidebar(m);
       expect(m.scrollX).toBe(0);
     }
   });
 }
 
-/** Gutters either side of the content column, inside the main area. */
+/**
+ * Gutters either side of the content column, inside the main area's
+ * scrollport. The panel keeps `scrollbar-gutter: stable`, so where scrollbars
+ * take space (classic scrollbars, as in headless Chromium) a lane is
+ * reserved on the right and the column centres in the space beside it; it
+ * doesn't move when a page starts to scroll.
+ */
 function gutters(page: Page) {
   return page.evaluate(() => {
-    const inset = document.querySelector('[data-slot="sidebar-inset"]');
+    const inset = document.querySelector<HTMLElement>(
+      '[data-slot="sidebar-inset"]'
+    );
     const main = document.querySelector<HTMLElement>("main#content");
     if (!(inset && main)) {
       throw new Error("shell not rendered");
     }
-    const area = inset.getBoundingClientRect();
+    const left = inset.getBoundingClientRect().left + inset.clientLeft;
+    const right = left + inset.clientWidth;
     const column = main.getBoundingClientRect();
     const style = getComputedStyle(main);
     return {
-      left: column.left + Number.parseFloat(style.paddingLeft) - area.left,
-      right:
-        area.right - (column.right - Number.parseFloat(style.paddingRight)),
+      left: column.left + Number.parseFloat(style.paddingLeft) - left,
+      right: right - (column.right - Number.parseFloat(style.paddingRight)),
     };
   });
 }
@@ -251,7 +237,7 @@ for (const width of [1440, 1920]) {
     expect(Math.abs(collapsed.left - collapsed.right)).toBeLessThanOrEqual(1);
     const m = await measure(page);
     expect(Math.abs(m.titleInk - m.contentLeft)).toBeLessThanOrEqual(1);
-    expect(Math.abs((m.toggleInk ?? 0) - m.contentLeft)).toBeLessThanOrEqual(1);
+    expectToggleBesideSidebar(m);
   });
 }
 
@@ -343,7 +329,8 @@ test("icon mode: icons with tooltips, nothing overflowing, header still aligned"
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page, ORG);
   const sidebar = page.locator('[data-slot="sidebar-inner"]');
-  // --sidebar-width-icon (3rem) including its 1px border.
+  // The inset variant's icon rail, as shadcn ships it:
+  // --sidebar-width-icon (3rem) + its p-2 either side + 2px.
   const box = await page
     .locator('[data-slot="sidebar-container"]')
     .boundingBox();
@@ -354,7 +341,7 @@ test("icon mode: icons with tooltips, nothing overflowing, header still aligned"
       return r.left < s.left - 0.5 || r.right > s.right + 0.5;
     })
   );
-  expect(box?.width).toBe(48);
+  expect(box?.width).toBe(48 + 16 + 2);
   expect(overflow).toBe(false);
 
   await page
@@ -427,7 +414,7 @@ test("Billing is a collapsible group with Plan, Invoices and Billing details", a
 
 test("a member's sidebar has no Billing group", async ({ page }) => {
   await page.context().clearCookies();
-  await page.context().addCookies(memberSession);
+  await page.context().addCookies(cookiesOf("chioma"));
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page, ORG);
   await expect(

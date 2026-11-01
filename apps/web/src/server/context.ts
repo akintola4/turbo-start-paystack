@@ -17,6 +17,7 @@ import { env } from "@workspace/env/server";
 import { deleteBlock, deleteBlockMessage } from "@/lib/org-settings";
 
 import { notifyBillingAdmins } from "./billing-emails";
+import { authRateLimitScale } from "./dev-billing";
 import { invoicingFromEnv } from "./invoicing-config";
 
 type ServerContext = {
@@ -66,6 +67,7 @@ function createServerContext(): ServerContext {
     baseURL: env.BETTER_AUTH_URL,
     mailer,
     clientIpHeader: env.CLIENT_IP_HEADER,
+    authRateLimitScale: authRateLimitScale(env),
     // Plan limits are enforced on the server when inviting (PLAN §2.3 #16).
     memberLimit: async (organizationId) =>
       (await billing.getEntitlement(organizationId)).plan.limits.members,

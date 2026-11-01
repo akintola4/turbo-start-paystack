@@ -41,6 +41,10 @@ npm-debug.log*
 .claude/settings.local.json
 .paystack-mock.json
 scripts/.paystack-mock.json
+.paystack-mock.*.json
+
+# Signed-in browser states written by the e2e setup project.
+apps/web/e2e/.auth/
 
 # Written by `next dev` on first run (agent rules); not part of the repo.
 apps/web/AGENTS.md

@@ -1,32 +1,14 @@
-import { type Cookie, expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+import { cookiesOf, type DemoUser, ORG } from "./users";
 
 /*
- * The ⌘K command palette. Run against the seeded app:
- * E2E_BASE_URL=http://localhost:3400 pnpm --filter web test:e2e e2e/command-palette.spec.ts
+ * The ⌘K command palette, against the e2e stack (`pnpm e2e`): the setup
+ * project leaves Kola Logistics on Pro with an invoice.
  */
 
-const PASSWORD = process.env.E2E_PASSWORD ?? "kola-demo-2026";
-const ORG = "/app/kola-logistics";
-const sessions: Record<string, Cookie[]> = {};
-
-// One sign-in per person: the auth endpoint rate-limits repeated sign-ins.
-test.beforeAll(async ({ browser }) => {
-  for (const email of ["ada@kolalogistics.test", "chioma@kolalogistics.test"]) {
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    await page.goto("/sign-in");
-    const res = await page.request.post("/api/auth/sign-in/email", {
-      data: { email, password: PASSWORD },
-      headers: { origin: new URL(page.url()).origin },
-    });
-    expect(res.ok()).toBe(true);
-    sessions[email] = await context.cookies();
-    await context.close();
-  }
-});
-
-async function openAs(page: Page, email: string) {
-  await page.context().addCookies(sessions[email] ?? []);
+async function openAs(page: Page, user: DemoUser) {
+  await page.context().addCookies(cookiesOf(user));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(ORG, { waitUntil: "networkidle" });
   await page.locator("[data-command-trigger]").waitFor();
@@ -40,7 +22,7 @@ const options = (page: Page) => palette(page).getByRole("option");
 test("⌘K opens the palette with the input focused; Esc returns focus to the trigger", async ({
   page,
 }) => {
-  await openAs(page, "ada@kolalogistics.test");
+  await openAs(page, "ada");
   await page.locator("[data-command-trigger]").focus();
   await page.keyboard.press("ControlOrMeta+k");
   await expect(palette(page)).toBeVisible();
@@ -54,7 +36,7 @@ test("⌘K opens the palette with the input focused; Esc returns focus to the tr
 test("searching an invoice number and pressing Enter opens that invoice", async ({
   page,
 }) => {
-  await openAs(page, "ada@kolalogistics.test");
+  await openAs(page, "ada");
   await page.locator("[data-command-trigger]").click();
   await input(page).fill("INV-");
   const first = options(page)
@@ -70,14 +52,17 @@ test("searching an invoice number and pressing Enter opens that invoice", async 
     /\d+ results?/
   );
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/settings\/billing\/invoices\/[\w-]+$/);
+  // The first visit compiles the invoice page under `next dev`.
+  await expect(page).toHaveURL(/\/settings\/billing\/invoices\/[\w-]+$/, {
+    timeout: 20_000,
+  });
   await expect(page.getByText(number).first()).toBeVisible();
 });
 
 test("a member sees no billing pages, billing actions or invoices", async ({
   page,
 }) => {
-  await openAs(page, "chioma@kolalogistics.test");
+  await openAs(page, "chioma");
   await page.keyboard.press("ControlOrMeta+k");
   await expect(palette(page)).toBeVisible();
   const all = await options(page).allInnerTexts();
@@ -116,7 +101,7 @@ for (const scheme of ["light", "dark"] as const) {
     page,
   }) => {
     await page.emulateMedia({ colorScheme: scheme });
-    await openAs(page, "ada@kolalogistics.test");
+    await openAs(page, "ada");
     await page.keyboard.press("ControlOrMeta+k");
     await input(page).fill("me");
     await page.keyboard.press("ArrowDown");
@@ -152,7 +137,7 @@ for (const scheme of ["light", "dark"] as const) {
 test("ranking: 'ligt' finds Toggle theme, not Billing details", async ({
   page,
 }) => {
-  await openAs(page, "ada@kolalogistics.test");
+  await openAs(page, "ada");
   await page.keyboard.press("ControlOrMeta+k");
   await input(page).fill("ligt");
   await expect(options(page).first()).toContainText("Toggle theme");
@@ -164,7 +149,7 @@ test("ranking: 'ligt' finds Toggle theme, not Billing details", async ({
 test("ranking: the obvious page leads for 'mem' and 'inv'", async ({
   page,
 }) => {
-  await openAs(page, "ada@kolalogistics.test");
+  await openAs(page, "ada");
   await page.keyboard.press("ControlOrMeta+k");
   await input(page).fill("mem");
   await expect(options(page).first()).toContainText("Members");

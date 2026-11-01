@@ -12,6 +12,18 @@ import { INSTALL_COMMAND, INSTALL_STEPS } from "../src/lib/landing";
 
 const WIDTHS = [300, 375, 768, 1024, 1440, 1920, 2560];
 
+// The footer's status badge reads status.paystack.com from the browser.
+// Answer it here, as Paystack's status API does (CORS open), so the suite
+// doesn't depend on reaching Paystack.
+test.beforeEach(async ({ context }) => {
+  await context.route("https://status.paystack.com/**", (route) =>
+    route.fulfill({
+      json: { page: { status: "UP" }, activeIncidents: [] },
+      headers: { "access-control-allow-origin": "*" },
+    })
+  );
+});
+
 async function heroPrice(page: Page) {
   return (await page.locator("[data-hero-price]").innerText()).replace(
     /\s+/g,
@@ -32,7 +44,18 @@ test("copy puts the full command on the clipboard without moving anything", asyn
   const command = page.locator("[data-command]");
   const button = page.locator("[data-copy]");
   await button.scrollIntoViewIfNeeded();
-  const before = await button.boundingBox();
+  // The receipt feeds out with the scroll (GSAP, refreshed once the fonts
+  // load), so measure once it has come to rest, not mid-feed.
+  await page.evaluate(() => document.fonts.ready);
+  let before = await button.boundingBox();
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(300);
+    const now = await button.boundingBox();
+    if (JSON.stringify(now) === JSON.stringify(before)) {
+      break;
+    }
+    before = now;
+  }
   const commandBefore = await command.boundingBox();
   await button.click();
   await expect(button).toHaveAccessibleName("Copied");
@@ -122,7 +145,10 @@ test("arrow keys on the wall move and choose", async ({ page }) => {
   await expect(amountDue(page)).toHaveText("GH₵0.00");
 });
 
-test("the webhook comparison opens on its outcome", async ({ page }) => {
+// The webhooks proof is hidden: landing.tsx keeps it commented out, with a
+// note to restore it along with the "How billing works" nav item. Un-skip
+// these two when it comes back.
+test.skip("the webhook comparison opens on its outcome", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await expect(page.locator("[data-verdict=browser]").first()).toBeVisible();
@@ -132,7 +158,7 @@ test("the webhook comparison opens on its outcome", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("on phones each request shows both answers", async ({ page }) => {
+test.skip("on phones each request shows both answers", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto("/");
   const compact = page.locator("[data-webhooks-compact]");
@@ -409,7 +435,8 @@ test("display headings put their first letter's ink on the content edge", async 
     "h1[data-hero-title] > span:first-child, main h2.display-l"
   );
   const count = await targets.count();
-  expect(count).toBeGreaterThanOrEqual(5);
+  // The hero and three section headings (the webhooks proof is hidden).
+  expect(count).toBeGreaterThanOrEqual(4);
   for (let i = 0; i < count; i++) {
     const t = targets.nth(i);
     await t.scrollIntoViewIfNeeded();
@@ -459,13 +486,29 @@ for (const colorScheme of ["light", "dark"] as const) {
         });
         return 0.2126 * (r ?? 0) + 0.7152 * (g ?? 0) + 0.0722 * (b ?? 0);
       };
-      const figure = document.querySelector("[data-code]") as HTMLElement;
-      const bg = lum(rgb(getComputedStyle(figure).backgroundColor));
-      const spans = figure.querySelectorAll<HTMLElement>(
+      // Each token against the surface it is painted on (its nearest
+      // ancestor with a background): the features editor's code pane, or
+      // the preview card beside it.
+      const surface = (el: Element) => {
+        let node: Element | null = el;
+        while (node) {
+          const color = getComputedStyle(node).backgroundColor;
+          if (!/^(transparent|rgba\(.*,\s*0\))$/.test(color)) {
+            return color;
+          }
+          node = node.parentElement;
+        }
+        return "white";
+      };
+      const spans = document.querySelectorAll<HTMLElement>(
         "[data-token], code > span:not([aria-hidden])"
       );
+      if (spans.length === 0) {
+        throw new Error("no code tokens on the page");
+      }
       let min = Number.POSITIVE_INFINITY;
       for (const span of spans) {
+        const bg = lum(rgb(surface(span)));
         const fg = lum(rgb(getComputedStyle(span).color));
         const ratio = (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05);
         min = Math.min(min, ratio);

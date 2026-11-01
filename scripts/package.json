@@ -14,6 +14,7 @@
     "payloads:redact": "tsx --env-file-if-exists=../apps/web/.env redact-payloads.ts",
     "setup": "tsx setup.ts",
     "dev:all": "tsx dev.ts",
+    "e2e": "tsx e2e.ts",
     "test": "vitest run"
   },
   "dependencies": {

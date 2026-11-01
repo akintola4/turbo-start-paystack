@@ -3,7 +3,7 @@ import { like } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { consumeRateLimit, userRateLimit } from "../src/rate-limit";
-import { AUTH_RATE_LIMITS } from "../src/server";
+import { AUTH_RATE_LIMITS, scaleRateLimits } from "../src/server";
 import { createOrg, post, setupAuth, signUp } from "./helpers";
 
 let ctx: Awaited<ReturnType<typeof setupAuth>>;
@@ -107,6 +107,36 @@ describe("rate limits (audit #7)", () => {
     );
     expect(res.status).toBe(429);
     ctx.limits.members = 100;
+  });
+
+  it("authRateLimitScale raises every limit by a whole factor, never below the default", async () => {
+    expect(scaleRateLimits(1)).toEqual(AUTH_RATE_LIMITS);
+    expect(scaleRateLimits(0)).toEqual(AUTH_RATE_LIMITS);
+    expect(scaleRateLimits(10)["/sign-in/email"]).toEqual({
+      window: 60,
+      max: 50,
+    });
+
+    const scaled = await setupAuth({ authRateLimitScale: 2 });
+    try {
+      const body = {
+        email: "nobody@kolalogistics.test",
+        password: "wrong-password",
+      };
+      const { max } = AUTH_RATE_LIMITS["/sign-in/email"];
+      for (let i = 0; i < max * 2; i++) {
+        const res = await post(scaled, "/sign-in/email", body, {
+          ip: "203.0.113.60",
+        });
+        expect(res.status, `request ${i + 1}`).not.toBe(429);
+      }
+      const res = await post(scaled, "/sign-in/email", body, {
+        ip: "203.0.113.60",
+      });
+      expect(res.status).toBe(429);
+    } finally {
+      await scaled.close();
+    }
   });
 
   it("per-user limits on the app's routes share the table and reset after the window", async () => {
