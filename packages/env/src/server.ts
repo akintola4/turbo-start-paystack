@@ -45,6 +45,16 @@ export const env = createEnv({
     // card: card-up-front trial on plans with trialDays. off: no trials.
     BILLING_TRIAL_MODE: z.enum(["card", "off"]).default("card"),
 
+    // `pnpm e2e` only: multiplies Better Auth's rate limits so the suite can
+    // sign in more than five times a minute. Ignored unless NODE_ENV is not
+    // production and PAYSTACK_API_URL is the local mock.
+    E2E_AUTH_RATE_LIMIT_SCALE: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100)
+      .optional(),
+
     // Bearer token for /api/cron/*.
     CRON_SECRET: z.string().min(16),
 

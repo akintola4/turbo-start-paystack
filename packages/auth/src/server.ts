@@ -41,6 +41,10 @@ export type CreateAuthOptions = {
   /** Header the platform's proxy writes the client IP into, for Better
    *  Auth's per-IP rate limits (e.g. `x-vercel-forwarded-for`). */
   clientIpHeader?: string;
+  /** Multiplies every max in AUTH_RATE_LIMITS (default 1). Only for the
+   *  local e2e suite, which signs in more often than a person can; the web
+   *  app never passes it in production. */
+  authRateLimitScale?: number;
 };
 
 /**
@@ -59,6 +63,17 @@ export const AUTH_RATE_LIMITS = {
   "/change-password": { window: 60, max: 5 },
   "/organization/invite-member": { window: 60 * 60, max: 30 },
 } as const;
+
+/** AUTH_RATE_LIMITS with each max multiplied by `scale` (at least 1). */
+export function scaleRateLimits(scale: number) {
+  const factor = Math.max(1, Math.floor(scale));
+  return Object.fromEntries(
+    Object.entries(AUTH_RATE_LIMITS).map(([path, rule]) => [
+      path,
+      { window: rule.window, max: rule.max * factor },
+    ])
+  ) as Record<keyof typeof AUTH_RATE_LIMITS, { window: number; max: number }>;
+}
 
 /** Slugs that would be shadowed by app routes (`/app/account`). */
 export const RESERVED_SLUGS = ["account"] as const;
@@ -429,7 +444,7 @@ export function createAuth(options: CreateAuthOptions) {
       window: 60,
       max: 100,
       storage: "database",
-      customRules: AUTH_RATE_LIMITS,
+      customRules: scaleRateLimits(options.authRateLimitScale ?? 1),
     },
     advanced: options.clientIpHeader
       ? { ipAddress: { ipAddressHeaders: [options.clientIpHeader] } }

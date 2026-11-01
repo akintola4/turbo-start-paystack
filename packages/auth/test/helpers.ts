@@ -6,7 +6,10 @@ import { eq } from "drizzle-orm";
 import { type CreateAuthOptions, createAuth } from "../src/server";
 
 export async function setupAuth(
-  overrides: Pick<CreateAuthOptions, "beforeDeleteOrganization"> = {}
+  overrides: Pick<
+    CreateAuthOptions,
+    "beforeDeleteOrganization" | "authRateLimitScale"
+  > = {}
 ) {
   const limits = { members: 100 };
   const { db, close } = await createTestDb();

@@ -21,6 +21,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { handlePaystackWebhook } from "../src/server/billing-routes";
 import {
   type DevDeps,
+  authRateLimitScale,
   devToolsEnabled,
   handleDevOutbox,
   handleDevOutboxEmail,
@@ -306,6 +307,31 @@ describe("dev tools guard", () => {
     expect(devToolsEnabled({ ...local, PAYSTACK_API_URL: undefined })).toBe(
       false
     );
+  });
+
+  it("relaxes the auth rate limits for e2e only where the dev tools are on", () => {
+    const local = {
+      NODE_ENV: "development",
+      PAYSTACK_API_URL: "http://localhost:4210",
+      PAYSTACK_SECRET_KEY: "sk_test_local_mock",
+      E2E_AUTH_RATE_LIMIT_SCALE: 20,
+    };
+    expect(authRateLimitScale(local)).toBe(20);
+    expect(
+      authRateLimitScale({ ...local, E2E_AUTH_RATE_LIMIT_SCALE: undefined })
+    ).toBeUndefined();
+    expect(
+      authRateLimitScale({ ...local, NODE_ENV: "production" })
+    ).toBeUndefined();
+    expect(
+      authRateLimitScale({
+        ...local,
+        PAYSTACK_API_URL: "https://api.paystack.co",
+      })
+    ).toBeUndefined();
+    expect(
+      authRateLimitScale({ ...local, PAYSTACK_SECRET_KEY: "sk_live_abc" })
+    ).toBeUndefined();
   });
 
   it("treats only plain-http loopback hosts as the mock", () => {

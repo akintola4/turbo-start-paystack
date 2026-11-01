@@ -54,6 +54,21 @@ export function devToolsEnabled(env: {
   );
 }
 
+/**
+ * The `pnpm e2e` suite signs in more often than Better Auth's limits allow
+ * (five a minute), so it sets E2E_AUTH_RATE_LIMIT_SCALE. It counts only where
+ * the dev tools are on (never in production, never against Paystack); the
+ * limits stay as they are everywhere else.
+ */
+export function authRateLimitScale(env: {
+  NODE_ENV?: string;
+  PAYSTACK_API_URL?: string;
+  PAYSTACK_SECRET_KEY?: string;
+  E2E_AUTH_RATE_LIMIT_SCALE?: number;
+}): number | undefined {
+  return devToolsEnabled(env) ? env.E2E_AUTH_RATE_LIMIT_SCALE : undefined;
+}
+
 export type MockResult =
   | { ok: true; deliveries: Delivery[] }
   | { ok: false; status: number; error: string; message: string };
