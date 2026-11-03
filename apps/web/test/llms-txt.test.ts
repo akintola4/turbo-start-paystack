@@ -1,15 +1,30 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import nextConfig from "../next.config";
 import { GET } from "../src/app/llms.txt/route";
+import { API_CSP } from "../src/lib/security-headers";
 import { config } from "../src/proxy";
+
+// next.config validates the app's env on import; the headers don't need it.
+vi.mock("@workspace/env/client", () => ({}));
+vi.mock("@workspace/env/server", () => ({}));
 
 const ROOT = join(process.cwd(), "../..");
 const FILE = readFileSync(join(ROOT, "llms.txt"), "utf8");
 const BLOB = "https://github.com/akintola4/turbo-start-paystack/blob/main/";
 
 describe("/llms.txt", () => {
+  it("gets the deny-all API CSP from next.config", async () => {
+    const rules = (await nextConfig.headers?.()) ?? [];
+    const rule = rules.find((r) => r.source === "/llms.txt");
+    expect(rule?.headers).toContainEqual({
+      key: "Content-Security-Policy",
+      value: API_CSP,
+    });
+  });
+
   it("serves the repo-root llms.txt as plain text", async () => {
     const res = GET();
     expect(res.status).toBe(200);
