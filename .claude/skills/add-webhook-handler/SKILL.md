@@ -17,8 +17,9 @@ Order of work:
    Paystack's documented example, keeping its field names and types.
 3. Write the failing test in `packages/billing/test/` with the harness from
    `test/support.ts`. Reach the starting state through real flows
-   (`h.createOrg`, `h.billing.startCheckout`, `h.pay`, `h.subscribe`). Never
-   insert billing rows.
+   (`h.subscribe()` in one call, or `h.createOrg`, `h.billing.startCheckout`
+   and `h.pay`, which only builds payloads you then pass to `h.deliver`).
+   Never insert billing rows.
 4. Add the `case` and the handler, then make the test pass.
 
 Non-negotiables:

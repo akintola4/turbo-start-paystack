@@ -54,7 +54,8 @@ retry. Find the log line by event id:
 
 ## 3. Retry it
 
-Reconcile retries every unprocessed event under 10 attempts, oldest first:
+Reconcile retries unprocessed events under 10 attempts, oldest first, up to
+50 per run (`processPending` in `packages/billing/src/webhook/process.ts`):
 
 ```bash
 curl -s -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/billing-reconcile

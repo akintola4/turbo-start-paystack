@@ -25,12 +25,22 @@ database. To change a price, add a plan with a new key (for example
     filled button
 - `apps/web/src/components/billing/plan-picker.tsx` reads plans from the
   catalog. Its grid is `@3xl:grid-cols-3`, so a fourth plan wraps onto a
-  second row (`@3xl:grid-cols-2 @6xl:grid-cols-4` fixes it). The annual
+  second row (`@3xl:grid-cols-2 @6xl:grid-cols-4` fixes it). Update the
+  comment above the grid ("Three across only when…") to match. The annual
   "Save" note reads Pro's saving (`p.key === "pro"`). Change that only if
   you remove or rename Pro
+- `apps/web/src/components/landing/features/demos.tsx` hand-types
+  `priceOf(key: "starter" | "pro")` for the landing demos. A new plan needs
+  nothing there; renaming or retiring Starter or Pro does
 - `README.md` has no plan table. It names Pro in the e2e section and in
   screenshot alt text, so it needs a change only if you rename or remove
   Pro (`apps/web/e2e/setup.setup.ts` subscribes to Pro too)
+- Renaming or retiring Starter or Pro also touches the copy in
+  `apps/web/src/server/dev-billing.ts` ("Subscribe to Starter or Pro
+  first"), the e2e specs that name them (`settings.spec.ts`,
+  `command-palette.spec.ts`, and `numbers.spec.ts`, which expects "30,000
+  naira per month"), and the billing tests, whose harness defaults to
+  `pro-monthly-ngn`. Adding a plan touches none of these
 
 ## Steps
 
@@ -58,6 +68,9 @@ database. To change a price, add a plan with a new key (for example
    - `rank` decides upgrade (now, prorated) versus downgrade (at period end).
      A bigger plan needs a higher rank. Ranks are only compared, so moving
      Pro from 2 to 3 to fit Team in is safe.
+   - `limits.members` should go up with rank (Starter 10, Team 25, Pro 50),
+     so an upgrade never takes seats away and a downgrade's seat check
+     means what it says.
    - Each amount must be at least Paystack's minimum for its currency:
      NGN ₦50 (`5000`), USD $2 (`200`), GHS ₵0.10 (`10`), ZAR R1 (`100`),
      KES Ksh3 (`300`).
@@ -92,18 +105,27 @@ database. To change a price, add a plan with a new key (for example
 
 ```bash
 pnpm lint && pnpm check-types && pnpm test
+pnpm e2e    # the plan picker and landing pricing are covered by specs
 ```
 
+Two specs cover plans: `e2e/landing.spec.ts` (the landing page and its
+pricing) and `e2e/setup.setup.ts` (subscribes through the plan picker, and
+runs at the start of every `pnpm e2e`). `pnpm e2e e2e/landing.spec.ts` runs
+one. Run `pnpm --filter web exec playwright install chromium` once first.
+
 With `pnpm dev` running on the mock, sign in as `ada@kolalogistics.test` and
-open Billing (`/app/kola-logistics/settings/billing`). The seeded org is on
-Free. Check the new plan's price, seats and trial, then start it. The mock
-checkout charges ₦50, not the plan price: on a plan with a trial, the first
-charge is a refunded card check, and the subscription starts when the trial
-ends. Press "Pay with test card" and you land back on Billing with the plan
-in trial. Now that the org is on a paid plan, the picker should offer a
-downgrade to smaller plans and an upgrade to bigger ones, which confirms
-the rank. "End the trial" in the Simulate billing panel charges the first
-period and issues an invoice for the full price.
+open Billing (`/app/kola-logistics/settings/billing`). Right after a reload
+the page can show a skeleton for a moment (its screen-reader label is
+"Loading billing"); wait for the plans. The seeded org is on Free. Check the
+new plan's price, seats and trial, then start it. The mock checkout charges
+₦50, not the plan price: on a plan with a trial, the first charge is a
+refunded card check, and the subscription starts when the trial ends. Press
+"Pay with test card" and you land back on Billing with the plan in trial.
+Now that the org is on a paid plan, the picker should offer a downgrade to
+smaller plans and an upgrade to bigger ones, which confirms the rank. "End
+the trial" in the Simulate billing panel charges the first period and
+issues an invoice for the full price. Invoices are listed on the Invoices
+page (`/app/kola-logistics/settings/billing/invoices`), not on Billing.
 
 If `check-types` fails in `apps/web/src/components/landing/*`, step 2 is
 missing a key.

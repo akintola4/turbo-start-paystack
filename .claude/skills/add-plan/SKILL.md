@@ -24,15 +24,20 @@ While editing:
   GHS `10`, ZAR `100`, KES `300`.
 - `rank` sets upgrade versus downgrade. Renumber the others so the order
   matches the price.
-- A new key also has to go into the landing page types
-  (`apps/web/src/components/landing/types.ts`, `landing.tsx`,
-  `pricing.tsx`), or `pnpm check-types` fails.
+- A new key has to go into the landing page types
+  (`apps/web/src/components/landing/types.ts` and `landing.tsx`), or
+  `pnpm check-types` fails. `pricing.tsx` (grid, trial footnote,
+  `SUGGESTED`) and the plan-picker grid in
+  `apps/web/src/components/billing/plan-picker.tsx` are layout only: update
+  them so a fourth plan doesn't wrap.
+- Member limits go up with rank.
 
 Finish:
 
 ```bash
 pnpm billing:sync      # with the mock running (pnpm dev or pnpm paystack:mock)
 pnpm lint && pnpm check-types && pnpm test
+pnpm e2e               # landing.spec.ts and setup.setup.ts cover plans
 ```
 
 Then report the new price ids that sync printed under `created:`, and check

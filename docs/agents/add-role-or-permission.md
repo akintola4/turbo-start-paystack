@@ -14,7 +14,11 @@ power the organization plugin, `requirePermission` and the UI's `can(...)`.
 - `apps/web/src/lib/view-models.ts`: the `Role` union
 - `apps/web/src/server/views.ts`: where the UI reads `can("...")` for the
   new permission
+- `apps/web/src/components/landing/features/demos.tsx`: the landing demo
+  lists the roles by hand
 - `packages/auth/test/permissions.test.ts`, `apps/web/test/roles-and-seats.test.ts`
+- `packages/auth/test/billing-role.test.ts`: asserts the exact
+  `canGrantRole`/`grantableRoles` lists, so a new role changes them
 - `README.md`: the Roles table
 
 ## A new permission

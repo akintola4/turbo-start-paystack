@@ -38,8 +38,8 @@ Unknown events are stored and marked processed without doing anything. So
    fields without breaking you, and return an `Outcome`:
 
    ```ts
-   case "subscription.expiring_cards":
-     return onExpiringCards(deps, tx, data);
+   case "transfer.success": // an example: not handled today
+     return onTransferSuccess(deps, tx, data);
    ```
 
    - `{}` means done. `{ error }` records the error and marks the event
@@ -69,9 +69,12 @@ Unknown events are stored and marked processed without doing anything. So
 
 Use the harness (`setupBilling` in `packages/billing/test/support.ts`).
 `test/refund-webhooks.test.ts` is a compact model. Get to the state the
-event applies to through real flows (`h.createOrg()`,
-`h.billing.startCheckout(...)`, `h.pay(reference)`, `h.subscribe()`), not
-by inserting rows. Then:
+event applies to through real flows, not by inserting rows: `h.subscribe()`
+gives an org with a paid subscription in one call. For a step-by-step path,
+`h.createOrg()`, then `h.billing.startCheckout(...)`, then
+`const paid = h.pay(reference)`. `h.pay` only builds the webhook payloads,
+so follow it with `await h.deliver(paid.charge)` (and `paid.created` when
+there is one). Then:
 
 - `const event = await h.deliver(myEvent(...))` returns the stored
   `webhook_event` row. Assert `event.processedAt` is set and `event.error`
@@ -99,7 +102,10 @@ Against a running app on the mock, send it signed:
 pnpm webhook:replay scripts/fixtures/<event>.json
 ```
 
-Then check `webhook_event` for the row (`processed_at` set, `error` null).
+The fixtures hold placeholder references and codes (`tsp-replace-me` and so
+on). Edit them to match rows in your database first; otherwise the event is
+stored but matches nothing. Then check `webhook_event` for the row
+(`processed_at` set, `error` null).
 If the event is one the Simulate billing panel can produce, add an action to
 `SIMULATE_ACTIONS` in `packages/billing/src/simulate.ts` and `DEV_ACTIONS` in
 `apps/web/src/server/dev-billing.ts`. That's optional.

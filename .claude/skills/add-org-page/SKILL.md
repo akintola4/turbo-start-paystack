@@ -18,7 +18,9 @@ Rules:
   routes). Never take it from the body, a cookie or the session.
 - Route handlers call
   `deps.authService.requirePermission(headers, organizationId, "<resource>:<action>")`
-  before anything else, and map `AuthError` to 401 or 403.
+  before reading the body or the database (a cheap 404 for an unknown
+  action or a 415 for the wrong content type may come first), and map
+  `AuthError` to 401 or 403.
 - Page loaders call `requireOrgBySlug(slug)`, then
   `if (!can("<permission>")) notFound()`. A 404, not a 403, so other
   tenants' slugs don't leak.
