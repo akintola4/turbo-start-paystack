@@ -9,6 +9,8 @@ import {
 } from "@workspace/billing";
 import { createDb } from "@workspace/db";
 
+import { paystackModeLabel } from "./targets";
+
 function required(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -30,8 +32,9 @@ const paystack = createPaystackClient({
   baseUrl: process.env.PAYSTACK_API_URL ?? "https://api.paystack.co",
 });
 
+const mode = paystackModeLabel(secretKey, process.env.PAYSTACK_API_URL);
 console.log(
-  `Syncing ${currencies.join(", ")} plans to Paystack (${secretKey.startsWith("sk_live_") ? "LIVE" : "test"} mode)…`
+  `Syncing ${currencies.join(", ")} plans to ${mode === "mock" ? `the local Paystack mock (${process.env.PAYSTACK_API_URL})` : `Paystack (${mode} mode)`}…`
 );
 const report = await syncPlans({ db, paystack, currencies });
 console.log(`created:   ${report.created.join(", ") || "none"}`);
