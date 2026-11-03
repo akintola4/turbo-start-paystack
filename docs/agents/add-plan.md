@@ -11,21 +11,31 @@ database. To change a price, add a plan with a new key (for example
 
 ## Files
 
-- `packages/billing/src/catalog.ts`: `PlanKey`, and the entry in `catalog`
+- `packages/billing/src/catalog.ts`: `PlanKey`, and the entry in `catalog`.
+  Pages list plans in array order, so put the entry where it should show
+  (usually sorted by price)
 - `packages/billing/test/money-catalog-crypto.test.ts`: catalog tests
 - The landing page names its plans in a few places, and `pnpm check-types`
   fails until they know the new key:
   - `apps/web/src/components/landing/types.ts` (`PlanKey`, `PriceTable`)
   - `apps/web/src/components/landing/landing.tsx` (`PaidPlan`, `priceTable()`)
-  - `apps/web/src/components/landing/pricing.tsx` (the `md:grid-cols-3`
-    grid, and the trial footnote under it)
+  - `apps/web/src/components/landing/pricing.tsx`: the `md:grid-cols-3`
+    grid (with four plans, `md:grid-cols-2 xl:grid-cols-4` keeps rows even),
+    the trial footnote under it, and `SUGGESTED = "pro"`, the plan with the
+    filled button
 - `apps/web/src/components/billing/plan-picker.tsx` reads plans from the
-  catalog. Its grid is `@3xl:grid-cols-3`, so a fourth plan wraps
-- `README.md` if the plan list or the roles/limits table changes
+  catalog. Its grid is `@3xl:grid-cols-3`, so a fourth plan wraps onto a
+  second row (`@3xl:grid-cols-2 @6xl:grid-cols-4` fixes it). The annual
+  "Save" note reads Pro's saving (`p.key === "pro"`). Change that only if
+  you remove or rename Pro
+- `README.md` has no plan table. It names Pro in the e2e section and in
+  screenshot alt text, so it needs a change only if you rename or remove
+  Pro (`apps/web/e2e/setup.setup.ts` subscribes to Pro too)
 
 ## Steps
 
-1. Add the key to `PlanKey` and an entry to `catalog`:
+1. Add the key to `PlanKey` and an entry to `catalog`. Here Team sits
+   between Starter (rank 1) and Pro, so Pro moves from rank 2 to 3:
 
    ```ts
    {
@@ -38,7 +48,7 @@ database. To change a price, add a plan with a new key (for example
      features: ["Up to 25 members", "Email support"],
      prices: monthlyAndAnnual({
        NGN: [2_000_000, 20_000_000],   // ₦20,000 / month, ₦200,000 / year, in kobo
-       // add GHS, ZAR, KES, USD too: the landing page throws if one is missing
+       GHS: [30_000, 300_000],         // and ZAR, KES, USD: the landing page throws if one is missing
      }),
    },
    ```
@@ -53,6 +63,11 @@ database. To change a price, add a plan with a new key (for example
      KES Ksh3 (`300`).
    - The annual price is ten times the monthly one by convention (the
      landing page says "2 months free").
+   - Other currencies: unless you were given prices, scale the nearest
+     existing plan by the same ratio as the NGN price. Team at ₦20,000 is
+     twice Starter's ₦10,000, so it's twice Starter everywhere (GHS
+     `30_000`, ZAR `36_000`, KES `260_000`, USD `2000` a month). Say in your
+     summary that these were derived, so a person can set real prices.
 2. Update the landing files above so they know the key and show the plan.
 3. Add tests to `packages/billing/test/money-catalog-crypto.test.ts`: the new
    price id resolves (`getPlanPrice("team-monthly-ngn")?.amountSubunit`), the
@@ -79,12 +94,16 @@ database. To change a price, add a plan with a new key (for example
 pnpm lint && pnpm check-types && pnpm test
 ```
 
-With `pnpm dev` running on the mock, sign in as `ada@kolalogistics.test`,
-open Billing and check the new plan's price, seats and trial. Start it,
-press "Pay with test card" on the mock checkout, and you land back on Billing
-with the plan in trial. "End the trial" in the Simulate billing panel charges
-the first period. If the org is already on a plan, the picker offers an
-upgrade or a downgrade, depending on the rank.
+With `pnpm dev` running on the mock, sign in as `ada@kolalogistics.test` and
+open Billing (`/app/kola-logistics/settings/billing`). The seeded org is on
+Free. Check the new plan's price, seats and trial, then start it. The mock
+checkout charges ₦50, not the plan price: on a plan with a trial, the first
+charge is a refunded card check, and the subscription starts when the trial
+ends. Press "Pay with test card" and you land back on Billing with the plan
+in trial. Now that the org is on a paid plan, the picker should offer a
+downgrade to smaller plans and an upgrade to bigger ones, which confirms
+the rank. "End the trial" in the Simulate billing panel charges the first
+period and issues an invoice for the full price.
 
 If `check-types` fails in `apps/web/src/components/landing/*`, step 2 is
 missing a key.

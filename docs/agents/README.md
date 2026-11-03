@@ -16,10 +16,10 @@ the tests to add and how to verify.
 | Go live: test keys to live keys | [go-live.md](go-live.md) |
 | Debug a failed webhook | [debug-webhook.md](debug-webhook.md) |
 
-Every recipe ends with the same gate:
+Every recipe ends with the same gate, which CI also runs:
 
 ```bash
-pnpm lint && pnpm check-types && pnpm test
+pnpm lint && pnpm check-types && pnpm test && pnpm format:check
 ```
 
 Background reading: `docs/decisions.md` (why things are built the way they

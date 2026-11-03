@@ -43,18 +43,24 @@ pnpm dev            # app + Paystack mock in one process; runs until stopped
 
 `pnpm setup` writes `apps/web/.env`, picks free ports (app from 3000, mock
 from 4010), finds or starts Postgres, migrates, creates the plans on the mock
-and seeds the demo org. Sign in as `ada@kolalogistics.test` /
-`kola-demo-2026` (owner). `tunde@` is billing, `chioma@` is member. Setup is
-safe to run again and never overwrites a value already in `apps/web/.env`.
+and seeds the demo org, Kola Logistics (slug `kola-logistics`, on the Free
+plan). Sign in as `ada@kolalogistics.test` / `kola-demo-2026` (owner).
+`tunde@` is billing, `chioma@` is member. Setup is safe to run again and
+never overwrites a value already in `apps/web/.env`. The mock isn't left
+running, but it keeps its plans, customers and subscriptions in
+`scripts/.paystack-mock.json` (gitignored), so they're still there when
+`pnpm dev` starts it again. `pnpm setup:reset` clears that file too.
 
-Options for agents. pnpm 11 drops flags written after `pnpm setup`, so use
-the environment variables:
+Options for agents. `setup` is also a built-in pnpm command, and pnpm 10 and
+11 drop any flags written after `pnpm setup`, so use environment variables.
+Only `setup` has this problem: other scripts take flags normally, for example
+`pnpm billing:sync --currencies=NGN,USD`.
 
 | Variable | Effect |
 |---|---|
 | `CI=1` or `SETUP_YES=1` | Never prompt. Already the case with no TTY |
-| `DATABASE_URL=postgres://…` | Use this Postgres when `apps/web/.env` has none. Setup creates the database |
-| `SETUP_DB=<name>` | Use another database name on the same server |
+| `DATABASE_URL=postgres://user@host:port/<name>` | Use this Postgres when `apps/web/.env` has none. Include the database name: setup creates it if it's missing |
+| `SETUP_DB=<name>` | Use this database name instead of the one in the URL (default `turbo_start_paystack`) |
 | `SETUP_PORT=<n>`, `SETUP_MOCK_PORT=<n>` | Fixed app and mock ports instead of the first free ones |
 
 Flags work through `pnpm run setup -- --yes --port=3600`. Without
@@ -97,7 +103,7 @@ packages/billing/src/catalog.ts        plans and prices: the only place amounts 
 packages/billing/src/service/          checkout, plan change, cancel/resume, refunds (BillingService)
 packages/billing/src/webhook/          verify.ts, ingest.ts (store once), process.ts, handlers.ts
 packages/billing/src/reconcile.ts      hourly job: retries events, expires checkouts, resyncs
-packages/billing/src/fake-paystack.ts  in-memory Paystack used by tests and the local mock
+packages/billing/src/fake-paystack.ts  fake Paystack: in memory in tests, saved to a file by the local mock
 packages/billing/src/fixtures.ts       webhook payload builders from Paystack's documented examples
 packages/billing/test/                 most of the tests; support.ts is the harness
 packages/auth/src/roles.ts             roles, permission statements, canGrantRole
@@ -149,22 +155,29 @@ Packages are source-only `@workspace/*` modules with no build step.
 ## How to verify
 
 ```bash
-pnpm lint && pnpm check-types && pnpm test   # must pass; about 2 minutes
+pnpm lint && pnpm check-types && pnpm test   # must pass; 3 to 4 minutes on a laptop
 pnpm format:check                            # CI runs this too; pnpm format fixes it
 ```
 
 - `pnpm test` runs on PGlite with no setup. Under load the billing and auth
-  suites can time out. Rerun one alone with
-  `pnpm --filter @workspace/billing test` before treating it as a failure.
+  suites can time out (`syncPlans … creates plans once` in
+  `packages/billing/test/trial-reconcile-sync.test.ts` is the usual one).
+  A timeout isn't a failure until it repeats when the package runs alone:
+  `pnpm --filter @workspace/billing test` or `pnpm --filter @workspace/auth test`.
 - The 3 concurrency tests run only with
   `TEST_DATABASE_URL=postgres://…/postgres pnpm test`.
 - `pnpm e2e` runs Playwright against a fresh `<db>_e2e` database (localhost
   only, dropped each run), the mock on 4210 and the app on 3200. Run
   `pnpm --filter web exec playwright install chromium` once.
-  `pnpm e2e e2e/landing.spec.ts` runs one spec.
+  `pnpm e2e e2e/landing.spec.ts` runs one spec. `e2e/landing.spec.ts`
+  covers the landing page and its pricing; `e2e/setup.setup.ts` subscribes
+  through the plan picker, so it runs at the start of every `pnpm e2e`.
 - The Simulate billing panel: with `pnpm dev` on the mock, sign in as Ada and
-  open Billing. Start a trial, press "Pay with test card" on the mock
-  checkout, then open the dashed Simulate billing card at the bottom. It
+  open Billing (`/app/kola-logistics/settings/billing`). Start a trial and
+  press "Pay with test card" on the mock checkout. The charge is a small
+  card check (₦50), not the plan price; it's refunded, and the plan starts
+  when the trial ends. Then open the dashed Simulate billing card at the
+  bottom. It
   plays renewals, failed payments, recovery, trial end, duplicates and forged
   webhooks through the real webhook route.
 - One webhook by hand: `pnpm webhook:replay scripts/fixtures/charge-success.json`
