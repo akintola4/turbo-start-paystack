@@ -20,6 +20,21 @@ Billing state is written only by verified webhooks and server-side
 verification. The browser never sends a plan status, an amount or a
 subscription code.
 
+## Use it with your AI agent
+
+The repo is set up for coding agents (Claude Code, Codex, Cursor, Copilot,
+Gemini CLI, Windsurf, Aider). [`AGENTS.md`](AGENTS.md) tells them how to set
+it up, the billing rules they must not break and how to check their work.
+Recipes for common jobs are in [`docs/agents/`](docs/agents/README.md).
+Paste this into your agent:
+
+```txt
+Clone github.com/akintola4/turbo-start-paystack, read AGENTS.md, then set it up locally with the Paystack mock and add a "Team" plan at ₦20,000 a month with 25 seats.
+```
+
+It needs Node 24, pnpm and a Postgres it can reach (or Docker). No Paystack
+keys are needed.
+
 ## What is included
 
 - `apps/web`: Next.js 16 App Router app with sign-up and sign-in,
@@ -131,10 +146,18 @@ about 15 seconds after `pnpm install`.
 ```bash
 pnpm setup:reset                  # drop and reseed the dev database (stop pnpm dev first)
 SETUP_DB=my_db pnpm setup         # use another database name
+SETUP_PORT=3600 pnpm setup        # fixed app port (SETUP_MOCK_PORT for the mock)
+DATABASE_URL=postgres://…/<db> pnpm setup   # a local Postgres of your own, when apps/web/.env has none
+CI=1 pnpm setup                   # never prompt (also the case without a terminal)
 ```
 
+Without a terminal, setup never waits for input: it uses the defaults, or
+stops with exit code 1 and the fix when something is missing.
+
 pnpm has a built-in `setup` command. pnpm 10 and 11 run this repo's script
-instead, but reject flags after it, which is why the variants above exist.
+instead, but drop or reject flags after it (`pnpm setup --port=3600` fails
+with "Unknown option"), which is why the variants above use environment
+variables. Flags work through `pnpm run setup -- --yes --port=3600`.
 On pnpm 9 or older, `pnpm setup` is pnpm's own command (it edits your shell
 profile): use `corepack enable` to get the pnpm version in `package.json`.
 
@@ -148,13 +171,15 @@ script).
 option, point setup at it before the first run:
 
 ```bash
-cp .env.example apps/web/.env
-# in apps/web/.env:
-# DATABASE_URL=postgres://<your-user>@127.0.0.1:5432/turbo_start_paystack
-pnpm setup
+DATABASE_URL=postgres://<your-user>@127.0.0.1:5432/turbo_start_paystack pnpm setup
 ```
 
-Setup creates the database if it is missing and fills in everything else.
+Setup creates the database if it is missing, writes the URL into
+`apps/web/.env` and fills in everything else. A `DATABASE_URL` already in
+`apps/web/.env` wins over the environment. From the environment, setup only
+takes a URL on this machine that names a database, since it migrates and
+seeds it: a `DATABASE_URL` exported for another project won't be touched.
+Set `SETUP_ALLOW_REMOTE_DB=1` to use a remote one on purpose.
 
 ### Simulate billing (development only)
 
@@ -518,7 +543,9 @@ must be verified) and can be used once.
   period ends, "Keep <plan>" on the billing page cancels the scheduled
   downgrade and the current plan renews as before.
 - **Cancel / resume.** Cancel disables renewal on Paystack; access continues
-  until the period ends. Resume re-enables it before then.
+  until the period ends. Paystack can't re-enable a disabled subscription,
+  so Resume, before the period ends, creates a new one on the same plan and
+  card that starts when the current period ends.
 - **Failed renewal.** `invoice.payment_failed` marks the subscription past due
   with a grace period that runs from the failed renewal's due date, emails
   billing managers a Paystack link to update the card, and shows a banner.

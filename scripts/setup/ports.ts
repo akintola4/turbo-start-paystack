@@ -79,3 +79,36 @@ export function portOf(url: string | undefined): number | null {
     return null;
   }
 }
+
+export class PortClash extends Error {}
+
+/**
+ * The app and mock ports for this run. Fixed ports (flags, or kept from
+ * apps/web/.env) win; the rest are the first free ones from 3000 and 4010,
+ * never 3001 (the email preview) and never the other server's port.
+ */
+export async function choosePorts(input: {
+  keptApp: number | null;
+  keptMock: number | null;
+  mockMode: boolean;
+  isFree?: (port: number) => Promise<boolean>;
+}): Promise<{ app: number; mock: number | null }> {
+  const { keptApp, keptMock, isFree } = input;
+  const app =
+    keptApp ??
+    (await pickPort(3000, {
+      avoid: [3001, ...(input.mockMode && keptMock ? [keptMock] : [])],
+      isFree,
+    }));
+  if (!input.mockMode) {
+    return { app, mock: null };
+  }
+  const mock =
+    keptMock ?? (await pickPort(4010, { avoid: [app, 3001], isFree }));
+  if (mock === app) {
+    throw new PortClash(
+      `The app and the Paystack mock would both use port ${app}. Set SETUP_PORT and SETUP_MOCK_PORT to two different ports, or change BETTER_AUTH_URL / PAYSTACK_MOCK_PORT in apps/web/.env.`
+    );
+  }
+  return { app, mock };
+}

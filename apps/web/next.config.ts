@@ -61,6 +61,11 @@ const nextConfig: NextConfig = {
       source: "/api/:path((?!dev/orgs/[^/]+/outbox/).*)",
       headers: [{ key: "Content-Security-Policy", value: API_CSP }],
     },
+    // Plain text for agents (app/llms.txt/route.ts): nothing in it runs.
+    {
+      source: "/llms.txt",
+      headers: [{ key: "Content-Security-Policy", value: API_CSP }],
+    },
     // Fonts and icons that transactional emails load from the app.
     ...emailAssetHeaders(),
   ],

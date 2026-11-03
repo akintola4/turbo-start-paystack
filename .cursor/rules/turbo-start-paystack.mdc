@@ -1,0 +1,9 @@
+---
+description: Turbo Start Paystack repository rules. AGENTS.md is the source of truth.
+globs:
+alwaysApply: true
+---
+
+Follow @AGENTS.md at the repository root. It has the mental model, the
+first-run commands, the hard rules, how to verify and the done checklist.
+Task recipes are in docs/agents/ (start at docs/agents/README.md).

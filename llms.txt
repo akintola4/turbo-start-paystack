@@ -1,0 +1,36 @@
+# Turbo Start Paystack
+
+> Open-source multi-tenant SaaS starter that bills through Paystack: a pnpm + Turborepo monorepo with Next.js 16, Better Auth organizations and roles, Drizzle on Postgres, and webhook-driven Paystack subscriptions. It runs locally with no Paystack keys against a bundled Paystack mock.
+
+Coding agents should read AGENTS.md first: it has the mental model, the exact first-run commands, the hard billing rules and the done checklist. The recipes below cover one job each. Source: https://github.com/akintola4/turbo-start-paystack. Live demo (Paystack test mode): https://turbo-start-paystack.vercel.app
+
+## Start here
+
+- [AGENTS.md](https://github.com/akintola4/turbo-start-paystack/blob/main/AGENTS.md): instructions for coding agents, covering setup with the mock or test keys, where things live, hard rules, verification and Paystack quirks
+- [README.md](https://github.com/akintola4/turbo-start-paystack/blob/main/README.md): setup, the Simulate billing panel, billing flows, roles, deploying and tests
+
+## Recipes
+
+- [Recipe index](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/agents/README.md): every task recipe
+- [Add or change a plan](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/agents/add-plan.md): the catalog, `pnpm billing:sync` and currency minimums
+- [Add an org-scoped page or route](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/agents/add-org-page.md): `requirePermission` and the organization id from the URL
+- [Handle a new webhook event](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/agents/add-webhook-handler.md): idempotent handlers, fixtures and the fake Paystack
+- [Add a transactional email](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/agents/add-email.md): React Email templates in packages/email
+- [Add a role or permission](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/agents/add-role-or-permission.md): Better Auth access control
+- [Deploy to Vercel and Neon](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/agents/deploy-vercel.md): vercel-build, crons and the reconcile workflow
+- [Go live](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/agents/go-live.md): test keys to live keys, with a checklist
+- [Debug a failed webhook](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/agents/debug-webhook.md): webhook_event, reconcile and the logged error causes
+
+## Docs
+
+- [Decisions](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/decisions.md): why the billing, auth and invoicing work the way they do
+- [Paystack setup](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/paystack-setup.md): keys, webhook URL, plans, the reconcile cron and going live
+- [Paystack test-mode checklist](https://github.com/akintola4/turbo-start-paystack/blob/main/docs/paystack-verification.md): behaviour to confirm against a real test account
+- [Contributing](https://github.com/akintola4/turbo-start-paystack/blob/main/CONTRIBUTING.md): checks to run before a pull request
+
+## Optional
+
+- [Paystack subscriptions](https://paystack.com/docs/payments/subscriptions/)
+- [Paystack webhooks](https://paystack.com/docs/payments/webhooks/)
+- [Paystack refunds](https://paystack.com/docs/payments/refunds/)
+- [Paystack API reference](https://paystack.com/docs/api/)
