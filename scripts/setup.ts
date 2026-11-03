@@ -14,17 +14,20 @@
 //   --mock-port=<n>  SETUP_MOCK_PORT=<n>   Paystack mock port (default:
 //                                         first free from 4010)
 //                    DATABASE_URL=<url>    Postgres to use when
-//                                         apps/web/.env has none
+//                                         apps/web/.env has none (local
+//                                         only; must name the database)
+//                    SETUP_ALLOW_REMOTE_DB=1  also accept a non-local
+//                                         DATABASE_URL, and let --reset
+//                                         drop a non-local database
 //
 // It checks the prerequisites, fills apps/web/.env (never overwriting a
 // value), picks free ports, starts or reuses Postgres, migrates, creates the
 // plans on the local Paystack mock and seeds a demo organization you can
 // sign in to. Safe to run again. Anything missing ends it with exit code 1
 // and the fix; it never waits for input without a terminal.
-import { execFile, spawn, spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import * as p from "@clack/prompts";
 import {
   type Currency,
@@ -37,6 +40,7 @@ import pc from "picocolors";
 
 import {
   applyEnv,
+  fromTemplate,
   generateSecrets,
   isPlaceholder,
   parseEnv,
@@ -44,11 +48,13 @@ import {
   SECRET_KEYS,
 } from "./setup/env-file";
 import {
+  databaseRefusal,
   OptionError,
   parseSetupOptions,
   type SetupOptions,
 } from "./setup/options";
-import { isListening, isPortFree, pickPort, portOf } from "./setup/ports";
+import { RunError, runGroup } from "./setup/run";
+import { choosePorts, isListening, isPortFree, portOf } from "./setup/ports";
 import {
   canConnect,
   DEFAULT_PG_PORT,
@@ -61,7 +67,6 @@ import {
 } from "./setup/postgres";
 import { DEMO_ORG, DEMO_PASSWORD, DEMO_USERS, seedDemo } from "./setup/seed";
 
-const execFileAsync = promisify(execFile);
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SCRIPTS = fileURLToPath(new URL(".", import.meta.url));
 const ENV_PATH = `${ROOT}apps/web/.env`;
@@ -279,7 +284,7 @@ const tools = await step(
 
 const fresh = !existsSync(ENV_PATH);
 const template = readFileSync(EXAMPLE_PATH, "utf8");
-const text = fresh ? template : readFileSync(ENV_PATH, "utf8");
+const text = fresh ? fromTemplate(template) : readFileSync(ENV_PATH, "utf8");
 const current = parseEnv(text);
 const exampleDbUrl = parseEnv(template).get("DATABASE_URL");
 if (current.get("DATABASE_URL") === exampleDbUrl) {
@@ -320,15 +325,11 @@ const ports = await step(
       (force.has("BETTER_AUTH_URL")
         ? null
         : portOf(current.get("BETTER_AUTH_URL")));
-    const app = keptApp ?? (await pickPort(3000, { avoid: [3001] }));
-    let mock: number | null = null;
-    if (mockMode) {
-      const keptMock =
-        flags.mockPort ??
-        (Number(current.get("PAYSTACK_MOCK_PORT")) ||
-          (configuredApi ? portOf(configuredApi) : null));
-      mock = keptMock ?? (await pickPort(4010, { avoid: [app, 3001] }));
-    }
+    const keptMock =
+      flags.mockPort ??
+      (Number(current.get("PAYSTACK_MOCK_PORT")) ||
+        (configuredApi ? portOf(configuredApi) : null));
+    const { app, mock } = await choosePorts({ keptApp, keptMock, mockMode });
     return { app, mock, appKept: keptApp !== null };
   },
   (r) =>
@@ -347,6 +348,17 @@ if (ports.appKept && !(await isPortFree(ports.app))) {
 const fromFile = current.get("DATABASE_URL");
 const kept = fromFile ?? flags.databaseUrl;
 const source = fromFile ? "from apps/web/.env" : "from $DATABASE_URL";
+if (kept) {
+  const refusal = databaseRefusal({
+    url: kept,
+    fromEnvironment: !fromFile,
+    reset: flags.reset,
+    allowRemote: flags.allowRemoteDb,
+  });
+  if (refusal) {
+    fail(new SetupError(refusal));
+  }
+}
 if (fromFile && flags.databaseUrl && flags.databaseUrl !== fromFile) {
   p.log.warn(
     `DATABASE_URL in the environment differs from apps/web/.env; using the file. ${c.dim("Remove it from the file to switch.")}`
@@ -512,17 +524,14 @@ await step(
   "Applying migrations",
   async () => {
     try {
-      await execFileAsync("pnpm", ["--filter", "@workspace/db", "db:migrate"], {
+      await runGroup("pnpm", ["--filter", "@workspace/db", "db:migrate"], {
         cwd: ROOT,
         env: { ...process.env, DATABASE_URL: dbUrl },
-        timeout: 180_000,
-        killSignal: "SIGKILL",
+        timeoutMs: 180_000,
       });
     } catch (error) {
-      const { stderr = "", killed } = error as {
-        stderr?: string;
-        killed?: boolean;
-      };
+      const { stderr = "", killed = false } =
+        error instanceof RunError ? error : {};
       throw new SetupError(
         killed
           ? "Migrations did not finish within 3 minutes."

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyEnv,
+  fromTemplate,
   generateSecrets,
   isPlaceholder,
   parseEnv,
@@ -112,5 +113,18 @@ describe("env file", () => {
     expect(s.BILLING_ENCRYPTION_KEY).toMatch(/^[0-9a-f]{64}$/);
     expect(s.CRON_SECRET?.length).toBeGreaterThanOrEqual(16);
     expect(generateSecrets().BETTER_AUTH_SECRET).not.toBe(s.BETTER_AUTH_SECRET);
+  });
+});
+
+describe("a new apps/web/.env from the template", () => {
+  it("replaces the copy-me header and keeps every value line", () => {
+    const template = `# Copy to apps/web/.env and fill in. Placeholder values only.
+
+${TEMPLATE}`;
+    const out = fromTemplate(template);
+    expect(out).not.toContain("Copy to apps/web/.env");
+    expect(out).not.toContain("Placeholder values only");
+    expect(out.split("\n")[0]).toContain("Written by `pnpm setup`");
+    expect(out.endsWith(TEMPLATE)).toBe(true);
   });
 });

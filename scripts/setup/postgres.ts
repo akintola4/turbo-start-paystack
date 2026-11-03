@@ -1,9 +1,7 @@
-import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 import postgres from "postgres";
 
-const run = promisify(execFile);
+import { RunError, runGroup } from "./run";
 
 export const DEFAULT_PG_PORT = 54329;
 
@@ -60,19 +58,21 @@ export async function startServer(input: {
 }): Promise<{ url: string; via: "docker" | "local" }> {
   // A first Docker run pulls the image, so allow a few minutes, but never
   // wait forever on a daemon that stopped answering.
-  const { stdout } = await run("bash", [DEV_DB_SCRIPT], {
+  const { stdout } = await runGroup("bash", [DEV_DB_SCRIPT], {
     env: {
       ...process.env,
       PGPORT: String(input.port),
       PGDATABASE: input.database,
     },
-    timeout: 300_000,
-    killSignal: "SIGKILL",
-  }).catch((error: { killed?: boolean; stderr?: string }) => {
-    if (error.killed) {
+    timeoutMs: 300_000,
+  }).catch((error: unknown) => {
+    if (error instanceof RunError && error.killed) {
       throw new Error(
         "scripts/dev-db.sh did not start Postgres within 5 minutes. Set DATABASE_URL to a running Postgres instead."
       );
+    }
+    if (error instanceof RunError) {
+      throw new Error(`scripts/dev-db.sh failed:\n${error.stderr.trim()}`);
     }
     throw error;
   });

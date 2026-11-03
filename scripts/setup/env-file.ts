@@ -125,3 +125,19 @@ export function generateSecrets(): Record<string, string> {
 }
 
 export const SECRET_KEYS = new Set(Object.keys(generateSecrets()));
+
+export const SETUP_HEADER = [
+  "# Written by `pnpm setup` for local development. Real values, not placeholders:",
+  "# keep this file out of git. Setup fills blanks on later runs and never",
+  "# overwrites a value you set, so edit it by hand to change one.",
+];
+
+/** `.env.example` as the start of a new apps/web/.env: its "copy me" header
+ *  (the comment lines before the first blank line) becomes SETUP_HEADER. */
+export function fromTemplate(template: string): string {
+  const lines = template.split("\n");
+  const end = lines.findIndex((l) => !l.startsWith("#"));
+  return [...SETUP_HEADER, ...lines.slice(end < 0 ? lines.length : end)].join(
+    "\n"
+  );
+}

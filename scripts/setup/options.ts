@@ -21,6 +21,9 @@ export type SetupOptions = {
   appPort: number | undefined;
   /** Fixed Paystack mock port (`--mock-port=` or SETUP_MOCK_PORT). */
   mockPort: number | undefined;
+  /** SETUP_ALLOW_REMOTE_DB: accept a non-local DATABASE_URL from the
+   *  environment, and let --reset drop a non-local database. */
+  allowRemoteDb: boolean;
 };
 
 export class OptionError extends Error {}
@@ -28,8 +31,45 @@ export class OptionError extends Error {}
 const truthy = (value: string | undefined) =>
   value !== undefined && value !== "" && value !== "0" && value !== "false";
 
+const VALUE_FLAGS = ["db", "port", "mock-port"];
+
+/** `--name=value`; an empty value counts as not given. */
 function flagValue(argv: string[], name: string): string | undefined {
-  return argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+  return (
+    argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ||
+    undefined
+  );
+}
+
+/** Hosts setup treats as this machine. */
+export function isLocalHost(hostname: string): boolean {
+  return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(hostname);
+}
+
+/**
+ * Why setup must not use this database, or null. A DATABASE_URL inherited
+ * from the shell is often there for another project, so it is used only when
+ * it is local, unless SETUP_ALLOW_REMOTE_DB is set. --reset drops the
+ * database without asking when there is no terminal, so it never touches a
+ * non-local one without the same opt-in.
+ */
+export function databaseRefusal(input: {
+  url: string;
+  fromEnvironment: boolean;
+  reset: boolean;
+  allowRemote: boolean;
+}): string | null {
+  if (input.allowRemote || isLocalHost(new URL(input.url).hostname)) {
+    return null;
+  }
+  const host = new URL(input.url).hostname;
+  if (input.fromEnvironment) {
+    return `DATABASE_URL in the environment points at ${host}, not this machine. Setup migrates and seeds the database it uses, so it only takes a local one from the environment. Unset DATABASE_URL, put the URL in apps/web/.env, or set SETUP_ALLOW_REMOTE_DB=1.`;
+  }
+  if (input.reset) {
+    return `--reset would drop the database on ${host}, which is not this machine. Set SETUP_ALLOW_REMOTE_DB=1 if you mean it.`;
+  }
+  return null;
 }
 
 function port(value: string | undefined, name: string): number | undefined {
@@ -53,18 +93,28 @@ export function parseSetupOptions(
     argv.includes("-y") ||
     truthy(env.CI) ||
     truthy(env.SETUP_YES);
+  for (const name of VALUE_FLAGS) {
+    if (argv.includes(`--${name}`)) {
+      throw new OptionError(`Write --${name}=<value>, with an equals sign.`);
+    }
+  }
   const databaseUrl = env.DATABASE_URL?.trim() || undefined;
   if (databaseUrl && !/^postgres(ql)?:\/\//.test(databaseUrl)) {
     throw new OptionError(
       "DATABASE_URL must start with postgres:// or postgresql://."
     );
   }
+  if (databaseUrl && new URL(databaseUrl).pathname.replace(/^\//, "") === "") {
+    throw new OptionError(
+      "DATABASE_URL needs a database name at the end, for example postgres://user@127.0.0.1:5432/turbo_start_paystack."
+    );
+  }
   const appPort = port(
-    flagValue(argv, "port") ?? env.SETUP_PORT,
+    flagValue(argv, "port") || env.SETUP_PORT,
     "--port / SETUP_PORT"
   );
   const mockPort = port(
-    flagValue(argv, "mock-port") ?? env.SETUP_MOCK_PORT,
+    flagValue(argv, "mock-port") || env.SETUP_MOCK_PORT,
     "--mock-port / SETUP_MOCK_PORT"
   );
   if (appPort !== undefined && appPort === mockPort) {
@@ -78,5 +128,6 @@ export function parseSetupOptions(
     databaseUrl,
     appPort,
     mockPort,
+    allowRemoteDb: truthy(env.SETUP_ALLOW_REMOTE_DB),
   };
 }

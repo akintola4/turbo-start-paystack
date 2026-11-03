@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { OptionError, parseSetupOptions } from "./options";
+import { databaseRefusal, OptionError, parseSetupOptions } from "./options";
 
 const TTY = { stdin: true, stdout: true };
 const NO_TTY = { stdin: false, stdout: false };
@@ -84,6 +84,94 @@ describe("setup options", () => {
         NO_TTY
       )
     ).toThrow(/different ports/);
+  });
+
+  it("needs a database name in DATABASE_URL", () => {
+    expect(() =>
+      parseSetupOptions(
+        [],
+        { DATABASE_URL: "postgres://dev@127.0.0.1:5432" },
+        NO_TTY
+      )
+    ).toThrow(/database name/);
+    expect(() =>
+      parseSetupOptions(
+        [],
+        { DATABASE_URL: "postgres://dev@127.0.0.1:5432/" },
+        NO_TTY
+      )
+    ).toThrow(/database name/);
+  });
+
+  it("rejects a value flag written with a space, and treats an empty one as unset", () => {
+    for (const flag of ["--port", "--mock-port", "--db"]) {
+      expect(() => parseSetupOptions([flag, "3600"], {}, NO_TTY)).toThrow(
+        /equals sign/
+      );
+    }
+    expect(
+      parseSetupOptions(
+        ["--port=", "--mock-port=", "--db="],
+        { SETUP_PORT: "3600", SETUP_MOCK_PORT: "4600", SETUP_DB: "tsp_env" },
+        NO_TTY
+      )
+    ).toMatchObject({ appPort: 3600, mockPort: 4600, db: "tsp_env" });
+  });
+
+  it("reads SETUP_ALLOW_REMOTE_DB", () => {
+    expect(parseSetupOptions([], {}, NO_TTY).allowRemoteDb).toBe(false);
+    expect(
+      parseSetupOptions([], { SETUP_ALLOW_REMOTE_DB: "1" }, NO_TTY)
+        .allowRemoteDb
+    ).toBe(true);
+  });
+});
+
+describe("which databases setup will touch", () => {
+  const remote = "postgres://dev@db.example.test:5432/app";
+  const local = "postgres://dev@127.0.0.1:5432/app";
+  const base = { fromEnvironment: false, reset: false, allowRemote: false };
+
+  it("takes a local DATABASE_URL from the environment", () => {
+    expect(
+      databaseRefusal({
+        ...base,
+        url: local,
+        fromEnvironment: true,
+        reset: true,
+      })
+    ).toBeNull();
+    expect(
+      databaseRefusal({
+        ...base,
+        url: "postgres://dev@localhost/app",
+        fromEnvironment: true,
+      })
+    ).toBeNull();
+  });
+
+  it("refuses a non-local DATABASE_URL inherited from the shell", () => {
+    expect(
+      databaseRefusal({ ...base, url: remote, fromEnvironment: true })
+    ).toMatch(/SETUP_ALLOW_REMOTE_DB/);
+  });
+
+  it("uses a non-local URL written in apps/web/.env, but never resets it", () => {
+    expect(databaseRefusal({ ...base, url: remote })).toBeNull();
+    expect(databaseRefusal({ ...base, url: remote, reset: true })).toMatch(
+      /--reset would drop/
+    );
+  });
+
+  it("allows both with SETUP_ALLOW_REMOTE_DB", () => {
+    expect(
+      databaseRefusal({
+        url: remote,
+        fromEnvironment: true,
+        reset: true,
+        allowRemote: true,
+      })
+    ).toBeNull();
   });
 });
 
