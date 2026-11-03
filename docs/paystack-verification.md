@@ -1,10 +1,11 @@
 # Paystack test-mode checklist
 
-No real Paystack keys were used to build this starter. The billing code was
-tested against an in-memory fake (`packages/billing/src/fake-paystack.ts`) and
-webhook payloads built from Paystack's documented examples
-(`packages/billing/src/fixtures.ts`). Everything below needs confirming with a
-real test-mode account before going live. If Paystack behaves differently,
+The starter was built and tested against an in-memory fake
+(`packages/billing/src/fake-paystack.ts`) and webhook payloads built from
+Paystack's documented examples (`packages/billing/src/fixtures.ts`). The
+tests use no real keys. A few behaviours have since been seen in production
+and are marked so; everything else below needs confirming with a real
+test-mode account before going live. If Paystack behaves differently,
 change the fake and the fixtures first so a test fails, then fix the code.
 
 Set up: test keys in `apps/web/.env`, a tunnel to your machine as the webhook
@@ -58,7 +59,10 @@ URL, `pnpm billing:sync`, and watch the `webhook_event` table.
       `{ status: true, message }` with no `data`.
 - [ ] After disable: `subscription.not_renew` immediately, then
       `subscription.disable` on the next payment date.
-- [ ] `/enable` works on a non-renewing subscription before its period ends.
+- [ ] `/enable` refuses a disabled subscription, so Resume creates a new
+      subscription on the saved card with `start_date` at the old period's
+      end (`resumeSubscription` in `packages/billing/src/service/plan-change.ts`).
+      Check the new one starts then and isn't charged early.
 - [ ] `GET /subscription/:code/manage/link` returns `{ link }`.
 - [ ] Renewal `charge.success` carries `plan` and `customer` (no metadata).
       Organizations from before customers were per organization can share a
@@ -109,4 +113,7 @@ URL, `pnpm billing:sync`, and watch the `webhook_event` table.
 - [ ] Requests come from 52.31.139.75, 52.49.173.169 or 52.214.14.220 before
       turning on `PAYSTACK_WEBHOOK_IP_ALLOWLIST`. Behind a proxy, check that
       `x-forwarded-for` carries the client IP.
-- [ ] Test-mode retry schedule after a non-200 (docs say hourly for 72h).
+- [ ] Retry schedule after a non-200 or a timeout. Paystack's docs say test
+      mode retries hourly for 10 hours with a 30 second request timeout.
+      Live mode retries every 3 minutes for the first 4 tries, then hourly
+      for 72 hours.
