@@ -147,7 +147,7 @@ about 15 seconds after `pnpm install`.
 pnpm setup:reset                  # drop and reseed the dev database (stop pnpm dev first)
 SETUP_DB=my_db pnpm setup         # use another database name
 SETUP_PORT=3600 pnpm setup        # fixed app port (SETUP_MOCK_PORT for the mock)
-DATABASE_URL=postgres://… pnpm setup   # a Postgres of your own, when apps/web/.env has none
+DATABASE_URL=postgres://…/<db> pnpm setup   # a local Postgres of your own, when apps/web/.env has none
 CI=1 pnpm setup                   # never prompt (also the case without a terminal)
 ```
 
@@ -155,8 +155,9 @@ Without a terminal, setup never waits for input: it uses the defaults, or
 stops with exit code 1 and the fix when something is missing.
 
 pnpm has a built-in `setup` command. pnpm 10 and 11 run this repo's script
-instead, but drop any flags after it, which is why the variants above use
-environment variables. Flags work through `pnpm run setup -- --yes`.
+instead, but drop or reject flags after it (`pnpm setup --port=3600` fails
+with "Unknown option"), which is why the variants above use environment
+variables. Flags work through `pnpm run setup -- --yes --port=3600`.
 On pnpm 9 or older, `pnpm setup` is pnpm's own command (it edits your shell
 profile): use `corepack enable` to get the pnpm version in `package.json`.
 
@@ -175,7 +176,10 @@ DATABASE_URL=postgres://<your-user>@127.0.0.1:5432/turbo_start_paystack pnpm set
 
 Setup creates the database if it is missing, writes the URL into
 `apps/web/.env` and fills in everything else. A `DATABASE_URL` already in
-`apps/web/.env` wins over the environment.
+`apps/web/.env` wins over the environment. From the environment, setup only
+takes a URL on this machine that names a database, since it migrates and
+seeds it: a `DATABASE_URL` exported for another project won't be touched.
+Set `SETUP_ALLOW_REMOTE_DB=1` to use a remote one on purpose.
 
 ### Simulate billing (development only)
 
