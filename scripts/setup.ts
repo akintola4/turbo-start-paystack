@@ -1,14 +1,26 @@
-// pnpm setup            (or: pnpm run setup -- [--reset] [--db=<name>] [--yes])
-// pnpm setup:reset      drop and reseed the dev database
-// SETUP_DB=<name> pnpm setup   use another database name
+// pnpm setup               fresh clone to a running local stack
+// pnpm setup:reset         drop and reseed the dev database
 //
-// pnpm has a built-in `setup` command: `pnpm setup` runs this script, but
-// pnpm rejects flags after it, hence setup:reset and SETUP_DB.
-// One command from a fresh clone to a running local stack: checks the
-// prerequisites, fills apps/web/.env (never overwriting a value), picks free
-// ports, starts or reuses Postgres, migrates, creates the plans on the local
-// Paystack mock and seeds a demo organization you can sign in to. Safe to
-// run again. --reset drops and recreates the dev database first.
+// pnpm has a built-in `setup` command. pnpm 10 and 11 run this script
+// instead but drop any flags after it, so every option is also an
+// environment variable (flags work through `pnpm run setup -- <flags>`):
+//
+//   --yes, -y        CI=1 or SETUP_YES=1   never prompt (also implied when
+//                                         there is no terminal)
+//   --reset                                drop and reseed the dev database
+//   --db=<name>      SETUP_DB=<name>       use another database name
+//   --port=<n>       SETUP_PORT=<n>        app port (default: first free
+//                                         from 3000)
+//   --mock-port=<n>  SETUP_MOCK_PORT=<n>   Paystack mock port (default:
+//                                         first free from 4010)
+//                    DATABASE_URL=<url>    Postgres to use when
+//                                         apps/web/.env has none
+//
+// It checks the prerequisites, fills apps/web/.env (never overwriting a
+// value), picks free ports, starts or reuses Postgres, migrates, creates the
+// plans on the local Paystack mock and seeds a demo organization you can
+// sign in to. Safe to run again. Anything missing ends it with exit code 1
+// and the fix; it never waits for input without a terminal.
 import { execFile, spawn, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -31,6 +43,11 @@ import {
   planEnv,
   SECRET_KEYS,
 } from "./setup/env-file";
+import {
+  OptionError,
+  parseSetupOptions,
+  type SetupOptions,
+} from "./setup/options";
 import { isListening, isPortFree, pickPort, portOf } from "./setup/ports";
 import {
   canConnect,
@@ -53,13 +70,6 @@ const MOCK_STATE = `${SCRIPTS}.paystack-mock.json`;
 const MOCK_KEY = "sk_test_local_mock";
 const DEFAULT_DB = "turbo_start_paystack";
 
-const argv = process.argv.slice(2);
-const flags = {
-  reset: argv.includes("--reset"),
-  yes: argv.includes("--yes") || argv.includes("-y"),
-  db: argv.find((a) => a.startsWith("--db="))?.slice(5) || process.env.SETUP_DB,
-};
-const interactive = Boolean(process.stdout.isTTY && process.stdin.isTTY);
 const c = pc.createColors(
   Boolean(process.stdout.isTTY) && !process.env.NO_COLOR
 );
@@ -85,6 +95,20 @@ function fail(error: unknown): never {
   );
   process.exit(1);
 }
+
+let flags: SetupOptions;
+try {
+  flags = parseSetupOptions(process.argv.slice(2), process.env, {
+    stdin: Boolean(process.stdin.isTTY),
+    stdout: Boolean(process.stdout.isTTY),
+  });
+} catch (error) {
+  if (!(error instanceof OptionError)) {
+    throw error;
+  }
+  fail(new SetupError(error.message));
+}
+const interactive = flags.interactive;
 
 async function step<T>(
   start: string,
@@ -232,6 +256,11 @@ async function withMock<T>(
 // ------------------------------------------------------------------- main
 
 p.intro(`${c.bgCyan(c.black(" turbo-start "))} ${c.dim("local setup")}`);
+if (!interactive) {
+  p.log.info(
+    `Non-interactive run ${c.dim("(no terminal, --yes, CI or SETUP_YES): defaults only, no prompts.")}`
+  );
+}
 
 const tools = await step(
   "Checking prerequisites",
@@ -260,6 +289,20 @@ if (current.get("DATABASE_URL") === exampleDbUrl) {
 const force = new Set<string>(
   fresh ? ["BETTER_AUTH_URL", "NEXT_PUBLIC_APP_URL"] : []
 );
+// An explicit port is a request to move the app (or the mock) there.
+if (flags.appPort) {
+  for (const key of [
+    "BETTER_AUTH_URL",
+    "NEXT_PUBLIC_APP_URL",
+    "PAYSTACK_MOCK_WEBHOOK_URL",
+  ]) {
+    force.add(key);
+  }
+}
+if (flags.mockPort) {
+  force.add("PAYSTACK_API_URL");
+  force.add("PAYSTACK_MOCK_PORT");
+}
 const secretKey = current.get("PAYSTACK_SECRET_KEY");
 const realKey = !isPlaceholder(secretKey) && secretKey !== MOCK_KEY;
 const configuredApi = current.get("PAYSTACK_API_URL");
@@ -272,15 +315,18 @@ const mockMode = configuredApi
 const ports = await step(
   "Picking ports",
   async () => {
-    const keptApp = force.has("BETTER_AUTH_URL")
-      ? null
-      : portOf(current.get("BETTER_AUTH_URL"));
+    const keptApp =
+      flags.appPort ??
+      (force.has("BETTER_AUTH_URL")
+        ? null
+        : portOf(current.get("BETTER_AUTH_URL")));
     const app = keptApp ?? (await pickPort(3000, { avoid: [3001] }));
     let mock: number | null = null;
     if (mockMode) {
       const keptMock =
-        Number(current.get("PAYSTACK_MOCK_PORT")) ||
-        (configuredApi ? portOf(configuredApi) : null);
+        flags.mockPort ??
+        (Number(current.get("PAYSTACK_MOCK_PORT")) ||
+          (configuredApi ? portOf(configuredApi) : null));
       mock = keptMock ?? (await pickPort(4010, { avoid: [app, 3001] }));
     }
     return { app, mock, appKept: keptApp !== null };
@@ -291,21 +337,30 @@ const ports = await step(
 const appUrl = `http://localhost:${ports.app}`;
 if (ports.appKept && !(await isPortFree(ports.app))) {
   p.log.warn(
-    `Port ${ports.app} (from BETTER_AUTH_URL) is in use right now. ${c.dim("If that isn't this app, change BETTER_AUTH_URL before pnpm dev.")}`
+    `Port ${ports.app} (${flags.appPort ? "from --port / SETUP_PORT" : "from BETTER_AUTH_URL"}) is in use right now. ${c.dim("If that isn't this app, change BETTER_AUTH_URL before pnpm dev.")}`
   );
 }
 
 // --------------------------------------------------------------- postgres
 
+// apps/web/.env wins; DATABASE_URL from the environment fills a blank.
+const fromFile = current.get("DATABASE_URL");
+const kept = fromFile ?? flags.databaseUrl;
+const source = fromFile ? "from apps/web/.env" : "from $DATABASE_URL";
+if (fromFile && flags.databaseUrl && flags.databaseUrl !== fromFile) {
+  p.log.warn(
+    `DATABASE_URL in the environment differs from apps/web/.env; using the file. ${c.dim("Remove it from the file to switch.")}`
+  );
+}
+
 const database = await step(
   "Starting Postgres",
   async () => {
-    const kept = current.get("DATABASE_URL");
     const name = flags.db ?? (kept ? databaseOf(kept) : DEFAULT_DB);
     if (kept) {
       const url = flags.db ? withDatabase(kept, flags.db) : kept;
       if (await canConnect(withDatabase(url, "postgres"))) {
-        return { url, how: "from apps/web/.env" };
+        return { url, how: source };
       }
       const host = new URL(url).hostname;
       if (!["localhost", "127.0.0.1"].includes(host)) {
@@ -460,11 +515,18 @@ await step(
       await execFileAsync("pnpm", ["--filter", "@workspace/db", "db:migrate"], {
         cwd: ROOT,
         env: { ...process.env, DATABASE_URL: dbUrl },
+        timeout: 180_000,
+        killSignal: "SIGKILL",
       });
     } catch (error) {
-      const stderr = (error as { stderr?: string }).stderr ?? "";
+      const { stderr = "", killed } = error as {
+        stderr?: string;
+        killed?: boolean;
+      };
       throw new SetupError(
-        "Migrations failed.",
+        killed
+          ? "Migrations did not finish within 3 minutes."
+          : "Migrations failed.",
         stderr.trim().split("\n").slice(-8)
       );
     }

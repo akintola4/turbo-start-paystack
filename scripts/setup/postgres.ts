@@ -58,12 +58,23 @@ export async function startServer(input: {
   port: number;
   database: string;
 }): Promise<{ url: string; via: "docker" | "local" }> {
+  // A first Docker run pulls the image, so allow a few minutes, but never
+  // wait forever on a daemon that stopped answering.
   const { stdout } = await run("bash", [DEV_DB_SCRIPT], {
     env: {
       ...process.env,
       PGPORT: String(input.port),
       PGDATABASE: input.database,
     },
+    timeout: 300_000,
+    killSignal: "SIGKILL",
+  }).catch((error: { killed?: boolean; stderr?: string }) => {
+    if (error.killed) {
+      throw new Error(
+        "scripts/dev-db.sh did not start Postgres within 5 minutes. Set DATABASE_URL to a running Postgres instead."
+      );
+    }
+    throw error;
   });
   const line = stdout.split("\n").find((l) => l.startsWith("DATABASE_URL="));
   if (!line) {
