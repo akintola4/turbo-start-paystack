@@ -67,6 +67,7 @@ function createServerContext(): ServerContext {
     baseURL: env.BETTER_AUTH_URL,
     mailer,
     clientIpHeader: env.CLIENT_IP_HEADER,
+    trustedProxies: env.TRUSTED_PROXIES,
     authRateLimitScale: authRateLimitScale(env),
     // Plan limits are enforced on the server when inviting (PLAN §2.3 #16).
     memberLimit: async (organizationId) =>

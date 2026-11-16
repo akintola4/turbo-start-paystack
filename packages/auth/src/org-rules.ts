@@ -37,5 +37,31 @@ export function nameProblem(name: string): string | null {
   if (trimmed.length > NAME_MAX) {
     return `Use at most ${NAME_MAX} characters.`;
   }
+  return linkProblem(trimmed);
+}
+
+export const PERSON_NAME_MAX = 80;
+
+/**
+ * Why a person's name can't be used, or null. Names are printed in emails
+ * sent to other people (invitations), so a name can't carry a link.
+ */
+export function personNameProblem(name: string): string | null {
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    return "Enter your name.";
+  }
+  if (trimmed.length > PERSON_NAME_MAX) {
+    return `Use at most ${PERSON_NAME_MAX} characters.`;
+  }
+  return linkProblem(trimmed);
+}
+
+// Emails escape names, so this isn't about injection: it stops a name from
+// reading as a link someone should visit.
+function linkProblem(name: string): string | null {
+  if (/:\/\/|www\.|[<>]/i.test(name)) {
+    return "Leave out links and angle brackets.";
+  }
   return null;
 }

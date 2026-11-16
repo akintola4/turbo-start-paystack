@@ -177,6 +177,27 @@ describe("one owner, two organizations, both on Starter", () => {
 });
 
 describe("choosing and locking the email", () => {
+  it("doesn't adopt a Paystack customer someone else already has at the billing email", async () => {
+    const victim = `someone.${n}@elsewhere.test`;
+    // Paystack already knows this address, from outside this organization.
+    h.fake.customers.set(victim, {
+      customer_code: "CUS_someone_else",
+      email: victim,
+      id: 999_001,
+    });
+    const ada = await person("ada");
+    const org = await orgFor(ada, "kola", { billingEmail: victim });
+    await h.billing.startCheckout({
+      organizationId: org,
+      actor: ada,
+      planPriceId: STARTER,
+    });
+    const stored = (await customerOf(org))?.email;
+    expect(stored).not.toBe(victim);
+    // With a billing email set, the fallback is the tagged address.
+    expect(stored).toMatch(/^ada\.\d+\+[0-9a-f]{8}@kolalogistics\.test$/);
+  });
+
   it("uses the billing email when it is set", async () => {
     const ada = await person("ada");
     const billingEmail = `accounts.${n}@lagosbakery.test`;

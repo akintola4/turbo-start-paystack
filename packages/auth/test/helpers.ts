@@ -8,7 +8,7 @@ import { type CreateAuthOptions, createAuth } from "../src/server";
 export async function setupAuth(
   overrides: Pick<
     CreateAuthOptions,
-    "beforeDeleteOrganization" | "authRateLimitScale"
+    "beforeDeleteOrganization" | "authRateLimitScale" | "trustedProxies"
   > = {}
 ) {
   const limits = { members: 100 };

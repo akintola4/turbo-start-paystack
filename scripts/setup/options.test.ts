@@ -2,7 +2,12 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { databaseRefusal, OptionError, parseSetupOptions } from "./options";
+import {
+  databaseRefusal,
+  OptionError,
+  parseSetupOptions,
+  seedsDemo,
+} from "./options";
 
 const TTY = { stdin: true, stdout: true };
 const NO_TTY = { stdin: false, stdout: false };
@@ -191,4 +196,12 @@ describe("setup without a terminal", () => {
       "--port / SETUP_PORT must be a port"
     );
   }, 40_000);
+});
+
+describe("seedsDemo", () => {
+  it("seeds the public demo password only into a local database", () => {
+    expect(seedsDemo("postgres://postgres@127.0.0.1:54329/app")).toBe(true);
+    expect(seedsDemo("postgres://dev@localhost/app")).toBe(true);
+    expect(seedsDemo("postgres://u:p@ep-x.neon.tech/app")).toBe(false);
+  });
 });

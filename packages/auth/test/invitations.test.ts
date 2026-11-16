@@ -177,6 +177,108 @@ describe("invitations (PLAN §2.3 #3, #4, #5)", () => {
     expect(ownerView.length).toBeGreaterThan(0);
   });
 
+  it("an invitation dies with its inviter's power to grant it", async () => {
+    const memberIdOf = async (email: string) => {
+      const [row] = await ctx.db
+        .select({ id: schema.member.id })
+        .from(schema.member)
+        .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
+        .where(eq(schema.user.email, email));
+      return row?.id ?? "";
+    };
+    const removed = await addMember(
+      ctx,
+      owner,
+      orgId,
+      "gone@acme.test",
+      "admin"
+    );
+    const fromRemoved = await ctx.auth.api.createInvitation({
+      headers: removed,
+      body: { email: "rogue1@evil.test", role: "admin", organizationId: orgId },
+    });
+    const demoted = await addMember(
+      ctx,
+      owner,
+      orgId,
+      "down@acme.test",
+      "admin"
+    );
+    const fromDemoted = await ctx.auth.api.createInvitation({
+      headers: demoted,
+      body: { email: "rogue2@evil.test", role: "admin", organizationId: orgId },
+    });
+
+    await ctx.auth.api.removeMember({
+      headers: owner,
+      body: {
+        memberIdOrEmail: await memberIdOf("gone@acme.test"),
+        organizationId: orgId,
+      },
+    });
+    await ctx.auth.api.updateMemberRole({
+      headers: owner,
+      body: {
+        memberId: await memberIdOf("down@acme.test"),
+        role: "member",
+        organizationId: orgId,
+      },
+    });
+
+    for (const [email, inv] of [
+      ["rogue1@evil.test", fromRemoved],
+      ["rogue2@evil.test", fromDemoted],
+    ] as const) {
+      const headers = await signUp(ctx, email);
+      await expect(
+        ctx.auth.api.acceptInvitation({
+          headers,
+          body: { invitationId: inv.id },
+        })
+      ).rejects.toThrow();
+    }
+    const left = await ctx.db
+      .select({ status: schema.invitation.status })
+      .from(schema.invitation)
+      .where(eq(schema.invitation.id, fromRemoved.id));
+    expect(left[0]?.status).toBe("canceled");
+  });
+
+  it("accepting re-checks the inviter even if cleanup missed the invitation", async () => {
+    const sneaky = await addMember(ctx, owner, orgId, "sly@acme.test", "admin");
+    const inv = await ctx.auth.api.createInvitation({
+      headers: sneaky,
+      body: { email: "rogue3@evil.test", role: "admin", organizationId: orgId },
+    });
+    const [sly] = await ctx.db
+      .select({ id: schema.user.id })
+      .from(schema.user)
+      .where(eq(schema.user.email, "sly@acme.test"));
+    // Straight to the table, so no hook cancels the invitation.
+    await ctx.db
+      .update(schema.member)
+      .set({ role: "viewer" })
+      .where(eq(schema.member.userId, sly?.id ?? ""));
+    const headers = await signUp(ctx, "rogue3@evil.test");
+    await expect(
+      ctx.auth.api.acceptInvitation({ headers, body: { invitationId: inv.id } })
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("an empty organizationId doesn't skip the invitation check", async () => {
+    const viewer = await addMember(ctx, owner, orgId, "v2@acme.test", "viewer");
+    await ctx.auth.api.setActiveOrganization({
+      headers: viewer,
+      body: { organizationId: orgId },
+    });
+    await expect(
+      ctx.auth.api.listInvitations({
+        headers: viewer,
+        query: { organizationId: "" },
+      })
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
   it("users from another org cannot read this org's members or invitations", async () => {
     const other = await signUp(ctx, "other@globex.test");
     await createOrg(ctx, other, "globex");

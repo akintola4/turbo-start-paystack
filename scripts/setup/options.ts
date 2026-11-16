@@ -72,6 +72,14 @@ export function databaseRefusal(input: {
   return null;
 }
 
+/**
+ * The demo users have a published password, so they are only ever seeded
+ * into a database on this machine, never a hosted one.
+ */
+export function seedsDemo(url: string): boolean {
+  return isLocalHost(new URL(url).hostname);
+}
+
 function port(value: string | undefined, name: string): number | undefined {
   if (value === undefined || value === "") {
     return undefined;

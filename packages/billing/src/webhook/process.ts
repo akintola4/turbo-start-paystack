@@ -58,7 +58,7 @@ export async function processEvent(
       return outcome;
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = safeErrorMessage(error);
     deps.logger.error("webhook processing failed", {
       eventId,
       error: message,
@@ -115,4 +115,25 @@ export function dbErrorCause(error: unknown) {
     constraint: pick("constraint") ?? pick("constraint_name"),
     table: pick("table") ?? pick("table_name"),
   };
+}
+
+/**
+ * An error message that is safe to log and store. Drizzle's query errors
+ * read `Failed query: <sql> params: <values>`, and the values can be emails
+ * and customer codes, so those become the SQLSTATE cause instead.
+ */
+export function safeErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const cause = dbErrorCause(error);
+  if (message.startsWith("Failed query") || cause.code) {
+    const parts = [
+      cause.code && `code ${cause.code}`,
+      cause.table && `table ${cause.table}`,
+      cause.constraint && `constraint ${cause.constraint}`,
+    ].filter(Boolean);
+    return parts.length > 0
+      ? `database query failed (${parts.join(", ")})`
+      : "database query failed";
+  }
+  return message;
 }

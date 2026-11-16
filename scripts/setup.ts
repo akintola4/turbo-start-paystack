@@ -52,6 +52,7 @@ import {
   OptionError,
   parseSetupOptions,
   type SetupOptions,
+  seedsDemo,
 } from "./setup/options";
 import { choosePorts, isListening, isPortFree, portOf } from "./setup/ports";
 import {
@@ -581,22 +582,28 @@ if (mockMode && ports.mock) {
   );
 }
 
-const seeded = await step(
-  "Seeding the demo organization",
-  () =>
-    seedDemo({
-      db: createDb(dbUrl, { max: 1 }),
-      secret: env.get("BETTER_AUTH_SECRET") ?? "",
-      baseURL: appUrl,
-    }),
-  (r) =>
-    `${c.cyan(DEMO_ORG.name)} with ${DEMO_USERS.length} members ${
-      r.createdUsers || r.createdOrg
-        ? c.green("seeded")
-        : c.dim("already there")
-    }`
-);
-void seeded;
+const demo = seedsDemo(dbUrl);
+if (demo) {
+  await step(
+    "Seeding the demo organization",
+    () =>
+      seedDemo({
+        db: createDb(dbUrl, { max: 1 }),
+        secret: env.get("BETTER_AUTH_SECRET") ?? "",
+        baseURL: appUrl,
+      }),
+    (r) =>
+      `${c.cyan(DEMO_ORG.name)} with ${DEMO_USERS.length} members ${
+        r.createdUsers || r.createdOrg
+          ? c.green("seeded")
+          : c.dim("already there")
+      }`
+  );
+} else {
+  p.log.warn(
+    `Skipped the demo organization: its password is public, and this database isn't on this machine. ${c.dim("Sign up instead.")}`
+  );
+}
 void createdDb;
 
 // ---------------------------------------------------------------- summary
@@ -606,11 +613,15 @@ p.note(
   [
     c.cyan(appUrl),
     "",
-    `  ${c.dim("sign in:")}   ${DEMO_USERS[0].email}`,
-    `  ${c.dim("password:")}  ${DEMO_PASSWORD}`,
-    "",
-    ...DEMO_USERS.map((u) => `  ${u.email.padEnd(w)}  ${c.dim(u.role)}`),
-    `  ${c.dim(`all in ${DEMO_ORG.name}, emails already verified`)}`,
+    ...(demo
+      ? [
+          `  ${c.dim("sign in:")}   ${DEMO_USERS[0].email}`,
+          `  ${c.dim("password:")}  ${DEMO_PASSWORD}`,
+          "",
+          ...DEMO_USERS.map((u) => `  ${u.email.padEnd(w)}  ${c.dim(u.role)}`),
+          `  ${c.dim(`all in ${DEMO_ORG.name}, emails already verified`)}`,
+        ]
+      : [`  ${c.dim("no demo users: sign up to create your first account")}`]),
   ].join("\n"),
   "Ready"
 );

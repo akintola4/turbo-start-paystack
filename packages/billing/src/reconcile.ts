@@ -14,7 +14,11 @@ import {
 } from "./service/context";
 import { emailTokenFor } from "./service/switch-plan";
 import { resyncSubscription } from "./service/sync-remote";
-import { processPending } from "./webhook/process";
+import {
+  dbErrorCause,
+  processPending,
+  safeErrorMessage,
+} from "./webhook/process";
 
 export const ABANDON_AFTER_MS = 60 * 60 * 1000;
 /** Trial-ending reminders go out this many days before `trial_ends_at`. */
@@ -59,8 +63,12 @@ export async function reconcile(deps: BillingDeps): Promise<ReconcileReport> {
     try {
       await run();
     } catch (error) {
-      report.errors.push(`${label}: ${String(error)}`);
-      deps.logger.error(`reconcile ${label} failed`, { error: String(error) });
+      const message = safeErrorMessage(error);
+      report.errors.push(`${label}: ${message}`);
+      deps.logger.error(`reconcile ${label} failed`, {
+        error: message,
+        ...dbErrorCause(error),
+      });
     }
   };
 

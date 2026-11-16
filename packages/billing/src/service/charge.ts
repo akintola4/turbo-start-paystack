@@ -234,6 +234,25 @@ async function startTrialFromCharge(
   if (await liveSubscription(tx, intent.organizationId, { lock: true })) {
     return {};
   }
+  // Eligibility was decided when the checkout started. A second trial
+  // checkout opened back then must not start another trial once the first
+  // has ended: one trial per organization.
+  const [earlier] = await tx
+    .select({ id: schema.subscription.id })
+    .from(schema.subscription)
+    .where(eq(schema.subscription.organizationId, intent.organizationId))
+    .limit(1);
+  if (earlier) {
+    // The intent stays succeeded (it was marked above), so a redelivery
+    // returns early instead of refunding twice.
+    await refund();
+    await audit(tx, {
+      organizationId: intent.organizationId,
+      action: "billing.trial_already_used",
+      target: data.reference,
+    });
+    return {};
+  }
 
   const now = deps.now();
   const trialEndsAt = addDays(now, plan.trialDays);

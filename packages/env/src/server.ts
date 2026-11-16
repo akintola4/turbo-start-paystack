@@ -1,6 +1,8 @@
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
+import { unsafeSecrets } from "./unsafe-secrets";
+
 const booleanString = z
   .enum(["true", "false", "1", "0"])
   .default("false")
@@ -34,6 +36,20 @@ export const env = createEnv({
       .transform((value) => value.toLowerCase())
       .default(
         process.env.VERCEL ? "x-vercel-forwarded-for" : "x-forwarded-for"
+      ),
+
+    // Comma-separated IPs or CIDR ranges of your own proxies, when the IP
+    // header can hold a chain (x-forwarded-for behind a load balancer).
+    // Without them, a chain counts as "no IP" and every client shares one
+    // rate-limit bucket. Not needed on Vercel.
+    TRUSTED_PROXIES: z
+      .string()
+      .optional()
+      .transform((value) =>
+        (value ?? "")
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean)
       ),
 
     // 32 bytes as 64 hex chars. Encrypts email_token and authorization_code.
@@ -99,3 +115,18 @@ export const env = createEnv({
 
   emptyStringAsUndefined: true,
 });
+
+// Shape checks can't catch a known secret, so refuse those separately.
+if (!(env.NODE_ENV === "test" || isSkipped())) {
+  const problems = unsafeSecrets({ ...process.env, NODE_ENV: env.NODE_ENV });
+  if (problems.length > 0) {
+    throw new Error(`Unsafe environment:\n- ${problems.join("\n- ")}`);
+  }
+}
+
+function isSkipped(): boolean {
+  return (
+    process.env.SKIP_ENV_VALIDATION === "1" ||
+    process.env.SKIP_ENV_VALIDATION === "true"
+  );
+}
