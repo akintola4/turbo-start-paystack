@@ -9,6 +9,7 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { useLanding } from "@/components/landing/currency-context";
 import { opticalEdge } from "@/components/landing/display";
+import { AgentPromptButton } from "@/components/landing/start-command";
 import type { PriceTable } from "@/components/landing/types";
 import { Money, Panel, Wordmark } from "@/components/primitives";
 import { gsap, MOTION_QUERIES, SplitText, useGSAP } from "@/lib/gsap";
@@ -252,6 +253,7 @@ export function Hero({
               >
                 {signedIn ? "Open your dashboard" : "Try the live demo"}
               </Link>
+              <AgentPromptButton className="min-[420px]:basis-full min-[420px]:justify-start" />
             </div>
           </div>
         </div>

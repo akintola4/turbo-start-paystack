@@ -18,6 +18,31 @@ export const INSTALL_STEPS = [
 /** The same steps as one line, which is what Copy puts on the clipboard. */
 export const INSTALL_COMMAND = INSTALL_STEPS.join(" && ");
 
+/** The live site, which serves the agent guide at /llms.txt. */
+export const SITE = "https://turbo-start-paystack.vercel.app";
+
+/** The placeholder a visitor replaces with their idea. Left as is, the agent
+ *  stops once the starter runs and asks what to build. */
+export const AGENT_IDEA_PLACEHOLDER = "[describe your product here]";
+
+/**
+ * What "Your agent" copies: a prompt for any coding agent (Claude Code,
+ * Cursor, Codex…) that sets the starter up from the docs written for agents,
+ * then builds the visitor's idea within the starter's billing rules.
+ */
+export const AGENT_PROMPT_LINES = [
+  "Set up Turbo Start Paystack and build on it.",
+  `1. Read ${SITE}/llms.txt, then AGENTS.md in the repo. Follow them.`,
+  `2. Run: ${INSTALL_COMMAND}`,
+  "   (it runs on the bundled Paystack mock, no keys needed).",
+  "3. Start pnpm dev in the background and check the demo org signs in.",
+  `4. Then build this: ${AGENT_IDEA_PLACEHOLDER}`,
+  "   If that line is still in brackets, stop after step 3 and ask me what to build.",
+  "Keep AGENTS.md's hard rules: billing data never comes from the browser, permissions are checked on the server, money stays in integer subunits.",
+] as const;
+
+export const AGENT_PROMPT = AGENT_PROMPT_LINES.join("\n");
+
 export type CurrencyMeta = {
   code: Currency;
   /** Tile glyph. GH₵ shortens to ₵ on tiles only; amounts use GH₵. */
