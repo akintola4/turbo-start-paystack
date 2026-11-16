@@ -1,6 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
 
-import { INSTALL_COMMAND, INSTALL_STEPS } from "../src/lib/landing";
+import {
+  AGENT_PROMPT,
+  INSTALL_COMMAND,
+  INSTALL_STEPS,
+} from "../src/lib/landing";
 
 /*
  * Landing page behaviour: the one currency control (the hero wall, where
@@ -65,6 +69,60 @@ test("copy puts the full command on the clipboard without moving anything", asyn
   expect(await button.boundingBox()).toEqual(before);
   expect(await command.boundingBox()).toEqual(commandBefore);
   await expect(page.getByText("Copied the install command")).toBeVisible();
+});
+
+test("Your agent copies the agent prompt, and the choice is remembered", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  const pick = page.getByRole("radio", { name: "Your agent" });
+  await pick.scrollIntoViewIfNeeded();
+  await pick.click();
+  await expect(page.locator("[data-command]")).toHaveAttribute(
+    "data-command",
+    "agent"
+  );
+  await page.locator("[data-copy]").click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    AGENT_PROMPT
+  );
+  await page.reload();
+  await expect(page.locator("[data-command]")).toHaveAttribute(
+    "data-command",
+    "agent"
+  );
+});
+
+test("the hero copies the agent prompt and turns the receipt to it", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/");
+  const button = page.locator("[data-agent-copy]");
+  // The hero's intro fades the button in; measure once it has come to rest.
+  let before = await button.boundingBox();
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(300);
+    const now = await button.boundingBox();
+    if (JSON.stringify(now) === JSON.stringify(before)) {
+      break;
+    }
+    before = now;
+  }
+  await button.click();
+  await expect(button).toHaveAccessibleName("Copied");
+  await page.waitForTimeout(300);
+  expect(await button.boundingBox()).toEqual(before);
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    AGENT_PROMPT
+  );
+  await expect(page.locator("[data-command]")).toHaveAttribute(
+    "data-command",
+    "agent"
+  );
 });
 
 test("the command shows every step and is never cut off", async ({ page }) => {

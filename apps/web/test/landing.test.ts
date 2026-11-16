@@ -2,6 +2,8 @@ import { CURRENCIES } from "@workspace/billing/money";
 import { describe, expect, it } from "vitest";
 
 import {
+  AGENT_IDEA_PLACEHOLDER,
+  AGENT_PROMPT,
   barcode,
   CURRENCY_META,
   currencyMeta,
@@ -10,6 +12,7 @@ import {
   INSTALL_STEPS,
   parseProviderStatus,
   rippleDelay,
+  SITE,
   WALL,
 } from "../src/lib/landing";
 
@@ -99,5 +102,15 @@ describe("install command", () => {
     expect(INSTALL_COMMAND).toBe(
       "npx degit akintola4/turbo-start-paystack my-saas && cd my-saas && pnpm install && pnpm setup"
     );
+  });
+});
+
+describe("agent prompt", () => {
+  it("points at the agent guide, runs the install command and leaves a gap for the idea", () => {
+    expect(AGENT_PROMPT).toContain(`${SITE}/llms.txt`);
+    expect(AGENT_PROMPT).toContain("AGENTS.md");
+    expect(AGENT_PROMPT).toContain(INSTALL_COMMAND);
+    expect(AGENT_PROMPT).toContain(AGENT_IDEA_PLACEHOLDER);
+    expect(AGENT_PROMPT).toContain("stop after step 3");
   });
 });

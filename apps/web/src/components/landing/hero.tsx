@@ -9,6 +9,7 @@ import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { useLanding } from "@/components/landing/currency-context";
 import { opticalEdge } from "@/components/landing/display";
+import { AgentPromptButton } from "@/components/landing/start-command";
 import type { PriceTable } from "@/components/landing/types";
 import { Money, Panel, Wordmark } from "@/components/primitives";
 import { gsap, MOTION_QUERIES, SplitText, useGSAP } from "@/lib/gsap";
@@ -239,7 +240,7 @@ export function Hero({
               cedis, rand, shillings and dollars. Better Auth, Drizzle and
               Postgres underneath.
             </p>
-            <div className="grid gap-2.5 min-[420px]:flex min-[420px]:flex-wrap">
+            <div className="grid gap-2.5 min-[420px]:w-fit min-[420px]:grid-cols-[auto_auto]">
               <a className={buttonVariants({ size: "lg" })} href="#start">
                 Clone the starter
               </a>
@@ -252,6 +253,8 @@ export function Hero({
               >
                 {signedIn ? "Open your dashboard" : "Try the live demo"}
               </Link>
+              {/* Its own row, as wide as the two buttons above it. */}
+              <AgentPromptButton className="col-span-full w-full" />
             </div>
           </div>
         </div>
