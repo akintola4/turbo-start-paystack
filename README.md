@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/hero-dark.png">
-  <img alt="The Turbo Start Paystack landing page: a forest-green panel headed 'Every price, in their money.', a price of ₦30,000 a month, and a row of currency tiles for naira, cedi, rand, shilling and dollar with two naira tiles lit in yellow" src="docs/images/readme/hero-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/readme/hero-dark.png">
+  <img alt="The Turbo Start Paystack landing page: a forest-green panel headed 'Every price, in their money.', a price of ₦30,000 a month, and a row of currency tiles for naira, cedi, rand, shilling and dollar with two naira tiles lit in yellow" src="docs/readme/hero-light.png">
 </picture>
 
 # Turbo Start Paystack
@@ -58,12 +58,12 @@ keys are needed.
 
 <table>
   <tr>
-    <td width="50%"><img alt="Billing page on the Pro plan: ₦30,000 a month, active, next charge on 13 Jan, Visa ending 4081, 3 of 50 seats" src="docs/images/readme/billing.png"></td>
-    <td width="50%"><img alt="Members page: an invite form, a seats card showing 3 of 50 on Pro, and Ada (owner), Tunde (billing) and Chioma (member)" src="docs/images/readme/members.png"></td>
+    <td width="50%"><img alt="Billing page on the Pro plan: ₦30,000 a month, active, next charge on 13 Jan, Visa ending 4081, 3 of 50 seats" src="docs/readme/billing.png"></td>
+    <td width="50%"><img alt="Members page: an invite form, a seats card showing 3 of 50 on Pro, and Ada (owner), Tunde (billing) and Chioma (member)" src="docs/readme/members.png"></td>
   </tr>
   <tr>
-    <td><img alt="The command palette over the overview page, searching 2026 and listing invoices INV-2026-000002 and INV-2026-000001 with a PDF shortcut" src="docs/images/readme/palette.png"></td>
-    <td align="center"><img alt="The billing page on a phone in dark mode: Pro plan, active, with the next charge, card and seats stacked" src="docs/images/readme/phone-dark.png" width="172"></td>
+    <td><img alt="The command palette over the overview page, searching 2026 and listing invoices INV-2026-000002 and INV-2026-000001 with a PDF shortcut" src="docs/readme/palette.png"></td>
+    <td align="center"><img alt="The billing page on a phone in dark mode: Pro plan, active, with the next charge, card and seats stacked" src="docs/readme/phone-dark.png" width="172"></td>
   </tr>
 </table>
 
@@ -493,8 +493,8 @@ to Helvetica/Arial, as they do in Gmail anyway. Mail sent from
 DKIM fixes that.
 
 <p>
-  <img alt="Payment receipt email, light mode" src="docs/images/email-receipt-light.png" width="380">
-  <img alt="Payment failed email, dark mode on a phone" src="docs/images/email-payment-failed-dark-mobile.png" width="240">
+  <img alt="Payment receipt email, light mode" src="docs/readme/email-receipt-light.png" width="380">
+  <img alt="Payment failed email, dark mode on a phone" src="docs/readme/email-payment-failed-dark-mobile.png" width="240">
 </p>
 
 ## Roles

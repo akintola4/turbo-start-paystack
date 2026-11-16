@@ -85,6 +85,9 @@ no `--database-url`; use the variable. Without `DATABASE_URL`, setup scans
 password, or `postgres`), or starts one on the first free port there with
 `scripts/dev-db.sh` (Docker, or a local `initdb`/`pg_ctl`). It doesn't look at
 port 5432. For a Postgres you already run there, pass `DATABASE_URL`.
+When setup starts Postgres, it prints the command to stop it:
+`docker stop tsp-postgres`, or `pg_ctl -D .pgdata stop` for a local
+install. Data is kept either way.
 
 `pnpm dev` doesn't return, so run it in the background. To stop it, find the
 exact PIDs listening on the app and mock ports (`lsof -nP -iTCP:<port>

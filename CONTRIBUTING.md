@@ -22,6 +22,15 @@ If you have a local Postgres, also run the concurrency tests:
 TEST_DATABASE_URL=postgres://postgres@localhost:5432/postgres pnpm test
 ```
 
+## Screenshots
+
+Pull requests that change the UI should show it. Don't commit screenshots to
+`main`: every copy of the starter would download them. Commit them to the
+`screenshots` branch instead, and link them in the pull request by commit
+(`https://github.com/akintola4/turbo-start-paystack/blob/<sha>/<path>?raw=true`)
+so the links keep working. `docs/images/` is gitignored for this reason.
+Images the README shows live in `docs/readme/`.
+
 ## Billing changes
 
 - Add or update a test in `packages/billing/test` for every change in
