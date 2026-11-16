@@ -167,3 +167,24 @@ describe("rate limits (audit #7)", () => {
     expect(last?.headers.get("retry-after")).toBe("60");
   });
 });
+
+describe("rate limits behind your own proxy", () => {
+  it("resolves the client from a forwarded chain when the proxy is trusted", async () => {
+    const proxied = await setupAuth({ trustedProxies: ["10.0.0.0/8"] });
+    try {
+      await post(
+        proxied,
+        "/sign-in/email",
+        { email: "nobody@kolalogistics.test", password: "wrong-password" },
+        { ip: "198.51.100.7, 10.0.0.5" }
+      );
+      const rows = await proxied.db
+        .select()
+        .from(schema.rateLimit)
+        .where(like(schema.rateLimit.key, "198.51.100.7|%"));
+      expect(rows).toHaveLength(1);
+    } finally {
+      await proxied.close();
+    }
+  });
+});

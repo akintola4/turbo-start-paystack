@@ -149,7 +149,7 @@ const server = createServer(async (req, res) => {
       page(
         "Mock Paystack checkout",
         `<h1>Mock Paystack checkout</h1>
-<p>${tx.email} · ${tx.currency} ${(tx.amount / 100).toFixed(2)}${tx.plan ? ` · plan ${tx.plan}` : ""}</p>
+<p>${escapeHtml(tx.email)} · ${escapeHtml(tx.currency)} ${(tx.amount / 100).toFixed(2)}${tx.plan ? ` · plan ${escapeHtml(tx.plan)}` : ""}</p>
 <p style="color:#666">Local development only. No money moves.</p>
 <form method="post" action="/checkout/${checkout[1]}/pay"><button style="padding:.6rem 1rem">Pay with test card 4084 0840 8408 4081</button></form>`
       )
@@ -217,6 +217,17 @@ const server = createServer(async (req, res) => {
     .end(await response.text());
 });
 
-server.listen(PORT, () => {
+// Loopback only: the mock has no API auth, so it must not be reachable from
+// the rest of the network.
+server.listen(PORT, "127.0.0.1", () => {
   console.log(`Mock Paystack on ${ORIGIN} → webhooks to ${WEBHOOK_URL}`);
 });
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}

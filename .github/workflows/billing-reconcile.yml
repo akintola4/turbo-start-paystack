@@ -25,6 +25,9 @@ jobs:
             echo "APP_URL or CRON_SECRET not set; skipping."
             exit 0
           fi
-          curl --fail-with-body --silent --show-error --max-time 120 \
+          # Only the status is printed: this repo's Actions logs are public,
+          # and the report can name customers.
+          curl --fail --silent --show-error --max-time 120 \
+            --output /dev/null --write-out "reconcile: HTTP %{http_code}\n" \
             --header "Authorization: Bearer $CRON_SECRET" \
             "${APP_URL%/}/api/cron/billing-reconcile"

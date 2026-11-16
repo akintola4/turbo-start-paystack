@@ -87,4 +87,40 @@ describe("the billing role is granted only by owners (audit #12)", () => {
     ).resolves.toMatchObject({ role: "billing" });
     await verify(ctx.db, "clerk@kolalogistics.test");
   });
+
+  it("an empty organizationId doesn't let an admin make themselves billing", async () => {
+    const owner = await signUp(ctx, "chief@kolalogistics.test");
+    const org = await createOrg(ctx, owner, "kola-empty-org");
+    const admin = await addMember(
+      ctx,
+      owner,
+      org.id,
+      "climber@kolalogistics.test",
+      "admin"
+    );
+    await ctx.auth.api.setActiveOrganization({
+      headers: admin,
+      body: { organizationId: org.id },
+    });
+    const [self] = await ctx.db
+      .select({ id: schema.member.id })
+      .from(schema.member)
+      .innerJoin(schema.user, eq(schema.member.userId, schema.user.id))
+      .where(eq(schema.user.email, "climber@kolalogistics.test"));
+    await expect(
+      ctx.auth.api.updateMemberRole({
+        headers: admin,
+        body: {
+          organizationId: "",
+          memberId: self?.id ?? "",
+          role: ["admin", "billing"],
+        },
+      })
+    ).rejects.toMatchObject({ statusCode: 403 });
+    const [after] = await ctx.db
+      .select({ role: schema.member.role })
+      .from(schema.member)
+      .where(eq(schema.member.id, self?.id ?? ""));
+    expect(after?.role).toBe("admin");
+  });
 });

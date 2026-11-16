@@ -8,10 +8,10 @@ import {
   getSessionFromCtx,
 } from "better-auth/api";
 import { organization } from "better-auth/plugins/organization";
-import { and, count, eq, gt } from "drizzle-orm";
+import { and, count, eq, gt, inArray } from "drizzle-orm";
 
 import { AuthError } from "./errors";
-import { nameProblem, slugProblem } from "./org-rules";
+import { nameProblem, personNameProblem, slugProblem } from "./org-rules";
 import {
   ac,
   canGrantRole,
@@ -41,6 +41,10 @@ export type CreateAuthOptions = {
   /** Header the platform's proxy writes the client IP into, for Better
    *  Auth's per-IP rate limits (e.g. `x-vercel-forwarded-for`). */
   clientIpHeader?: string;
+  /** IPs or CIDR ranges of your own proxies. With them, a multi-entry
+   *  forwarded header resolves to the first address that isn't a proxy,
+   *  instead of no address (one shared rate-limit bucket for everyone). */
+  trustedProxies?: string[];
   /** Multiplies every max in AUTH_RATE_LIMITS (default 1). Only for the
    *  local e2e suite, which signs in more often than a person can; the web
    *  app never passes it in production. */
@@ -234,18 +238,48 @@ export function createAuth(options: CreateAuthOptions) {
     }
   }
 
+  // Cancels the pending invitations someone sent that they can no longer
+  // grant: all of them when they've left (no role), else the ones above it.
+  async function cancelInvitationsFrom(
+    organizationId: string,
+    inviterId: string,
+    role?: string
+  ) {
+    const pending = await db
+      .select({ id: schema.invitation.id, role: schema.invitation.role })
+      .from(schema.invitation)
+      .where(
+        and(
+          eq(schema.invitation.organizationId, organizationId),
+          eq(schema.invitation.inviterId, inviterId),
+          eq(schema.invitation.status, "pending")
+        )
+      );
+    const stale = pending
+      .filter((inv) => !(role && canGrantRole(role, inv.role ?? "")))
+      .map((inv) => inv.id);
+    if (stale.length > 0) {
+      await db
+        .update(schema.invitation)
+        .set({ status: "canceled" })
+        .where(inArray(schema.invitation.id, stale));
+    }
+  }
+
   // Only people who can invite may see pending invitations, because an
   // invitation id is the acceptance token.
   async function guardListInvitations(ctx: HookCtx) {
     const session = await getSessionFromCtx(ctx);
+    // `||`, not `??`: Better Auth falls back to the active org for an empty
+    // id too, so the check must look at the same org it serves.
     const orgId =
-      (ctx.query?.organizationId as string | undefined) ??
+      (ctx.query?.organizationId as string | undefined) ||
       session?.session.activeOrganizationId;
     if (!(session && orgId)) {
       return;
     }
     const me = await findMember(orgId, session.user.id);
-    if (me && !roleHasPermission(me.role, "invitation:create")) {
+    if (!(me && roleHasPermission(me.role, "invitation:create"))) {
       throw new APIError("FORBIDDEN", {
         message: "You are not allowed to view invitations",
       });
@@ -261,7 +295,8 @@ export function createAuth(options: CreateAuthOptions) {
       role?: string | string[];
       organizationId?: string;
     };
-    const orgId = body.organizationId ?? session?.session.activeOrganizationId;
+    // `||` to match Better Auth, which treats an empty id as "the active org".
+    const orgId = body.organizationId || session?.session.activeOrganizationId;
     if (!(session && orgId && body.memberId)) {
       return;
     }
@@ -276,8 +311,11 @@ export function createAuth(options: CreateAuthOptions) {
         )
       )
       .limit(1);
+    // Fail closed: if this check can't see both members, the update doesn't run.
     if (!(me && target)) {
-      return;
+      throw new APIError("FORBIDDEN", {
+        message: "You cannot change this member's role",
+      });
     }
     const nextRole = Array.isArray(body.role)
       ? body.role.join(",")
@@ -289,6 +327,23 @@ export function createAuth(options: CreateAuthOptions) {
     }
     if (!canGrantRole(me.role, nextRole)) {
       throw new APIError("FORBIDDEN", { message: grantDenied(nextRole) });
+    }
+  }
+
+  // A person's name goes into invitation emails, so it gets the same
+  // no-links rule as an organization name.
+  function guardPersonName(ctx: HookCtx) {
+    const name = (ctx.body as { name?: unknown } | undefined)?.name;
+    if (name === undefined && ctx.path === "/update-user") {
+      return;
+    }
+    const problem =
+      typeof name === "string" ? personNameProblem(name) : "Enter your name.";
+    if (problem) {
+      throw new APIError("BAD_REQUEST", {
+        code: "INVALID_NAME",
+        message: problem,
+      });
     }
   }
 
@@ -446,9 +501,19 @@ export function createAuth(options: CreateAuthOptions) {
       storage: "database",
       customRules: scaleRateLimits(options.authRateLimitScale ?? 1),
     },
-    advanced: options.clientIpHeader
-      ? { ipAddress: { ipAddressHeaders: [options.clientIpHeader] } }
-      : undefined,
+    advanced:
+      options.clientIpHeader || options.trustedProxies?.length
+        ? {
+            ipAddress: {
+              ...(options.clientIpHeader
+                ? { ipAddressHeaders: [options.clientIpHeader] }
+                : {}),
+              ...(options.trustedProxies?.length
+                ? { trustedProxies: options.trustedProxies }
+                : {}),
+            },
+          }
+        : undefined,
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path === "/organization/list-invitations") {
@@ -459,6 +524,9 @@ export function createAuth(options: CreateAuthOptions) {
         }
         if (ctx.path === "/change-email") {
           await guardChangeEmail(ctx);
+        }
+        if (ctx.path === "/sign-up/email" || ctx.path === "/update-user") {
+          guardPersonName(ctx);
         }
         if (
           ctx.path === "/organization/create" ||
@@ -553,6 +621,20 @@ export function createAuth(options: CreateAuthOptions) {
               data: { role: invitation.role },
             });
           },
+          // Better Auth doesn't re-check the inviter at accept time, so an
+          // admin who was removed or demoted could still let people in.
+          beforeAcceptInvitation: async ({ invitation }) => {
+            const inviter = await findMember(
+              invitation.organizationId,
+              invitation.inviterId
+            );
+            if (!(inviter && canGrantRole(inviter.role, invitation.role))) {
+              throw new APIError("FORBIDDEN", {
+                message:
+                  "This invitation is no longer valid. Ask for a new one.",
+              });
+            }
+          },
           afterAcceptInvitation: async ({ invitation, user }) => {
             await audit({
               organizationId: invitation.organizationId,
@@ -563,6 +645,11 @@ export function createAuth(options: CreateAuthOptions) {
             });
           },
           afterUpdateMemberRole: async ({ member, previousRole }) => {
+            await cancelInvitationsFrom(
+              member.organizationId,
+              member.userId,
+              member.role
+            );
             await audit({
               organizationId: member.organizationId,
               action: "member.update_role",
@@ -571,6 +658,7 @@ export function createAuth(options: CreateAuthOptions) {
             });
           },
           afterRemoveMember: async ({ member }) => {
+            await cancelInvitationsFrom(member.organizationId, member.userId);
             await audit({
               organizationId: member.organizationId,
               action: "member.remove",

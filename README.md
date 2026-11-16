@@ -247,6 +247,7 @@ refuses to boot if a required one is missing or malformed.
 | `PAYSTACK_MOCK_PORT`, `PAYSTACK_MOCK_WEBHOOK_URL` | no | Local mock only: its port, and where it sends webhooks |
 | `PAYSTACK_WEBHOOK_IP_ALLOWLIST` | no | `true` to also reject webhooks not from Paystack's IPs |
 | `CLIENT_IP_HEADER` | no | Header your proxy writes the client IP into (right-most entry is used). Default `x-vercel-forwarded-for` on Vercel, else `x-forwarded-for` |
+| `TRUSTED_PROXIES` | no | Comma-separated IPs or CIDRs of your own proxies, when the IP header holds a chain. Without them, every client shares one rate limit. Not needed on Vercel |
 | `BILLING_ENCRYPTION_KEY` | yes | 64 hex chars (`openssl rand -hex 32`). Encrypts email tokens and card authorizations |
 | `BILLING_CURRENCY` | no | `NGN` (default), `GHS`, `ZAR`, `KES` or `USD` |
 | `BILLING_GRACE_DAYS` | no | Days a failed renewal keeps access. Default 7 |

@@ -309,3 +309,33 @@ can be revisited.
     (customer, subscription, invoice details) is deleted with the
     organization. After a delete nobody can open those invoices in the app,
     so the delete dialog tells owners to download what they need first.
+
+41. **No limit on organizations per user, and one trial per organization.**
+    Better Auth's `organizationLimit` is left unset: a person can run as
+    many organizations as they like, and each new one starts on Free and
+    can take Pro's card-up-front trial once (a stale second trial checkout
+    is refunded, `startTrialFromCharge`). So one card can start a trial in
+    each organization it creates. That's accepted for a starter: the trial
+    needs a reusable card, and Paystack shows the same card across them.
+    Products that care should set `organizationLimit` in
+    `packages/auth/src/server.ts` or key trials to the card's signature.
+
+### Security review (November 2026)
+
+42. **What an outside review changed.** Better Auth's organization routes
+    read an empty `organizationId` as "the active organization", so the
+    role and invitation guards do too (`||`, not `??`) and fail closed when
+    they can't find the members involved. Accepting an invitation re-checks
+    that the inviter is still a member who may grant its role, and removing
+    or demoting someone cancels the invitations they can no longer grant.
+    The app refuses to boot with `.env.example`'s placeholders, and a
+    production build on a public URL refuses the mock's key and a local
+    `PAYSTACK_API_URL` (`packages/env/src/unsafe-secrets.ts`). A checkout
+    whose Paystack transaction was never created leaves no payment intent.
+    A billing email that Paystack already knows is never adopted, since
+    nobody verified it. Logged and stored errors carry the Postgres cause,
+    never query parameters, and the hourly reconcile workflow prints only
+    the HTTP status. Setup never seeds the demo users (public password)
+    into a database that isn't on this machine. Person and organization
+    names can't carry links, because invitation emails print them.
+    `TRUSTED_PROXIES` lets per-IP rate limits work behind your own proxy.

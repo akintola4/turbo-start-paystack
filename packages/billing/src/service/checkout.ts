@@ -68,6 +68,15 @@ export async function ensureCustomer(
       actorEmail
     );
     for (const candidate of candidates) {
+      // Nobody verified the billing email. If Paystack already has a
+      // customer at that address, it may be someone else's, so take the
+      // next candidate rather than adopt it.
+      if (
+        candidate.source === "billing_email" &&
+        (await deps.paystack.fetchCustomer(candidate.email).catch(() => null))
+      ) {
+        continue;
+      }
       const created = await createOrAdoptCustomer(
         deps,
         candidate.email,
@@ -181,22 +190,31 @@ export async function startCheckout(
     createdAt: deps.now(),
   });
 
-  const init = await deps.paystack.initializeTransaction({
-    email: customer.email,
-    amount,
-    currency: price.currency,
-    reference,
-    callback_url: deps.callbackUrl,
-    // Subscriptions renew only on reusable card authorizations.
-    channels: ["card"],
-    plan: kind === "subscribe" ? row.paystackPlanCode : undefined,
-    metadata: {
-      organization_id: input.organizationId,
-      payment_intent_id: reference,
-      plan_price_id: price.id,
-      kind,
-    },
-  });
+  // If Paystack never created the transaction, the intent must not outlive
+  // the failure: a known reference would let a forged charge match it.
+  const init = await deps.paystack
+    .initializeTransaction({
+      email: customer.email,
+      amount,
+      currency: price.currency,
+      reference,
+      callback_url: deps.callbackUrl,
+      // Subscriptions renew only on reusable card authorizations.
+      channels: ["card"],
+      plan: kind === "subscribe" ? row.paystackPlanCode : undefined,
+      metadata: {
+        organization_id: input.organizationId,
+        payment_intent_id: reference,
+        plan_price_id: price.id,
+        kind,
+      },
+    })
+    .catch(async (error: unknown) => {
+      await db
+        .delete(schema.paymentIntent)
+        .where(eq(schema.paymentIntent.id, reference));
+      throw error;
+    });
   await db
     .update(schema.paymentIntent)
     .set({ accessCode: init.access_code })
