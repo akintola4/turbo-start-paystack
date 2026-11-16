@@ -48,3 +48,6 @@ apps/web/e2e/.auth/
 
 # Written by `next dev` on first run (agent rules); not part of the repo.
 apps/web/AGENTS.md
+
+# PR screenshots live on the `screenshots` branch, not main (CONTRIBUTING.md).
+docs/images/

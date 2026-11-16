@@ -55,7 +55,7 @@ const DEV_DB_SCRIPT = fileURLToPath(new URL("../dev-db.sh", import.meta.url));
 export async function startServer(input: {
   port: number;
   database: string;
-}): Promise<{ url: string; via: "docker" | "local" }> {
+}): Promise<{ url: string; via: "docker" | "local"; stop: string | null }> {
   // A first Docker run pulls the image, so allow a few minutes, but never
   // wait forever on a daemon that stopped answering.
   const { stdout } = await runGroup("bash", [DEV_DB_SCRIPT], {
@@ -83,7 +83,15 @@ export async function startServer(input: {
   return {
     url: line.slice("DATABASE_URL=".length).trim(),
     via: stdout.includes("docker stop") ? "docker" : "local",
+    stop: stopCommand(stdout),
   };
+}
+
+/** The command dev-db.sh printed for stopping the server it started. */
+export function stopCommand(stdout: string): string | null {
+  const prefix = "Stop it with: ";
+  const line = stdout.split("\n").find((l) => l.startsWith(prefix));
+  return line ? line.slice(prefix.length).trim() : null;
 }
 
 async function withAdmin<T>(

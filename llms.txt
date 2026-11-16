@@ -1,6 +1,6 @@
 # Turbo Start Paystack
 
-> Open-source multi-tenant SaaS starter that bills through Paystack: a pnpm + Turborepo monorepo with Next.js 16, Better Auth organizations and roles, Drizzle on Postgres, and webhook-driven Paystack subscriptions. It runs locally with no Paystack keys against a bundled Paystack mock.
+> Open-source multi-tenant SaaS starter that bills through Paystack: a pnpm + Turborepo monorepo with Next.js 16, Better Auth organizations and roles, Drizzle on Postgres, and webhook-driven Paystack subscriptions. It runs locally with no Paystack keys against a bundled Paystack mock. It needs Node 24+ and pnpm (the repo pins pnpm 11; don't upgrade it).
 
 Coding agents should read AGENTS.md first: it has the mental model, the exact first-run commands, the hard billing rules and the done checklist. The recipes below cover one job each. Source: https://github.com/akintola4/turbo-start-paystack. Live demo (Paystack test mode): https://turbo-start-paystack.vercel.app
 

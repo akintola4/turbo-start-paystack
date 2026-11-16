@@ -112,5 +112,6 @@ describe("agent prompt", () => {
     expect(AGENT_PROMPT).toContain(INSTALL_COMMAND);
     expect(AGENT_PROMPT).toContain(AGENT_IDEA_PLACEHOLDER);
     expect(AGENT_PROMPT).toContain("stop after step 3");
+    expect(AGENT_PROMPT).toContain("Node 24+");
   });
 });

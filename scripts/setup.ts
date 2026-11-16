@@ -53,7 +53,6 @@ import {
   parseSetupOptions,
   type SetupOptions,
 } from "./setup/options";
-import { RunError, runGroup } from "./setup/run";
 import { choosePorts, isListening, isPortFree, portOf } from "./setup/ports";
 import {
   canConnect,
@@ -65,6 +64,7 @@ import {
   startServer,
   withDatabase,
 } from "./setup/postgres";
+import { RunError, runGroup } from "./setup/run";
 import { DEMO_ORG, DEMO_PASSWORD, DEMO_USERS, seedDemo } from "./setup/seed";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
@@ -372,7 +372,7 @@ const database = await step(
     if (kept) {
       const url = flags.db ? withDatabase(kept, flags.db) : kept;
       if (await canConnect(withDatabase(url, "postgres"))) {
-        return { url, how: source };
+        return { url, how: source, stop: null };
       }
       const host = new URL(url).hostname;
       if (!["localhost", "127.0.0.1"].includes(host)) {
@@ -394,13 +394,18 @@ const database = await step(
       return {
         url: withDatabase(started.url, name),
         how: `started (${started.via})`,
+        stop: started.stop,
       };
     }
     for (let port = DEFAULT_PG_PORT; port < DEFAULT_PG_PORT + 20; port++) {
       if (await isListening(port)) {
         const server = await findServer(port);
         if (server) {
-          return { url: withDatabase(server, name), how: `reused on :${port}` };
+          return {
+            url: withDatabase(server, name),
+            how: `reused on :${port}`,
+            stop: null,
+          };
         }
         continue;
       }
@@ -414,6 +419,7 @@ const database = await step(
       return {
         url: withDatabase(started.url, name),
         how: `started (${started.via}) on :${port}`,
+        stop: started.stop,
       };
     }
     throw new SetupError(
@@ -614,6 +620,13 @@ p.note(
     `then Billing → pick a plan → ${c.dim("Pay on the mock checkout")}`,
     `and use the ${c.cyan("Simulate billing")} panel to play renewals,`,
     `failed payments and recoveries through real webhooks.`,
+    ...(database.stop
+      ? [
+          "",
+          c.dim("Setup started Postgres. To stop it:"),
+          c.cyan(database.stop),
+        ]
+      : []),
   ].join("\n"),
   "Next"
 );
