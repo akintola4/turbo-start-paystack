@@ -240,7 +240,7 @@ export function Hero({
               cedis, rand, shillings and dollars. Better Auth, Drizzle and
               Postgres underneath.
             </p>
-            <div className="grid gap-2.5 min-[420px]:flex min-[420px]:flex-wrap">
+            <div className="grid gap-2.5 min-[420px]:w-fit min-[420px]:grid-cols-[auto_auto]">
               <a className={buttonVariants({ size: "lg" })} href="#start">
                 Clone the starter
               </a>
@@ -253,7 +253,8 @@ export function Hero({
               >
                 {signedIn ? "Open your dashboard" : "Try the live demo"}
               </Link>
-              <AgentPromptButton className="min-[420px]:basis-full min-[420px]:justify-start" />
+              {/* Its own row, as wide as the two buttons above it. */}
+              <AgentPromptButton className="col-span-full w-full" />
             </div>
           </div>
         </div>

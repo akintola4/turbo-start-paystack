@@ -1,10 +1,10 @@
 "use client";
 
 import { cn } from "@workspace/tailwind-config/utils";
-import { buttonVariants } from "@workspace/ui/components/button";
-import { BotIcon, CheckIcon, CopyIcon } from "lucide-react";
+import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
+import { AGENT_LOGOS, AgentLogo } from "@/components/landing/agent-logos";
 import { Segmented, type SegmentOption } from "@/components/landing/segmented";
 import {
   AGENT_PROMPT,
@@ -236,8 +236,10 @@ export function InstallCommand() {
 }
 
 /**
- * The hero's shortcut: copies the agent prompt in one press and remembers
- * "Your agent", so the receipt at the bottom opens on the same prompt.
+ * The hero's shortcut, after robotostudio.com/contact: a bordered chip with
+ * the agents it works with, the action, and a copy icon that turns into a
+ * tick. One press copies the agent prompt and remembers "Your agent", so the
+ * receipt at the bottom opens on the same prompt.
  */
 export function AgentPromptButton({ className }: { className?: string }) {
   const { copied, copy } = useCopy();
@@ -246,26 +248,50 @@ export function AgentPromptButton({ className }: { className?: string }) {
     <button
       aria-label={copied ? "Copied" : START_WITH.agent.name}
       className={cn(
-        buttonVariants({ size: "lg", variant: "ghost" }),
-        // Flush left with the buttons above: no padding on the text side,
-        // so the hover is a colour change rather than a tile.
-        "pl-0 text-panel-muted hover:bg-transparent hover:text-panel-foreground no-js:hidden",
+        "pressable group inline-flex min-h-11.5 items-center gap-2 rounded-control border border-panel-line bg-panel-tile px-3 text-panel-foreground text-xs min-[370px]:text-sm transition-[background-color,border-color,scale] hover:border-panel-muted/40 hover:bg-panel-line no-js:hidden",
         className
       )}
       data-agent-copy
+      data-copied={copied}
       onClick={() => {
         setStartWith("agent");
         copy("agent");
       }}
       type="button"
     >
-      <span className="grid place-items-center [&>*]:col-start-1 [&>*]:row-start-1">
-        <CopyLabel
-          icon={BotIcon}
-          shown={!copied}
-          text="Copy a prompt for your agent"
+      <span
+        aria-hidden
+        className="grid shrink-0 grid-flow-col gap-1 max-[340px]:hidden"
+      >
+        {AGENT_LOGOS.map((logo) => (
+          <span
+            className="grid size-6 place-items-center rounded-[6px] bg-panel inset-ring inset-ring-panel-line"
+            key={logo.name}
+            title={logo.name}
+          >
+            <AgentLogo path={logo.path} />
+          </span>
+        ))}
+      </span>
+      <span className="[text-box:trim-both_cap_alphabetic]">
+        Copy a prompt for your agent
+      </span>
+      <span
+        aria-hidden
+        className="ml-auto grid place-items-center text-panel-muted [&>*]:col-start-1 [&>*]:row-start-1"
+      >
+        <CopyIcon
+          className={cn(
+            "size-4 transition-[opacity,scale,filter] duration-(--dur-base) ease-(--ease-out) motion-reduce:transition-none",
+            copied && "scale-[0.85] opacity-0 blur-[2px]"
+          )}
         />
-        <CopyLabel icon={CheckIcon} shown={copied} text="Copied" />
+        <CheckIcon
+          className={cn(
+            "size-4 text-panel-foreground transition-[opacity,scale,filter] duration-(--dur-base) ease-(--ease-out) motion-reduce:transition-none",
+            !copied && "scale-[0.85] opacity-0 blur-[2px]"
+          )}
+        />
       </span>
     </button>
   );
